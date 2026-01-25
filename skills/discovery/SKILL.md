@@ -239,6 +239,13 @@ Create `state.json` in the worktree root with traceability structure:
   "feature": "user-auth",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
+  "spec_paths": {
+    "prd": "docs/specs/PRD.md",
+    "adr": "docs/specs/ADR.md",
+    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+    "wireframes": "docs/specs/WIREFRAMES.md"
+  },
+  "tasks_dir": "docs/tasks",
   "traceability": {
     "user_stories": {
       "US-001": {
@@ -406,6 +413,13 @@ When starting a new discovery session, initialize state with this structure:
   "feature": "feature-name",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
+  "spec_paths": {
+    "prd": "docs/specs/PRD.md",
+    "adr": "docs/specs/ADR.md",
+    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+    "wireframes": "docs/specs/WIREFRAMES.md"
+  },
+  "tasks_dir": "docs/tasks",
   "traceability": {
     "user_stories": {},
     "acceptance_criteria": {},
@@ -441,6 +455,8 @@ When starting a new discovery session, initialize state with this structure:
 | feature | Slugified feature name |
 | created_at | ISO 8601 timestamp of session creation |
 | phase | Current workflow phase (discovery, planning, implementing, etc.) |
+| spec_paths | Explicit paths to spec documents (PRD, ADR, technical_design, wireframes) |
+| tasks_dir | Directory containing task files (e.g., "docs/tasks") |
 | traceability | Links between user stories, acceptance criteria, ADR decisions, and tasks |
 | tasks | Map of task IDs to status objects (populated in planning) |
 | current_task | ID of task currently being worked on (null in discovery) |

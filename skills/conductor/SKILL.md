@@ -76,6 +76,13 @@ The conductor reads and updates `state.json` throughout the implementation loop.
   "workflow_id": "feature-auth-system",
   "phase": "implementation",
   "current_task": "task-002",
+  "spec_paths": {
+    "prd": "docs/specs/PRD.md",
+    "adr": "docs/specs/ADR.md",
+    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+    "wireframes": "docs/specs/WIREFRAMES.md"
+  },
+  "tasks_dir": "docs/tasks",
   "tasks": [
     {
       "id": "task-001",
@@ -117,6 +124,8 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 |-------|---------|
 | `phase` | Current workflow phase (`planning`, `implementation`, `completion`) |
 | `current_task` | ID of task currently being worked on |
+| `spec_paths` | Explicit paths to spec documents (PRD, ADR, technical_design, wireframes) |
+| `tasks_dir` | Directory containing task files (e.g., `docs/tasks`) |
 | `tasks[].status` | Task status: `pending`, `in_progress`, `completed`, `escalated` |
 | `tasks[].attempts` | Number of implementation attempts for retry logic |
 | `tasks[].feedback` | Array of reviewer feedback from rejected attempts |
@@ -291,6 +300,27 @@ If deadlock is detected:
 
 When a pending task is found, spawn an implementer agent using the Task tool.
 
+### Loading Spec Paths from State
+
+Before spawning agents, load the explicit spec paths from `state.json`:
+
+```bash
+cd "$WORKTREE_PATH"
+
+# Load spec paths from state.json
+TECHNICAL_DESIGN_PATH=$(jq -r '.spec_paths.technical_design // "docs/specs/TECHNICAL_DESIGN.md"' state.json)
+ADR_PATH=$(jq -r '.spec_paths.adr // "docs/specs/ADR.md"' state.json)
+PRD_PATH=$(jq -r '.spec_paths.prd // "docs/specs/PRD.md"' state.json)
+TASKS_DIR=$(jq -r '.tasks_dir // "docs/tasks"' state.json)
+
+# Verify paths exist
+for path in "$TECHNICAL_DESIGN_PATH" "$ADR_PATH"; do
+  if [[ ! -f "$path" ]]; then
+    echo "WARNING: Spec file not found: $path"
+  fi
+done
+```
+
 ### Implementer Prompt Template
 
 ```markdown
@@ -310,11 +340,10 @@ You are implementing a task from the workflow plan.
 
 ### Reference Documents
 
-Review these documents before implementing:
+Review these documents before implementing. **Use these exact paths** (relative to worktree root):
 
-{{#each reference_docs}}
-- `{{this.path}}`: {{this.description}}
-{{/each}}
+- `{{spec_paths.technical_design}}`: Architecture and implementation patterns
+- `{{spec_paths.adr}}`: Architectural decisions and constraints
 
 ### Previous Attempts (if any)
 
@@ -399,6 +428,13 @@ You are reviewing an implementation for the workflow.
 {{/each}}
 
 **Test File:** `{{test_file}}`
+
+### Reference Documents
+
+Use these exact paths (relative to worktree root) to verify alignment with specifications:
+
+- `{{spec_paths.technical_design}}`: Architecture and implementation patterns
+- `{{spec_paths.adr}}`: Architectural decisions and constraints
 
 ### Review Checklist
 

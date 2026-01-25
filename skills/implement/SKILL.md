@@ -20,9 +20,11 @@ You receive from the conductor:
    - Acceptance criteria (what defines "done")
    - Test requirements (specific test scenarios)
 
-2. **Reference documents:**
-   - `TECHNICAL_DESIGN.md` - Architecture and implementation patterns
-   - `ADR.md` - Architectural decisions and constraints
+2. **Reference documents (with explicit paths from state.json):**
+   - `{{spec_paths.technical_design}}` - Architecture and implementation patterns (e.g., `docs/specs/TECHNICAL_DESIGN.md`)
+   - `{{spec_paths.adr}}` - Architectural decisions and constraints (e.g., `docs/specs/ADR.md`)
+
+   **IMPORTANT:** Always use the exact paths provided by the conductor. Do NOT assume paths like `TECHNICAL_DESIGN.md` in the root - specs are in `docs/specs/` within the worktree.
 
 3. **Previous rejection feedback** (if this is a retry) - Specific issues that caused the previous implementation to be rejected
 
@@ -38,9 +40,11 @@ Before writing any code:
 
 ### 2. Read Reference Docs
 
-Scan the reference documents for relevant context:
-- Check `TECHNICAL_DESIGN.md` for architectural patterns to follow
-- Check `ADR.md` for decisions that constrain implementation choices
+Scan the reference documents for relevant context using the **explicit paths provided by the conductor**:
+- Check `docs/specs/TECHNICAL_DESIGN.md` for architectural patterns to follow
+- Check `docs/specs/ADR.md` for decisions that constrain implementation choices
+
+**Note:** These paths are relative to the worktree root. The conductor will pass them in the `reference_docs` section of your prompt.
 
 ### 3. Apply TDD
 

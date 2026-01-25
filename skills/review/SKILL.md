@@ -15,7 +15,11 @@ You receive the following for review:
 
 - **Task file**: Contains the objective and acceptance criteria for the work
 - **Implementation details**: The commit hash, list of files changed, and test file location
-- **Reference documents**: Links to `TECHNICAL_DESIGN.md` and `ADR.md` for alignment verification
+- **Reference documents (with explicit paths from state.json)**:
+  - `{{spec_paths.technical_design}}` (e.g., `docs/specs/TECHNICAL_DESIGN.md`) - Architecture and implementation patterns
+  - `{{spec_paths.adr}}` (e.g., `docs/specs/ADR.md`) - Architectural decisions and constraints
+
+**IMPORTANT:** Always use the exact paths provided by the conductor. Specs are in `docs/specs/` within the worktree, not in the repository root.
 
 ## Review Checklist
 
@@ -34,13 +38,13 @@ For EACH acceptance criterion in the task file:
 
 ### Technical Alignment (Required)
 
-- Implementation matches patterns in `TECHNICAL_DESIGN.md`
+- Implementation matches patterns in `docs/specs/TECHNICAL_DESIGN.md` (or path from `spec_paths.technical_design`)
 - Data models match those defined in the design
 - API contracts match the specification
 
 ### Security (If Applicable)
 
-- Follows security decisions documented in `ADR.md`
+- Follows security decisions documented in `docs/specs/ADR.md` (or path from `spec_paths.adr`)
 - No obvious vulnerabilities introduced
 - Sensitive data handled appropriately
 
@@ -109,7 +113,7 @@ required_fixes:
 
 **Bad:** "This doesn't look right"
 
-**Good:** "TECHNICAL_DESIGN.md specifies the response format as `{data: [], meta: {}}` but implementation returns `{items: [], pagination: {}}`"
+**Good:** "`docs/specs/TECHNICAL_DESIGN.md` specifies the response format as `{data: [], meta: {}}` but implementation returns `{items: [], pagination: {}}`"
 
 ### Actionable Feedback
 
@@ -123,8 +127,8 @@ Immediately reject if any of these are present:
 
 - **Missing test**: An acceptance criterion has no corresponding test
 - **Test passes without implementation**: Test would pass even if the feature code were deleted
-- **Diverges from design**: Implementation contradicts `TECHNICAL_DESIGN.md` without documented reason
-- **Security concern**: Implementation violates security decisions in `ADR.md`
+- **Diverges from design**: Implementation contradicts `docs/specs/TECHNICAL_DESIGN.md` without documented reason
+- **Security concern**: Implementation violates security decisions in `docs/specs/ADR.md`
 
 ## Exit Criteria
 

@@ -24,9 +24,13 @@ This is the **create-workflow** Claude Code plugin - an orchestrated development
 
 ### State Management
 
-- `state.json` in worktree root tracks: session_id, branch, worktree path, phase, tasks array, current_task, config
+- `state.json` in worktree root tracks:
+  - session_id, branch, worktree path, phase, tasks array, current_task, config
+  - **`spec_paths`** - Explicit paths to spec documents (prd, adr, technical_design, wireframes)
+  - **`tasks_dir`** - Directory containing task files (default: `docs/tasks`)
 - Phases: `discovery` → `planning` → `implementing` → `completing` → `done`
 - Enables resumability via `/create --resume`
+- **Important**: Implementors must use paths from `spec_paths` in state.json, not hardcoded paths
 
 ### Isolation Model
 

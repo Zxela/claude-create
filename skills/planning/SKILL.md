@@ -323,6 +323,13 @@ After creating all task files, update state.json with tasks and traceability lin
   "feature": "user-auth",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "implementing",
+  "spec_paths": {
+    "prd": "docs/specs/PRD.md",
+    "adr": "docs/specs/ADR.md",
+    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+    "wireframes": "docs/specs/WIREFRAMES.md"
+  },
+  "tasks_dir": "docs/tasks",
   "traceability": {
     "user_stories": {
       "US-001": {
