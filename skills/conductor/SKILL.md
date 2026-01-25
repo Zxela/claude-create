@@ -601,6 +601,47 @@ if ! echo "$last_commit_msg" | grep -qE "^(feat|fix|docs|refactor|test|chore)\([
 fi
 ```
 
+#### 4. Mark Task File Checkboxes Complete
+
+**After all validations pass**, update the task file to check off completed items:
+
+```bash
+task_file="docs/tasks/${TASK_ID}-*.md"
+task_file=$(ls $task_file 2>/dev/null | head -1)
+
+if [[ -f "$task_file" ]]; then
+  # Check off all acceptance criteria checkboxes
+  sed -i 's/- \[ \]/- [x]/g' "$task_file"
+
+  # Update frontmatter status to completed
+  sed -i 's/^status: .*/status: completed/' "$task_file"
+
+  # Add completion timestamp if not present
+  if ! grep -q "^completed_at:" "$task_file"; then
+    sed -i "/^status: completed/a completed_at: $(date -Iseconds)" "$task_file"
+  fi
+
+  # Commit the task file update
+  git add "$task_file"
+  git commit -m "chore(${FEATURE}): mark task ${TASK_ID} complete
+
+- All acceptance criteria verified
+- Tests passing
+- Task file checkboxes checked"
+
+  echo "Task file updated: $task_file"
+fi
+```
+
+**Verification:**
+```bash
+# Confirm all checkboxes are checked
+unchecked=$(grep -c '\- \[ \]' "$task_file" 2>/dev/null || echo "0")
+if [[ "$unchecked" -gt 0 ]]; then
+  echo "WARNING: $unchecked unchecked items remain in $task_file"
+fi
+```
+
 #### Validation Response
 
 If any validation fails:
