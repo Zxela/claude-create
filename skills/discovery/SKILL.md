@@ -134,6 +134,40 @@ E) Depends on the error type (let's discuss)
 - If an answer is unclear, ask a clarifying follow-up
 - Summarize understanding periodically (every 3-4 questions)
 
+**Testability Guidance for Acceptance Criteria:**
+
+When gathering acceptance criteria, guide users toward testable patterns. If a user provides vague criteria, help them refine it.
+
+| User Says | Problem | Guide Toward |
+|-----------|---------|--------------|
+| "Should be user-friendly" | Adjective only, not testable | "What specific action should users complete easily? E.g., 'User can complete checkout in under 3 clicks'" |
+| "Should work correctly" | No observable outcome | "What does 'correctly' look like? E.g., 'Returns HTTP 200 with user data'" |
+| "Must be fast" | No threshold | "How fast? E.g., 'Response time < 200ms for 95th percentile'" |
+| "Handle errors properly" | Vague handling | "What should happen on error? E.g., 'Display error message and preserve form input'" |
+
+**Valid Testable Patterns:**
+
+```
+Behavioral (Given/When/Then):
+"Given a logged-in user, when they click logout, then their session is destroyed"
+
+Assertion (should/must/can + verb + outcome):
+"User must see an error message when submitting an empty form"
+
+Quantitative (comparison + threshold):
+"API response time must be < 500ms for 99% of requests"
+```
+
+When a user provides vague criteria, respond with:
+```
+That criterion might be hard to verify in tests. Could we make it more specific?
+
+Instead of: "{{vague_criterion}}"
+Consider: "{{suggested_testable_version}}"
+
+Would that work, or did you have something else in mind?
+```
+
 ---
 
 ### 3. Document Generation
@@ -195,7 +229,7 @@ Generate all documents to `docs/specs/` in the worktree:
 
 #### Initialize State
 
-Create `state.json` in the worktree root:
+Create `state.json` in the worktree root with traceability structure:
 
 ```json
 {
@@ -205,17 +239,72 @@ Create `state.json` in the worktree root:
   "feature": "user-auth",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
+  "traceability": {
+    "user_stories": {
+      "US-001": {
+        "title": "User can register with email and password",
+        "acceptance_criteria": ["AC-001", "AC-002", "AC-003"],
+        "tasks": []
+      },
+      "US-002": {
+        "title": "User can log in with credentials",
+        "acceptance_criteria": ["AC-004", "AC-005"],
+        "tasks": []
+      }
+    },
+    "acceptance_criteria": {
+      "AC-001": {
+        "description": "User must provide valid email format",
+        "story": "US-001",
+        "pattern": "assertion",
+        "tasks": []
+      },
+      "AC-002": {
+        "description": "Password must be at least 8 characters",
+        "story": "US-001",
+        "pattern": "quantitative",
+        "tasks": []
+      }
+    },
+    "adr_decisions": {
+      "ADR-001": {
+        "title": "Use bcrypt for password hashing",
+        "rationale": "Industry standard, configurable work factor",
+        "tasks_affected": []
+      }
+    },
+    "non_goals": [
+      "NG-001: Social login (OAuth) is out of scope",
+      "NG-002: Two-factor authentication is out of scope"
+    ]
+  },
   "tasks": {},
   "current_task": null,
   "config": {
     "auto_mode": false,
+    "timeout_minutes": 30,
+    "max_identical_rejections": 3,
+    "max_iterations_without_progress": 3,
     "retries": {
       "same_agent": 2,
       "fresh_agent": 1
     }
+  },
+  "progress": {
+    "iteration": 0,
+    "tasks_completed_this_iteration": 0,
+    "last_completion_iteration": 0
   }
 }
 ```
+
+**Traceability Fields:**
+| Field | Purpose |
+|-------|---------|
+| `traceability.user_stories` | Maps story IDs to titles, criteria, and implementing tasks |
+| `traceability.acceptance_criteria` | Maps criteria IDs to descriptions, source story, and tasks |
+| `traceability.adr_decisions` | Maps ADR decision IDs to affected tasks |
+| `traceability.non_goals` | List of explicitly out-of-scope items for boundary checking |
 
 ---
 
@@ -317,14 +406,28 @@ When starting a new discovery session, initialize state with this structure:
   "feature": "feature-name",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
+  "traceability": {
+    "user_stories": {},
+    "acceptance_criteria": {},
+    "adr_decisions": {},
+    "non_goals": []
+  },
   "tasks": {},
   "current_task": null,
   "config": {
     "auto_mode": false,
+    "timeout_minutes": 30,
+    "max_identical_rejections": 3,
+    "max_iterations_without_progress": 3,
     "retries": {
       "same_agent": 2,
       "fresh_agent": 1
     }
+  },
+  "progress": {
+    "iteration": 0,
+    "tasks_completed_this_iteration": 0,
+    "last_completion_iteration": 0
   }
 }
 ```
@@ -338,9 +441,11 @@ When starting a new discovery session, initialize state with this structure:
 | feature | Slugified feature name |
 | created_at | ISO 8601 timestamp of session creation |
 | phase | Current workflow phase (discovery, planning, implementing, etc.) |
+| traceability | Links between user stories, acceptance criteria, ADR decisions, and tasks |
 | tasks | Map of task IDs to status objects (populated in planning) |
 | current_task | ID of task currently being worked on (null in discovery) |
-| config | Configuration from /create command options |
+| config | Configuration including timeouts and retry limits |
+| progress | Iteration tracking for deadlock detection |
 
 ---
 
@@ -359,3 +464,74 @@ Before transitioning to the planning phase, verify all criteria are met:
 - [ ] state.json initialized with session configuration
 - [ ] All documents committed to the feature branch
 - [ ] User confirmed ready to proceed to planning phase (or auto_mode enabled)
+
+---
+
+## Phase Transition Validation Gate
+
+**REQUIRED:** Before transitioning to planning phase, run these automated validations:
+
+### PRD Validation
+
+Verify the PRD meets quality standards:
+
+```bash
+cd "$WORKTREE_PATH"
+
+# Check for measurable success metrics (must have at least one with target value)
+grep -E "Target.*[0-9]|[0-9]+%|< ?[0-9]|> ?[0-9]" docs/specs/PRD.md || echo "VALIDATION_FAILED: No measurable success metrics found"
+
+# Check for explicit non-goals section with content
+grep -A 5 "## Non-Goals" docs/specs/PRD.md | grep -E "^- " || echo "VALIDATION_FAILED: Non-goals section empty"
+```
+
+### User Story Testability Validation
+
+Every user story acceptance criterion MUST match one of these testable patterns:
+
+| Pattern | Example | Regex |
+|---------|---------|-------|
+| Behavioral (Given/When/Then) | "Given a logged-in user, when they click logout, then session is destroyed" | `(Given|When|Then)` |
+| Assertion (should/must/can) | "User should see an error message" | `(should|must|can|will) [a-z]+ [a-z]+` |
+| Quantitative | "Response time < 2s" | `[<>=≤≥] ?[0-9]` |
+
+**Reject these vague patterns:**
+- Adjective-only: "should be user-friendly" (no observable outcome)
+- No outcome: "should work correctly" (what does "correctly" mean?)
+- Passive/vague: "is handled properly" (what does "properly" mean?)
+
+Run validation:
+```bash
+# Extract acceptance criteria and check for testable patterns
+grep -E "^\s*-\s*\[" docs/specs/PRD.md | while read -r criterion; do
+  if ! echo "$criterion" | grep -qE "(Given|When|Then|should|must|can|will) [a-z]+|[<>=≤≥] ?[0-9]"; then
+    echo "VALIDATION_WARNING: Potentially untestable criterion: $criterion"
+  fi
+done
+```
+
+### ADR Validation
+
+Verify the ADR has required sections:
+
+```bash
+# Check for explicit non-goals or constraints in ADR
+grep -E "## (Non-Goals|Constraints|Out of Scope)" docs/specs/ADR.md || echo "VALIDATION_WARNING: ADR missing non-goals/constraints section"
+
+# Check decision has rationale
+grep -A 10 "## Decision" docs/specs/ADR.md | grep -E "(because|due to|since|rationale)" || echo "VALIDATION_WARNING: Decision lacks explicit rationale"
+```
+
+### Validation Response
+
+If any `VALIDATION_FAILED` errors occur:
+1. **Do not transition** to the planning phase
+2. Present the specific validation failures to the user
+3. Return to the relevant dialogue section to address the issues
+4. Re-run validation after corrections
+
+If only `VALIDATION_WARNING` items occur:
+1. Present warnings to the user
+2. Ask: "These items may cause issues during implementation. Would you like to address them now or proceed with caution?"
+3. On "proceed", continue to planning phase
+4. On "address", return to dialogue to refine the content

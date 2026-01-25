@@ -46,34 +46,56 @@ For EACH acceptance criterion in the task file:
 
 ## Output Format
 
+**IMPORTANT:** All output signals MUST be in YAML format for conductor parsing.
+
 ### If All Checks Pass
 
-```
-APPROVED
-
-Summary: [Brief description of what was verified]
-
-Verified:
-- [Criterion 1]: Implemented in [file], tested in [test file]
-- [Criterion 2]: Implemented in [file], tested in [test file]
-- ...
+```yaml
+---
+signal: APPROVED
+summary: "User authentication service implemented with password hashing and session management"
+verified:
+  - criterion: "AC-001"
+    description: "User can register with email/password"
+    implementation_file: "src/services/auth.ts:45"
+    test_file: "tests/services/auth.test.ts:12"
+  - criterion: "AC-002"
+    description: "Passwords are hashed with bcrypt"
+    implementation_file: "src/services/auth.ts:67"
+    test_file: "tests/services/auth.test.ts:34"
+---
 ```
 
 ### If Any Check Fails
 
+```yaml
+---
+signal: REJECTED
+summary: "Implementation missing error handling and test coverage for edge cases"
+issues:
+  - criterion: "AC-002"
+    description: "Empty input not validated"
+    file: "src/validators/user.ts"
+    line: 23
+    severity: high
+  - criterion: "AC-003"
+    description: "Missing test for invalid email format"
+    file: "tests/validators/user.test.ts"
+    severity: medium
+required_fixes:
+  - "Add validation for empty email in src/validators/user.ts:23"
+  - "Add test case for invalid email format in tests/validators/user.test.ts"
+  - "Handle null input in validateEmail() function"
+---
 ```
-REJECTED
 
-Issues:
-1. [Specific issue with file/line reference]
-2. [Specific issue with file/line reference]
-...
-
-Required fixes:
-- [Concrete action to resolve issue 1]
-- [Concrete action to resolve issue 2]
-- ...
-```
+**Signal Format Requirements:**
+- Must be valid YAML
+- Must start and end with `---`
+- `signal` field must be exactly `APPROVED` or `REJECTED`
+- For REJECTED: `issues` array with `criterion`, `description`, `file`, `severity`
+- For REJECTED: `required_fixes` array with actionable fix descriptions
+- For APPROVED: `verified` array mapping criteria to implementation and test locations
 
 ## Review Principles
 

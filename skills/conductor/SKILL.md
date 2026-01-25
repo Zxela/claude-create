@@ -91,6 +91,7 @@ The conductor reads and updates `state.json` throughout the implementation loop.
       "title": "Implement authentication service",
       "status": "in_progress",
       "attempts": 1,
+      "started_at": "2026-01-25T14:30:00Z",
       "feedback": []
     },
     {
@@ -101,7 +102,12 @@ The conductor reads and updates `state.json` throughout the implementation loop.
     }
   ],
   "created_at": "2026-01-25T10:00:00Z",
-  "updated_at": "2026-01-25T14:30:00Z"
+  "updated_at": "2026-01-25T14:30:00Z",
+  "config": {
+    "timeout_minutes": 30,
+    "max_identical_rejections": 3,
+    "max_iterations_without_progress": 3
+  }
 }
 ```
 
@@ -114,6 +120,172 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 | `tasks[].status` | Task status: `pending`, `in_progress`, `completed`, `escalated` |
 | `tasks[].attempts` | Number of implementation attempts for retry logic |
 | `tasks[].feedback` | Array of reviewer feedback from rejected attempts |
+
+## Pre-Spawn Verification
+
+**REQUIRED:** Before spawning any agent, verify the git state is clean:
+
+```bash
+cd "$WORKTREE_PATH"
+
+# Check for uncommitted changes
+if [[ -n $(git status --porcelain) ]]; then
+  echo "ERROR: Working tree has uncommitted changes"
+  git status --short
+  echo "Aborting agent spawn - resolve uncommitted changes first"
+  exit 1
+fi
+
+# Verify correct branch
+current_branch=$(git branch --show-current)
+expected_branch=$(jq -r '.branch' state.json)
+if [[ "$current_branch" != "$expected_branch" ]]; then
+  echo "ERROR: On branch $current_branch, expected $expected_branch"
+  echo "Switching to correct branch..."
+  git checkout "$expected_branch"
+fi
+
+# Pull latest changes if remote exists
+if git remote get-url origin &>/dev/null; then
+  git pull --rebase origin "$expected_branch" 2>/dev/null || true
+fi
+```
+
+---
+
+## Timeout Detection
+
+Track agent execution time and fail if it exceeds the configured limit.
+
+### Timeout Tracking
+
+When spawning an agent, record the start time in state.json:
+
+```json
+{
+  "current_task": "task-002",
+  "tasks": [
+    {
+      "id": "task-002",
+      "status": "in_progress",
+      "started_at": "2026-01-25T14:30:00Z",
+      "timeout_at": "2026-01-25T15:00:00Z"
+    }
+  ]
+}
+```
+
+### Timeout Check
+
+Before processing agent output, verify the task hasn't timed out:
+
+```javascript
+function checkTimeout(task, config) {
+  const startedAt = new Date(task.started_at);
+  const timeoutMinutes = config.timeout_minutes || 30;
+  const timeoutAt = new Date(startedAt.getTime() + timeoutMinutes * 60 * 1000);
+
+  if (new Date() > timeoutAt) {
+    return {
+      timedOut: true,
+      duration: Math.round((new Date() - startedAt) / 60000),
+      limit: timeoutMinutes
+    };
+  }
+  return { timedOut: false };
+}
+```
+
+### Timeout Response
+
+If a task times out:
+1. Mark the current attempt as failed with reason "timeout"
+2. Increment attempt counter
+3. Follow retry logic (same agent → fresh agent → escalate)
+4. Log the timeout in feedback array
+
+---
+
+## Deadlock Detection
+
+Detect when the implementation loop is stuck without progress.
+
+### Deadlock Indicators
+
+| Indicator | Detection | Threshold |
+|-----------|-----------|-----------|
+| Identical rejections | Same task rejected with identical feedback hash | 3 consecutive |
+| No progress | No tasks completed in N iterations | 3 iterations |
+| Circular rejection | Task A rejected, then Task B rejected citing Task A | 2 occurrences |
+
+### Identical Rejection Detection
+
+```javascript
+function detectIdenticalRejections(task) {
+  if (!task.feedback || task.feedback.length < 2) return false;
+
+  // Hash feedback for comparison
+  const hashFeedback = (fb) => JSON.stringify(fb.issues?.sort() || []);
+
+  const recentHashes = task.feedback.slice(-3).map(hashFeedback);
+  const uniqueHashes = new Set(recentHashes);
+
+  if (recentHashes.length >= 3 && uniqueHashes.size === 1) {
+    return {
+      deadlocked: true,
+      reason: "Same rejection feedback received 3+ times",
+      feedback: task.feedback[task.feedback.length - 1]
+    };
+  }
+  return { deadlocked: false };
+}
+```
+
+### Progress Tracking
+
+Track completed tasks per iteration:
+
+```json
+{
+  "progress": {
+    "iteration": 5,
+    "tasks_completed_this_iteration": 0,
+    "last_completion_iteration": 2
+  }
+}
+```
+
+```javascript
+function detectNoProgress(state) {
+  const config = state.config || {};
+  const maxIterationsWithoutProgress = config.max_iterations_without_progress || 3;
+
+  const iterationsSinceProgress =
+    state.progress.iteration - state.progress.last_completion_iteration;
+
+  if (iterationsSinceProgress >= maxIterationsWithoutProgress) {
+    return {
+      deadlocked: true,
+      reason: `No tasks completed in ${iterationsSinceProgress} iterations`,
+      stalled_tasks: state.tasks.filter(t => t.status === 'in_progress')
+    };
+  }
+  return { deadlocked: false };
+}
+```
+
+### Deadlock Response
+
+If deadlock is detected:
+1. **Do not continue** the implementation loop
+2. Mark workflow as `needs_intervention`
+3. Present detailed deadlock report to user:
+   - Which task(s) are stuck
+   - What feedback has been repeated
+   - Suggested actions (simplify task, split task, clarify requirements)
+4. Wait for user guidance before continuing
+
+---
 
 ## Spawning Implementer
 
@@ -372,6 +544,71 @@ Update `state.json` at each stage of the loop.
 }
 ```
 
+### Task Completion Validation Gate
+
+**REQUIRED:** Before marking a task as completed, verify these conditions:
+
+#### 1. Test Suite Execution
+
+```bash
+cd "$WORKTREE_PATH"
+
+# Get the test file from the task
+test_file=$(grep "^test_file:" "docs/tasks/${TASK_ID}-*.md" | sed 's/test_file: *//')
+
+# Run the specific test file and capture result
+if [[ -n "$test_file" ]] && [[ "$test_file" != "null" ]]; then
+  # Detect test runner
+  if [[ -f "package.json" ]]; then
+    npm test -- "$test_file" 2>&1 || echo "VALIDATION_FAILED: Tests failed for $test_file"
+  elif [[ -f "pytest.ini" ]] || [[ -f "pyproject.toml" ]]; then
+    pytest "$test_file" 2>&1 || echo "VALIDATION_FAILED: Tests failed for $test_file"
+  elif [[ -f "Cargo.toml" ]]; then
+    cargo test 2>&1 || echo "VALIDATION_FAILED: Tests failed"
+  else
+    echo "VALIDATION_WARNING: Could not detect test runner"
+  fi
+fi
+```
+
+#### 2. Git State Verification
+
+```bash
+# Verify working tree is clean
+if [[ -n $(git status --porcelain) ]]; then
+  echo "VALIDATION_FAILED: Working tree has uncommitted changes"
+  git status --short
+fi
+
+# Verify we're on the correct branch
+current_branch=$(git branch --show-current)
+expected_branch=$(jq -r '.branch' state.json)
+if [[ "$current_branch" != "$expected_branch" ]]; then
+  echo "VALIDATION_FAILED: On branch $current_branch, expected $expected_branch"
+fi
+```
+
+#### 3. Commit Message Validation
+
+```bash
+# Get the latest commit message
+last_commit_msg=$(git log -1 --pretty=%B)
+
+# Validate conventional commit format: feat(<feature>): <description>
+if ! echo "$last_commit_msg" | grep -qE "^(feat|fix|docs|refactor|test|chore)\([a-z-]+\): .+"; then
+  echo "VALIDATION_FAILED: Commit message does not follow format 'feat(<feature>): <description>'"
+  echo "Got: $last_commit_msg"
+fi
+```
+
+#### Validation Response
+
+If any validation fails:
+1. **Do not mark task as completed**
+2. Return to implementer with specific failure reason
+3. Increment attempt counter
+4. Follow retry logic
+
 ### Phase Completion
 
 When all tasks are complete:
@@ -400,20 +637,195 @@ When all tasks are completed, transition to the completion phase.
    const allComplete = state.tasks.every(t => t.status === 'completed');
    ```
 
-2. **Update state phase**
+2. **Run PRD Verification Gate** (REQUIRED)
+
+   Before transitioning to completion, verify the implementation meets PRD requirements.
+
+   #### 2.1 User Story Coverage
+
+   Check that all user stories have completed tasks:
+
+   ```bash
+   cd "$WORKTREE_PATH"
+
+   # Load traceability from state
+   stories=$(jq -r '.traceability.user_stories | keys[]' state.json)
+
+   for story_id in $stories; do
+     tasks=$(jq -r ".traceability.user_stories[\"$story_id\"].tasks[]" state.json 2>/dev/null)
+
+     if [[ -z "$tasks" ]]; then
+       echo "COVERAGE_GAP: $story_id has no implementing tasks"
+       continue
+     fi
+
+     for task_id in $tasks; do
+       status=$(jq -r ".tasks[\"$task_id\"].status" state.json)
+       if [[ "$status" != "completed" ]]; then
+         echo "COVERAGE_GAP: $story_id task $task_id is $status, not completed"
+       fi
+     done
+   done
+   ```
+
+   #### 2.2 Acceptance Criteria Coverage
+
+   Verify all acceptance criteria are addressed:
+
+   ```bash
+   # Check each acceptance criterion has a completed task
+   criteria=$(jq -r '.traceability.acceptance_criteria | keys[]' state.json)
+
+   for ac_id in $criteria; do
+     tasks=$(jq -r ".traceability.acceptance_criteria[\"$ac_id\"].tasks[]" state.json 2>/dev/null)
+
+     if [[ -z "$tasks" ]]; then
+       echo "COVERAGE_GAP: $ac_id has no implementing tasks"
+     fi
+   done
+   ```
+
+   #### 2.3 Success Metrics Verification
+
+   Prompt user to measure quantitative metrics:
+
+   ```markdown
+   ## Success Metrics Verification
+
+   Please verify the following success metrics from the PRD:
+
+   | ID | Metric | Target | Actual | Status |
+   |----|--------|--------|--------|--------|
+   | SM-001 | {{metric_name}} | {{target}} | _Enter actual_ | ⏳ Pending |
+   | SM-002 | {{metric_name}} | {{target}} | _Enter actual_ | ⏳ Pending |
+
+   For each metric, please provide the actual measured value.
+   ```
+
+   #### 2.4 Non-Goal Boundary Check
+
+   Scan for scope creep - flag any task that appears to implement a non-goal:
+
+   ```bash
+   # Load non-goals
+   non_goals=$(jq -r '.traceability.non_goals[]' state.json)
+
+   # Check task titles and descriptions against non-goals
+   for task_file in docs/tasks/*.md; do
+     task_content=$(cat "$task_file")
+
+     for non_goal in $non_goals; do
+       # Extract keywords from non-goal (e.g., "OAuth", "two-factor")
+       keywords=$(echo "$non_goal" | grep -oE '[A-Za-z]{4,}' | tr '[:upper:]' '[:lower:]')
+
+       for keyword in $keywords; do
+         if echo "$task_content" | grep -qi "$keyword"; then
+           echo "SCOPE_CREEP_WARNING: $task_file may implement non-goal: $non_goal"
+         fi
+       done
+     done
+   done
+   ```
+
+   #### 2.5 Generate Completion Report
+
+   Create `docs/COMPLETION_REPORT.md` with verification results:
+
+   ```bash
+   cat > docs/COMPLETION_REPORT.md << 'EOF'
+   # Completion Report: {{FEATURE_NAME}}
+
+   Generated: {{TIMESTAMP}}
+
+   ## Coverage Summary
+
+   | Category | Total | Covered | Coverage |
+   |----------|-------|---------|----------|
+   | User Stories | {{total_stories}} | {{covered_stories}} | {{story_coverage}}% |
+   | Acceptance Criteria | {{total_ac}} | {{covered_ac}} | {{ac_coverage}}% |
+   | Tasks | {{total_tasks}} | {{completed_tasks}} | {{task_coverage}}% |
+
+   ## User Story Coverage Matrix
+
+   | Story ID | Title | Tasks | Status |
+   |----------|-------|-------|--------|
+   {{#each user_stories}}
+   | {{id}} | {{title}} | {{tasks}} | {{status}} |
+   {{/each}}
+
+   ## Acceptance Criteria Verification
+
+   | AC ID | Description | Task | Verified |
+   |-------|-------------|------|----------|
+   {{#each acceptance_criteria}}
+   | {{id}} | {{description}} | {{task}} | {{verified}} |
+   {{/each}}
+
+   ## Success Metrics
+
+   | ID | Metric | Target | Actual | Met? |
+   |----|--------|--------|--------|------|
+   {{#each success_metrics}}
+   | {{id}} | {{name}} | {{target}} | {{actual}} | {{met}} |
+   {{/each}}
+
+   ## Scope Verification
+
+   ### Non-Goals Preserved
+   {{#each non_goals}}
+   - ✅ {{this}}
+   {{/each}}
+
+   ### Scope Creep Warnings
+   {{#if scope_warnings}}
+   {{#each scope_warnings}}
+   - ⚠️ {{this}}
+   {{/each}}
+   {{else}}
+   No scope creep detected.
+   {{/if}}
+
+   ## Recommendation
+
+   {{#if all_verified}}
+   ✅ **Ready for merge.** All user stories implemented, acceptance criteria verified, success metrics met.
+   {{else}}
+   ⚠️ **Review required.** See gaps above before proceeding.
+   {{/if}}
+   EOF
+
+   git add docs/COMPLETION_REPORT.md
+   git commit -m "docs: add completion verification report"
+   ```
+
+   #### Verification Response
+
+   If coverage gaps are found:
+   1. Present the gaps to the user
+   2. Ask: "Would you like to add tasks to address these gaps, or proceed with partial coverage?"
+   3. On "add tasks", return to planning to create missing tasks
+   4. On "proceed", continue to Phase 4 with documented gaps
+
+3. **Update state phase**
    ```json
    {
      "phase": "completion",
-     "implementation_completed_at": "2026-01-25T16:00:00Z"
+     "implementation_completed_at": "2026-01-25T16:00:00Z",
+     "verification": {
+       "story_coverage": 100,
+       "ac_coverage": 100,
+       "scope_creep_warnings": [],
+       "verified_at": "2026-01-25T16:00:00Z"
+     }
    }
    ```
 
-3. **Invoke finishing skill**
+4. **Invoke finishing skill**
    ```
    Use the Skill tool to invoke: finishing-a-development-branch
    ```
 
-4. **Provide summary**
+5. **Provide summary**
    ```markdown
    ## Implementation Complete
 
@@ -423,6 +835,11 @@ When all tasks are completed, transition to the completion phase.
    - Tasks completed: {{completed_count}}
    - Total commits: {{commit_count}}
    - Files changed: {{files_changed_count}}
+   - User Story Coverage: {{story_coverage}}%
+   - Acceptance Criteria Coverage: {{ac_coverage}}%
+
+   ### Verification Report
+   See `docs/COMPLETION_REPORT.md` for detailed coverage matrix.
 
    Transitioning to Phase 4: Finishing the development branch.
    ```

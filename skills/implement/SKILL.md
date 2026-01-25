@@ -76,14 +76,54 @@ Once all acceptance criteria pass:
 
 ### 6. Signal Completion
 
-Output the completion signal:
+Output the completion signal in **YAML format** (required for conductor parsing):
 
+```yaml
+---
+signal: IMPLEMENTATION_COMPLETE
+files_changed:
+  - src/models/user.ts
+  - src/services/auth.ts
+test_file: tests/services/auth.test.ts
+commit_hash: abc1234
+acceptance_criteria_met:
+  - criterion: "AC-001"
+    test: "should create user with valid email"
+  - criterion: "AC-002"
+    test: "should reject duplicate emails"
+---
 ```
-IMPLEMENTATION_COMPLETE
-- Files changed: <list of files>
-- Test file: <path to test file>
-- Commit hash: <short commit hash>
+
+**Signal Format Requirements:**
+- Must be valid YAML
+- Must start and end with `---`
+- `signal` field must be exactly `IMPLEMENTATION_COMPLETE`
+- `files_changed` must be an array of file paths
+- `test_file` must be the path to the primary test file
+- `commit_hash` must be the short hash of the commit
+- `acceptance_criteria_met` should map each criterion to its verifying test
+
+### If Blocked
+
+If you encounter blockers you cannot resolve, output a blocked signal:
+
+```yaml
+---
+signal: IMPLEMENTATION_BLOCKED
+reason: "Cannot find the User model referenced in TECHNICAL_DESIGN.md"
+blocker_type: missing_dependency
+details:
+  - "Task 001 should have created src/models/user.ts"
+  - "File does not exist in the worktree"
+suggested_resolution: "Run task 001 first or verify task ordering"
+---
 ```
+
+**Blocker Types:**
+- `missing_dependency` - Required code/file doesn't exist
+- `unclear_requirements` - Acceptance criteria are ambiguous
+- `technical_constraint` - Cannot implement as specified (e.g., API limitation)
+- `test_failure` - Tests fail and cannot be fixed within scope
 
 ## Red Flags - STOP
 

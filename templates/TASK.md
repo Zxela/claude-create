@@ -4,6 +4,10 @@ title: {{TASK_TITLE}}
 status: pending
 depends_on: []
 test_file: {{TEST_FILE_PATH}}
+traces_to:
+  user_stories: [{{USER_STORY_IDS}}]
+  acceptance_criteria: [{{ACCEPTANCE_CRITERIA_IDS}}]
+  adr_decisions: [{{ADR_DECISION_IDS}}]
 ---
 
 # {{TASK_TITLE}}
@@ -12,9 +16,21 @@ test_file: {{TEST_FILE_PATH}}
 
 _Clear, concise description of what this task accomplishes._
 
+## Traceability
+
+| Source | ID | Description |
+|--------|-----|-------------|
+| User Story | {{US_ID}} | {{US_DESCRIPTION}} |
+| Acceptance Criteria | {{AC_ID}} | {{AC_DESCRIPTION}} |
+| ADR Decision | {{ADR_ID}} | {{ADR_DESCRIPTION}} |
+
 ## Acceptance Criteria
 
 _Specific, measurable criteria that must be met for this task to be considered complete._
+
+| ID | Criterion | Test Assertion |
+|----|-----------|----------------|
+| {{AC_ID}} | {{AC_DESCRIPTION}} | `{{TEST_ASSERTION}}` |
 
 - [ ] Criterion 1
 - [ ] Criterion 2
