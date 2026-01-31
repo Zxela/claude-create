@@ -41,9 +41,9 @@ When resuming an interrupted session:
 2. Read the session state from `state.json` in the worktree root
 
 3. Determine current phase from `state.json`:
-   - If `phase` is "discovery" or discovery incomplete: invoke `create-workflow:discovery`
-   - If `phase` is "planning" or planning incomplete: invoke `create-workflow:planning`
-   - If `phase` is "execution" or execution incomplete: invoke `create-workflow:execution`
+   - If `phase` is "discovery" or discovery incomplete: invoke `homerun:discovery`
+   - If `phase` is "planning" or planning incomplete: invoke `homerun:planning`
+   - If `phase` is "execution" or execution incomplete: invoke `homerun:conductor`
 
 4. Pass the stored configuration and any accumulated context to the skill
 
@@ -70,7 +70,7 @@ When starting a new workflow:
    - Parse `--retries N,M` to override default retry values
 
 3. **Invoke the discovery phase:**
-   - Call `create-workflow:discovery` skill
+   - Call `homerun:discovery` skill
    - Pass the user's prompt and configuration object
    - The discovery skill will gather requirements and context before proceeding
 

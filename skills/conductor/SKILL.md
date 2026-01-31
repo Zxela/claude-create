@@ -130,6 +130,52 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 | `tasks[].attempts` | Number of implementation attempts for retry logic |
 | `tasks[].feedback` | Array of reviewer feedback from rejected attempts |
 
+## Skill Invocation Logging
+
+Track all skill invocations in `state.json` for visibility and debugging:
+
+```json
+{
+  "skill_log": [
+    {"skill": "homerun:discovery", "timestamp": "2026-01-25T10:00:00Z", "phase": "discovery"},
+    {"skill": "homerun:planning", "timestamp": "2026-01-25T11:00:00Z", "phase": "planning"},
+    {"skill": "homerun:tdd", "timestamp": "2026-01-25T12:00:00Z", "phase": "implementing", "task": "001"},
+    {"skill": "homerun:implement", "timestamp": "2026-01-25T12:05:00Z", "phase": "implementing", "task": "001"},
+    {"skill": "homerun:review", "timestamp": "2026-01-25T12:30:00Z", "phase": "implementing", "task": "001"}
+  ]
+}
+```
+
+### Logging Protocol
+
+**When spawning any agent, log the invocation:**
+
+```javascript
+function logSkillInvocation(state, skillName, taskId = null) {
+  const entry = {
+    skill: skillName,
+    timestamp: new Date().toISOString(),
+    phase: state.phase
+  };
+  if (taskId) {
+    entry.task = taskId;
+  }
+  state.skill_log = state.skill_log || [];
+  state.skill_log.push(entry);
+}
+
+// Usage before spawning implementer:
+logSkillInvocation(state, "homerun:implement", task.id);
+logSkillInvocation(state, "homerun:tdd", task.id);
+
+// Usage before spawning reviewer:
+logSkillInvocation(state, "homerun:review", task.id);
+```
+
+This provides visibility into which skills are invoked and helps identify missing skills that should be cloned.
+
+---
+
 ## Pre-Spawn Verification
 
 **REQUIRED:** Before spawning any agent, verify the git state is clean:
@@ -321,80 +367,82 @@ for path in "$TECHNICAL_DESIGN_PATH" "$ADR_PATH"; do
 done
 ```
 
+### Constructing JSON Input for Implementer
+
+Build the JSON input object from state and task file:
+
+```javascript
+function buildImplementerInput(state, task) {
+  return {
+    task: {
+      id: task.id,
+      title: task.title,
+      objective: task.objective,
+      acceptance_criteria: task.acceptance_criteria.map(ac => ({
+        id: ac.id,
+        criterion: ac.criterion
+      })),
+      test_file: task.test_file
+    },
+    spec_paths: {
+      technical_design: state.spec_paths.technical_design,
+      adr: state.spec_paths.adr
+    },
+    previous_feedback: task.feedback || [],
+    worktree_path: state.worktree
+  };
+}
+```
+
 ### Implementer Prompt Template
 
 ```markdown
 ## Implementation Task
 
-You are implementing a task from the workflow plan.
+You are implementing a task from the workflow plan. Use the `homerun:implement` skill.
 
-### Task Details
+### Input (JSON)
 
-**Task ID:** {{task.id}}
-**Title:** {{task.title}}
-**Description:**
-{{task.description}}
-
-**Acceptance Criteria:**
-{{task.acceptance_criteria}}
-
-### Reference Documents
-
-Review these documents before implementing. **Use these exact paths** (relative to worktree root):
-
-- `{{spec_paths.technical_design}}`: Architecture and implementation patterns
-- `{{spec_paths.adr}}`: Architectural decisions and constraints
-
-### Previous Attempts (if any)
-
-{{#if previous_feedback}}
-This task has been attempted before. Learn from the reviewer feedback:
-
-{{#each previous_feedback}}
-**Attempt {{@index + 1}} Feedback:**
-{{this.summary}}
-
-Issues identified:
-{{#each this.issues}}
-- {{this}}
-{{/each}}
-{{/each}}
-{{/if}}
+\`\`\`json
+{{implementer_input_json}}
+\`\`\`
 
 ### Instructions
 
-1. **Read documentation** - Review all reference docs and related code
-2. **Use TDD approach** - Write tests first, then implementation
-3. **Follow project conventions** - Match existing code style and patterns
-4. **Make atomic commits** - One logical change per commit
-5. **Run tests** - Ensure all tests pass before completing
+1. **Validate the input** - Check all required fields are present
+2. **Read the task** - Understand objective and acceptance criteria
+3. **Read reference docs** - Use paths from `spec_paths`
+4. **Use TDD** - Invoke `homerun:tdd` for all implementation
+5. **Output JSON** - Return one of: `IMPLEMENTATION_COMPLETE`, `IMPLEMENTATION_BLOCKED`, or `VALIDATION_ERROR`
 
-### Output
+### Output Format
 
-When implementation is complete, output exactly:
+Your final output MUST be a valid JSON object in a code block:
 
-```
-IMPLEMENTATION_COMPLETE
-commits: [list of commit hashes]
-files_changed: [list of modified files]
-test_file: [path to test file]
-```
-
-If you encounter blockers you cannot resolve, output:
-
-```
-IMPLEMENTATION_BLOCKED
-reason: [explanation of blocker]
-```
+\`\`\`json
+{
+  "signal": "IMPLEMENTATION_COMPLETE",
+  "files_changed": [...],
+  "test_file": "...",
+  "commit_hash": "...",
+  "acceptance_criteria_met": [...]
+}
+\`\`\`
 ```
 
 ### Task Tool Invocation
 
 ```javascript
+// Build JSON input
+const implementerInput = buildImplementerInput(state, task);
+
+// Log skill invocation
+logSkillInvocation(state, "homerun:implement", task.id);
+
 // Spawn implementer agent
 Task({
   description: `Implement task: ${task.title}`,
-  prompt: renderImplementerPrompt(task, referenceDocs, previousFeedback)
+  prompt: `Use the homerun:implement skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(implementerInput, null, 2)}\n\`\`\``
 });
 ```
 
@@ -402,34 +450,176 @@ Task({
 
 After the implementer signals completion, spawn a reviewer agent.
 
+### Parsing Implementer Output
+
+Parse the JSON output from the implementer:
+
+```javascript
+function parseImplementerOutput(output) {
+  // Find JSON block in output
+  const jsonMatch = output.match(/```json\s*([\s\S]*?)\s*```/);
+  if (!jsonMatch) {
+    throw new Error("No JSON output found in implementer response");
+  }
+
+  const result = JSON.parse(jsonMatch[1]);
+
+  // Validate signal
+  const validSignals = ["IMPLEMENTATION_COMPLETE", "IMPLEMENTATION_BLOCKED", "VALIDATION_ERROR"];
+  if (!validSignals.includes(result.signal)) {
+    throw new Error(`Invalid signal: ${result.signal}`);
+  }
+
+  return result;
+}
+```
+
+### Constructing JSON Input for Reviewer
+
+Build the JSON input from state, task, and implementer output:
+
+```javascript
+function buildReviewerInput(state, task, implementerOutput) {
+  return {
+    task: {
+      id: task.id,
+      title: task.title,
+      acceptance_criteria: task.acceptance_criteria.map(ac => ({
+        id: ac.id,
+        criterion: ac.criterion
+      }))
+    },
+    implementation: {
+      commit_hash: implementerOutput.commit_hash,
+      files_changed: implementerOutput.files_changed,
+      test_file: implementerOutput.test_file
+    },
+    spec_paths: {
+      technical_design: state.spec_paths.technical_design,
+      adr: state.spec_paths.adr
+    },
+    worktree_path: state.worktree
+  };
+}
+```
+
 ### Reviewer Prompt Template
 
 ```markdown
 ## Code Review Task
 
-You are reviewing an implementation for the workflow.
+You are reviewing an implementation for the workflow. Use the `homerun:review` skill.
 
-### Task Specification
+### Input (JSON)
 
-**Task ID:** {{task.id}}
-**Title:** {{task.title}}
-**Description:**
-{{task.description}}
+\`\`\`json
+{{reviewer_input_json}}
+\`\`\`
 
-**Acceptance Criteria:**
-{{task.acceptance_criteria}}
+### Instructions
 
-### Implementation Details
+1. **Validate the input** - Check all required fields are present
+2. **Review the implementation** - Check files, tests, and commit
+3. **Verify acceptance criteria** - Each criterion should have implementation and test
+4. **Output JSON** - Return one of: `APPROVED`, `REJECTED`, or `VALIDATION_ERROR`
 
-**Commits:** {{commits}}
-**Files Changed:**
-{{#each files_changed}}
-- `{{this}}`
-{{/each}}
+### Output Format
 
-**Test File:** `{{test_file}}`
+Your final output MUST be a valid JSON object in a code block:
 
-### Reference Documents
+\`\`\`json
+{
+  "signal": "APPROVED",
+  "summary": "...",
+  "verified": [...]
+}
+\`\`\`
+```
+
+### Task Tool Invocation
+
+```javascript
+// Parse implementer output
+const implementerResult = parseImplementerOutput(implementerRawOutput);
+
+// Handle blocked or validation error
+if (implementerResult.signal !== "IMPLEMENTATION_COMPLETE") {
+  return handleImplementerFailure(task, implementerResult);
+}
+
+// Build JSON input for reviewer
+const reviewerInput = buildReviewerInput(state, task, implementerResult);
+
+// Log skill invocation
+logSkillInvocation(state, "homerun:review", task.id);
+
+// Spawn reviewer agent
+Task({
+  description: `Review implementation: ${task.title}`,
+  prompt: `Use the homerun:review skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(reviewerInput, null, 2)}\n\`\`\``
+});
+```
+
+### Parsing Reviewer Output
+
+```javascript
+function parseReviewerOutput(output) {
+  const jsonMatch = output.match(/```json\s*([\s\S]*?)\s*```/);
+  if (!jsonMatch) {
+    throw new Error("No JSON output found in reviewer response");
+  }
+
+  const result = JSON.parse(jsonMatch[1]);
+
+  const validSignals = ["APPROVED", "REJECTED", "VALIDATION_ERROR"];
+  if (!validSignals.includes(result.signal)) {
+    throw new Error(`Invalid signal: ${result.signal}`);
+  }
+
+  return result;
+}
+```
+
+### Handling Review Results
+
+```javascript
+function handleReviewResult(state, task, reviewResult) {
+  if (reviewResult.signal === "APPROVED") {
+    // Mark task complete, update state
+    task.status = "completed";
+    task.completed_at = new Date().toISOString();
+    task.verified = reviewResult.verified;
+    return { action: "next_task" };
+  }
+
+  if (reviewResult.signal === "REJECTED") {
+    // Store feedback, increment attempts
+    task.feedback = task.feedback || [];
+    task.feedback.push({
+      attempt: task.attempts,
+      summary: reviewResult.summary,
+      issues: reviewResult.issues,
+      required_fixes: reviewResult.required_fixes
+    });
+    return handleRejection(task, reviewResult);
+  }
+
+  if (reviewResult.signal === "VALIDATION_ERROR") {
+    // Log error, retry with corrected input
+    console.error("Reviewer validation error:", reviewResult.errors);
+    return { action: "fix_input", errors: reviewResult.errors };
+  }
+}
+```
+
+---
+
+## Legacy Reviewer Prompt (Deprecated)
+
+The following template is deprecated but kept for reference:
+
+```markdown
+## Code Review Task (Legacy Format)
 
 Use these exact paths (relative to worktree root) to verify alignment with specifications:
 
@@ -899,7 +1089,7 @@ When all tasks are completed, transition to the completion phase.
 
 4. **Invoke finishing skill**
    ```
-   Use the Skill tool to invoke: finishing-a-development-branch
+   Use the Skill tool to invoke: homerun:finishing-a-development-branch
    ```
 
 5. **Provide summary**

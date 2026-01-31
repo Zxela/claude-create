@@ -13,6 +13,105 @@ The discovery process is conversational and iterative. You ask focused questions
 
 ---
 
+## Input Schema (JSON)
+
+The `/create` command provides input as a JSON object:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["prompt"],
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "description": "User's description of what to build"
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "auto_mode": { "type": "boolean", "default": false },
+        "retries": {
+          "type": "object",
+          "properties": {
+            "same_agent": { "type": "integer", "default": 2 },
+            "fresh_agent": { "type": "integer", "default": 1 }
+          }
+        }
+      }
+    },
+    "project_root": { "type": "string" }
+  }
+}
+```
+
+### Example Input
+
+```json
+{
+  "prompt": "Build a REST API for user authentication with JWT tokens",
+  "config": {
+    "auto_mode": false,
+    "retries": { "same_agent": 2, "fresh_agent": 1 }
+  },
+  "project_root": "/path/to/project"
+}
+```
+
+---
+
+## Output Schema (JSON)
+
+When discovery completes, output a JSON signal:
+
+### Success: DISCOVERY_COMPLETE
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["signal", "worktree_path", "branch", "spec_paths"],
+  "properties": {
+    "signal": { "const": "DISCOVERY_COMPLETE" },
+    "session_id": { "type": "string" },
+    "worktree_path": { "type": "string" },
+    "branch": { "type": "string" },
+    "spec_paths": {
+      "type": "object",
+      "properties": {
+        "prd": { "type": "string" },
+        "adr": { "type": "string" },
+        "technical_design": { "type": "string" },
+        "wireframes": { "type": ["string", "null"] }
+      }
+    },
+    "user_stories_count": { "type": "integer" },
+    "acceptance_criteria_count": { "type": "integer" }
+  }
+}
+```
+
+**Example:**
+
+```json
+{
+  "signal": "DISCOVERY_COMPLETE",
+  "session_id": "user-auth-a1b2c3d4",
+  "worktree_path": "../myapp-create-user-auth-a1b2c3d4",
+  "branch": "create/user-auth-a1b2c3d4",
+  "spec_paths": {
+    "prd": "docs/specs/PRD.md",
+    "adr": "docs/specs/ADR.md",
+    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+    "wireframes": "docs/specs/WIREFRAMES.md"
+  },
+  "user_stories_count": 3,
+  "acceptance_criteria_count": 12
+}
+```
+
+---
+
 ## Process
 
 ### 1. Context Gathering
@@ -301,7 +400,8 @@ Create `state.json` in the worktree root with traceability structure:
     "iteration": 0,
     "tasks_completed_this_iteration": 0,
     "last_completion_iteration": 0
-  }
+  },
+  "skill_log": []
 }
 ```
 
@@ -391,13 +491,13 @@ After validation is complete:
    ```
 
 3. **If auto_mode is enabled:**
-   - Invoke `create-workflow:planning` skill directly
+   - Invoke `homerun:planning` skill directly
    - Pass the worktree path and session context
 
 4. **If auto_mode is disabled:**
    - Present summary of what was created
    - Ask: "Ready to break this into implementation tasks? (This will start the planning phase)"
-   - On confirmation, invoke `create-workflow:planning`
+   - On confirmation, invoke `homerun:planning`
 
 ---
 
@@ -442,7 +542,8 @@ When starting a new discovery session, initialize state with this structure:
     "iteration": 0,
     "tasks_completed_this_iteration": 0,
     "last_completion_iteration": 0
-  }
+  },
+  "skill_log": []
 }
 ```
 
@@ -462,6 +563,7 @@ When starting a new discovery session, initialize state with this structure:
 | current_task | ID of task currently being worked on (null in discovery) |
 | config | Configuration including timeouts and retry limits |
 | progress | Iteration tracking for deadlock detection |
+| skill_log | Array of skill invocations for visibility and debugging |
 
 ---
 

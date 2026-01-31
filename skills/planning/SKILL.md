@@ -13,7 +13,119 @@ The planning process analyzes the technical design, identifies dependencies betw
 
 ---
 
-## Input
+## Input Schema (JSON)
+
+The discovery skill provides input as a JSON object:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["worktree_path", "spec_paths"],
+  "properties": {
+    "worktree_path": { "type": "string" },
+    "session_id": { "type": "string" },
+    "branch": { "type": "string" },
+    "spec_paths": {
+      "type": "object",
+      "required": ["prd", "adr", "technical_design"],
+      "properties": {
+        "prd": { "type": "string" },
+        "adr": { "type": "string" },
+        "technical_design": { "type": "string" },
+        "wireframes": { "type": ["string", "null"] }
+      }
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "auto_mode": { "type": "boolean" }
+      }
+    }
+  }
+}
+```
+
+### Example Input
+
+```json
+{
+  "worktree_path": "../myapp-create-user-auth-a1b2c3d4",
+  "session_id": "user-auth-a1b2c3d4",
+  "branch": "create/user-auth-a1b2c3d4",
+  "spec_paths": {
+    "prd": "docs/specs/PRD.md",
+    "adr": "docs/specs/ADR.md",
+    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+    "wireframes": "docs/specs/WIREFRAMES.md"
+  },
+  "config": { "auto_mode": false }
+}
+```
+
+---
+
+## Output Schema (JSON)
+
+When planning completes, output a JSON signal:
+
+### Success: PLANNING_COMPLETE
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["signal", "tasks_count", "tasks_dir"],
+  "properties": {
+    "signal": { "const": "PLANNING_COMPLETE" },
+    "tasks_count": { "type": "integer" },
+    "tasks_dir": { "type": "string" },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "depends_on": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "dependency_graph_valid": { "type": "boolean" },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "user_stories": { "type": "integer" },
+        "acceptance_criteria": { "type": "integer" }
+      }
+    }
+  }
+}
+```
+
+**Example:**
+
+```json
+{
+  "signal": "PLANNING_COMPLETE",
+  "tasks_count": 8,
+  "tasks_dir": "docs/tasks",
+  "tasks": [
+    {"id": "001", "title": "Setup database schema", "depends_on": []},
+    {"id": "002", "title": "Create User model", "depends_on": ["001"]},
+    {"id": "003", "title": "Add auth service", "depends_on": ["002"]}
+  ],
+  "dependency_graph_valid": true,
+  "coverage": {
+    "user_stories": 3,
+    "acceptance_criteria": 12
+  }
+}
+```
+
+---
+
+## Input Documents
 
 Read the following documents from the worktree's `docs/specs/` directory:
 
@@ -227,93 +339,221 @@ Map out which components depend on others. Visualize as ASCII:
 
 ---
 
-### 3. Write Task Files
+### 3. Write tasks.json
 
-Create task files in `docs/tasks/` with this naming convention:
+Create a single `tasks.json` file containing all tasks:
 
 ```
-docs/tasks/
-├── 001-setup-schema.md
-├── 002-user-model.md
-├── 003-session-model.md
-├── 004-auth-service.md
-├── 005-login-endpoint.md
-├── 006-register-endpoint.md
-├── 007-auth-middleware.md
-└── 008-integration-tests.md
+docs/
+├── specs/
+│   ├── PRD.md
+│   ├── ADR.md
+│   └── TECHNICAL_DESIGN.md
+└── tasks.json          # All tasks in one file
 ```
 
-#### Task File Format
+#### tasks.json Schema
 
-Each task file follows this structure:
-
-```markdown
----
-id: "001"
-title: "Setup database schema for users"
-status: pending
-depends_on: []
-test_file: tests/schema/user.test.ts
-traces_to:
-  user_stories: ["US-001"]
-  acceptance_criteria: ["AC-001", "AC-002"]
-  adr_decisions: ["ADR-001"]
----
-
-# 001: Setup database schema for users
-
-## Objective
-
-Create the database schema for the users table with all required fields
-for authentication as specified in TECHNICAL_DESIGN.md.
-
-## Acceptance Criteria
-
-| ID | Criterion | Test Assertion |
-|----|-----------|----------------|
-| AC-001 | User must provide valid email format | `expect(email).toMatch(emailRegex)` |
-| AC-002 | Password must be at least 8 characters | `expect(password.length).toBeGreaterThanOrEqual(8)` |
-
-- [ ] Users table created with id, email, password_hash, created_at, updated_at
-- [ ] Email has unique constraint
-- [ ] Indexes added for email lookup
-- [ ] Migration file created and tested
-
-## Technical Notes
-
-From TECHNICAL_DESIGN.md:
-- Use UUID for primary key
-- Password hash using bcrypt (from ADR.md decision ADR-001)
-- Soft delete support via deleted_at column
-
-## Test Requirements
-
-Create `tests/schema/user.test.ts`:
-- Test migration applies successfully
-- Test unique constraint on email
-- Test index exists on email column
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["tasks"],
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/task" }
+    }
+  },
+  "definitions": {
+    "task": {
+      "type": "object",
+      "required": ["id", "title", "objective", "acceptance_criteria", "status", "depends_on"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9]{3}[a-z]?$" },
+        "title": { "type": "string" },
+        "objective": { "type": "string" },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "criterion"],
+            "properties": {
+              "id": { "type": "string" },
+              "criterion": { "type": "string" },
+              "test_assertion": { "type": "string" }
+            }
+          }
+        },
+        "test_file": { "type": ["string", "null"] },
+        "no_test_reason": { "type": "string" },
+        "status": { "enum": ["pending", "in_progress", "completed", "blocked", "failed"] },
+        "depends_on": { "type": "array", "items": { "type": "string" } },
+        "traces_to": {
+          "type": "object",
+          "properties": {
+            "user_stories": { "type": "array", "items": { "type": "string" } },
+            "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
+            "adr_decisions": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "technical_notes": { "type": "string" },
+        "model": { "enum": ["opus", "sonnet", "haiku"], "default": "sonnet" },
+        "subtasks": { "type": "array", "items": { "$ref": "#/definitions/task" } }
+      }
+    }
+  }
+}
 ```
 
-#### Frontmatter Fields
+#### Example tasks.json
+
+```json
+{
+  "tasks": [
+    {
+      "id": "001",
+      "title": "Setup database schema for users",
+      "objective": "Create the database schema for the users table with all required fields for authentication as specified in TECHNICAL_DESIGN.md.",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "criterion": "Users table has id, email, password_hash, created_at, updated_at",
+          "test_assertion": "expect(columns).toContain(['id', 'email', 'password_hash'])"
+        },
+        {
+          "id": "AC-002",
+          "criterion": "Email has unique constraint",
+          "test_assertion": "expect(insertDuplicate).toThrow(/unique/i)"
+        }
+      ],
+      "test_file": "tests/schema/user.test.ts",
+      "status": "pending",
+      "depends_on": [],
+      "traces_to": {
+        "user_stories": ["US-001"],
+        "acceptance_criteria": ["AC-001", "AC-002"],
+        "adr_decisions": ["ADR-001"]
+      },
+      "technical_notes": "Use UUID for primary key. Password hash using bcrypt (ADR-001). Soft delete via deleted_at.",
+      "model": "sonnet"
+    },
+    {
+      "id": "002",
+      "title": "Create User model with validation",
+      "objective": "Implement User model class with email validation and password hashing.",
+      "acceptance_criteria": [
+        {
+          "id": "AC-003",
+          "criterion": "User model validates email format",
+          "test_assertion": "expect(User.validate({email: 'invalid'})).toBe(false)"
+        },
+        {
+          "id": "AC-004",
+          "criterion": "Password is hashed on creation",
+          "test_assertion": "expect(user.password_hash).not.toBe(plainPassword)"
+        }
+      ],
+      "test_file": "tests/models/user.test.ts",
+      "status": "pending",
+      "depends_on": ["001"],
+      "traces_to": {
+        "user_stories": ["US-001"],
+        "acceptance_criteria": ["AC-003", "AC-004"]
+      },
+      "model": "sonnet"
+    }
+  ]
+}
+```
+
+#### Task Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | string | Yes | Three-digit sequential ID ("001", "002") |
+| id | string | Yes | Sequential ID: "001", "002", or subtask "001a", "001b" |
 | title | string | Yes | Brief, imperative task description |
-| status | enum | Yes | One of: pending, in_progress, completed, blocked, failed |
-| depends_on | array | Yes | List of task IDs this depends on (empty for root tasks) |
+| objective | string | Yes | What this task accomplishes |
+| acceptance_criteria | array | Yes | List of criteria with test assertions |
 | test_file | string | Conditional | Path to test file, null if exception applies |
 | no_test_reason | string | Conditional | Required if test_file is null |
-| traces_to | object | Yes | Traceability links to source requirements |
-| traces_to.user_stories | array | Yes | List of user story IDs this task implements |
-| traces_to.acceptance_criteria | array | Yes | List of AC IDs this task satisfies |
-| traces_to.adr_decisions | array | No | List of ADR decision IDs affecting this task |
+| status | enum | Yes | pending, in_progress, completed, blocked, failed |
+| depends_on | array | Yes | Task IDs that must complete first |
+| traces_to | object | Yes | Links to user stories, acceptance criteria, ADR decisions |
+| technical_notes | string | No | Implementation hints from specs |
+| model | enum | No | Which model executes: opus, sonnet (default), haiku |
+| subtasks | array | No | Decomposed subtasks for Haiku execution |
+
+#### Model Selection Guidelines
+
+| Task Complexity | Model | Examples |
+|-----------------|-------|----------|
+| **Complex** | opus | Architecture decisions, complex algorithms, refactoring |
+| **Standard** | sonnet | Most implementation tasks (default) |
+| **Simple** | haiku | Single-file changes, straightforward CRUD, config updates |
+
+#### Subtask Decomposition for Haiku
+
+When a task is too complex for Haiku, decompose into subtasks:
+
+```json
+{
+  "id": "002",
+  "title": "Create User model with validation",
+  "model": "sonnet",
+  "status": "pending",
+  "subtasks": [
+    {
+      "id": "002a",
+      "title": "Create User class with fields",
+      "objective": "Define User class with id, email, password_hash fields",
+      "acceptance_criteria": [
+        {"id": "AC-003a", "criterion": "User class exists with required fields"}
+      ],
+      "test_file": "tests/models/user.test.ts",
+      "status": "pending",
+      "depends_on": ["001"],
+      "model": "haiku"
+    },
+    {
+      "id": "002b",
+      "title": "Add email validation to User",
+      "objective": "Add validateEmail() method that checks format",
+      "acceptance_criteria": [
+        {"id": "AC-003b", "criterion": "validateEmail returns false for invalid format"}
+      ],
+      "test_file": "tests/models/user.test.ts",
+      "status": "pending",
+      "depends_on": ["002a"],
+      "model": "haiku"
+    },
+    {
+      "id": "002c",
+      "title": "Add password hashing to User",
+      "objective": "Hash password on User creation using bcrypt",
+      "acceptance_criteria": [
+        {"id": "AC-004", "criterion": "Password is hashed, not stored in plain text"}
+      ],
+      "test_file": "tests/models/user.test.ts",
+      "status": "pending",
+      "depends_on": ["002a"],
+      "model": "haiku"
+    }
+  ]
+}
+```
+
+**Subtask Rules:**
+- Subtask IDs use parent ID + letter suffix: "002a", "002b"
+- Each subtask should be completable in ~5-10 minutes
+- Subtasks can depend on each other or parent's dependencies
+- Parent task completes when all subtasks complete
 
 ---
 
 ### 4. Update State
 
-After creating all task files, update state.json with tasks and traceability links:
+After creating tasks.json, update state.json to reference it:
 
 ```json
 {
@@ -329,47 +569,7 @@ After creating all task files, update state.json with tasks and traceability lin
     "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
     "wireframes": "docs/specs/WIREFRAMES.md"
   },
-  "tasks_dir": "docs/tasks",
-  "traceability": {
-    "user_stories": {
-      "US-001": {
-        "title": "User can register with email and password",
-        "acceptance_criteria": ["AC-001", "AC-002", "AC-003"],
-        "tasks": ["001", "002", "006"]
-      },
-      "US-002": {
-        "title": "User can log in with credentials",
-        "acceptance_criteria": ["AC-004", "AC-005"],
-        "tasks": ["004", "005", "007"]
-      }
-    },
-    "acceptance_criteria": {
-      "AC-001": { "description": "Valid email format", "story": "US-001", "tasks": ["001", "002"] },
-      "AC-002": { "description": "Password >= 8 chars", "story": "US-001", "tasks": ["001", "002"] }
-    },
-    "adr_decisions": {
-      "ADR-001": { "title": "Use bcrypt for password hashing", "tasks_affected": ["001", "002", "004"] }
-    },
-    "non_goals": ["NG-001: Social login (OAuth)", "NG-002: Two-factor authentication"]
-  },
-  "tasks": {
-    "001": {
-      "status": "pending",
-      "file": "docs/tasks/001-setup-schema.md",
-      "traces_to": { "user_stories": ["US-001"], "acceptance_criteria": ["AC-001", "AC-002"] }
-    },
-    "002": {
-      "status": "pending",
-      "file": "docs/tasks/002-user-model.md",
-      "traces_to": { "user_stories": ["US-001"], "acceptance_criteria": ["AC-001", "AC-002"] }
-    },
-    "003": { "status": "pending", "file": "docs/tasks/003-session-model.md", "traces_to": { "user_stories": ["US-002"], "acceptance_criteria": ["AC-004"] } },
-    "004": { "status": "pending", "file": "docs/tasks/004-auth-service.md", "traces_to": { "user_stories": ["US-001", "US-002"], "acceptance_criteria": ["AC-003", "AC-004"] } },
-    "005": { "status": "pending", "file": "docs/tasks/005-login-endpoint.md", "traces_to": { "user_stories": ["US-002"], "acceptance_criteria": ["AC-004", "AC-005"] } },
-    "006": { "status": "pending", "file": "docs/tasks/006-register-endpoint.md", "traces_to": { "user_stories": ["US-001"], "acceptance_criteria": ["AC-001", "AC-002", "AC-003"] } },
-    "007": { "status": "pending", "file": "docs/tasks/007-auth-middleware.md", "traces_to": { "user_stories": ["US-002"], "acceptance_criteria": ["AC-005"] } },
-    "008": { "status": "pending", "file": "docs/tasks/008-integration-tests.md", "traces_to": { "user_stories": ["US-001", "US-002"], "acceptance_criteria": ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005"] } }
-  },
+  "tasks_file": "docs/tasks.json",
   "current_task": null,
   "config": {
     "auto_mode": false,
@@ -385,43 +585,85 @@ After creating all task files, update state.json with tasks and traceability lin
     "iteration": 0,
     "tasks_completed_this_iteration": 0,
     "last_completion_iteration": 0
-  }
+  },
+  "skill_log": []
 }
 ```
 
-**Traceability Update Process:**
-1. For each task created, add the task ID to the `tasks` array of each referenced user story
-2. For each task created, add the task ID to the `tasks` array of each referenced acceptance criterion
-3. For each task referencing an ADR decision, add the task ID to `tasks_affected`
+**Key changes from markdown approach:**
+- `tasks_file` replaces `tasks_dir` - points to single JSON file
+- Task status lives in tasks.json, not state.json
+- Traceability links are embedded in each task's `traces_to` field
+
+#### Conductor jq Queries
+
+The conductor uses jq to efficiently query tasks.json:
+
+```bash
+# Get next pending task (respecting dependencies)
+jq -r '
+  .tasks[] |
+  select(.status == "pending") |
+  select(
+    .depends_on | length == 0 or
+    all(. as $dep | $tasks | map(select(.id == $dep and .status == "completed")) | length > 0)
+  ) |
+  .id
+' docs/tasks.json | head -1
+
+# Get task by ID
+jq '.tasks[] | select(.id == "002")' docs/tasks.json
+
+# Get task input for implementer (minimal fields)
+jq '{
+  task: (.tasks[] | select(.id == "002") | {id, title, objective, acceptance_criteria, test_file}),
+  spec_paths: $state.spec_paths,
+  worktree_path: $state.worktree
+}' --slurpfile state state.json docs/tasks.json
+
+# Update task status
+jq '(.tasks[] | select(.id == "002")).status = "completed"' docs/tasks.json > tmp.json && mv tmp.json docs/tasks.json
+
+# Count pending tasks
+jq '[.tasks[] | select(.status == "pending")] | length' docs/tasks.json
+
+# Get all subtasks for a parent
+jq '.tasks[] | select(.id == "002") | .subtasks // []' docs/tasks.json
+```
 
 ---
 
 ### 5. Transition
 
-After all tasks are created:
+After creating tasks.json:
 
-1. **Commit the task files:**
+1. **Commit the tasks file:**
    ```bash
    cd "$WORKTREE_PATH"
-   git add docs/tasks/ state.json
-   git commit -m "plan: break feature into implementation tasks
 
-   Created $(ls docs/tasks/*.md | wc -l) tasks with dependency graph.
+   # Count tasks
+   TASK_COUNT=$(jq '.tasks | length' docs/tasks.json)
+   SUBTASK_COUNT=$(jq '[.tasks[].subtasks // [] | length] | add' docs/tasks.json)
+
+   git add docs/tasks.json state.json
+   git commit -m "plan: create ${TASK_COUNT} tasks for implementation
+
+   Tasks: ${TASK_COUNT} (${SUBTASK_COUNT} subtasks)
    Ready for implementation phase.
 
-   Tasks:
-   $(ls docs/tasks/*.md | xargs -I{} basename {} .md | sed 's/^/- /')"
+   Task list:
+   $(jq -r '.tasks[] | "- \(.id): \(.title)"' docs/tasks.json)"
    ```
 
 2. **If auto_mode is enabled:**
-   - Invoke `create-workflow:conductor` skill directly
+   - Invoke `homerun:conductor` skill directly
    - The conductor will pick up the first unblocked task
 
 3. **If auto_mode is disabled:**
    - Present the task list with dependencies
    - Show the dependency graph
    - Ask: "Ready to start implementation? (This will begin executing tasks)"
-   - On confirmation, invoke `create-workflow:conductor`
+   - On confirmation, invoke `homerun:conductor`
 
 ---
 

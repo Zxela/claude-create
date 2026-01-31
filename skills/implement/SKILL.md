@@ -9,24 +9,96 @@ description: Use when assigned a task by the conductor to implement it using TDD
 
 You are an **implementer agent**. Your job: implement ONE task using TDD, commit, and signal completion.
 
-**REQUIRED SUB-SKILL:** You MUST use `superpowers:test-driven-development` for all implementation work.
+**REQUIRED SUB-SKILL:** You MUST use `homerun:tdd` for all implementation work.
 
-## Input
+## Input Schema (JSON)
 
-You receive from the conductor:
+The conductor provides input as a JSON object. **Validate input before proceeding.**
 
-1. **Task file contents** - Including:
-   - Objective (what to build)
-   - Acceptance criteria (what defines "done")
-   - Test requirements (specific test scenarios)
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["task", "spec_paths", "worktree_path"],
+  "properties": {
+    "task": {
+      "type": "object",
+      "required": ["id", "title", "objective", "acceptance_criteria", "test_file"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9]{3}$" },
+        "title": { "type": "string" },
+        "objective": { "type": "string" },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "criterion"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^AC-[0-9]{3}$" },
+              "criterion": { "type": "string" }
+            }
+          }
+        },
+        "test_file": { "type": ["string", "null"] }
+      }
+    },
+    "spec_paths": {
+      "type": "object",
+      "required": ["technical_design", "adr"],
+      "properties": {
+        "technical_design": { "type": "string" },
+        "adr": { "type": "string" }
+      }
+    },
+    "previous_feedback": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "attempt": { "type": "integer" },
+          "issues": { "type": "array", "items": { "type": "string" } },
+          "required_fixes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "worktree_path": { "type": "string" }
+  }
+}
+```
 
-2. **Reference documents (with explicit paths from state.json):**
-   - `{{spec_paths.technical_design}}` - Architecture and implementation patterns (e.g., `docs/specs/TECHNICAL_DESIGN.md`)
-   - `{{spec_paths.adr}}` - Architectural decisions and constraints (e.g., `docs/specs/ADR.md`)
+### Example Input
 
-   **IMPORTANT:** Always use the exact paths provided by the conductor. Do NOT assume paths like `TECHNICAL_DESIGN.md` in the root - specs are in `docs/specs/` within the worktree.
+```json
+{
+  "task": {
+    "id": "002",
+    "title": "Implement user authentication service",
+    "objective": "Create auth service with login and session management",
+    "acceptance_criteria": [
+      {"id": "AC-001", "criterion": "User can log in with valid credentials"},
+      {"id": "AC-002", "criterion": "Invalid credentials return 401 error"}
+    ],
+    "test_file": "tests/services/auth.test.ts"
+  },
+  "spec_paths": {
+    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+    "adr": "docs/specs/ADR.md"
+  },
+  "previous_feedback": [],
+  "worktree_path": "/path/to/worktree"
+}
+```
 
-3. **Previous rejection feedback** (if this is a retry) - Specific issues that caused the previous implementation to be rejected
+### Input Validation
+
+**Before any implementation work, validate the input:**
+
+1. Check all required fields are present
+2. Verify `task.id` matches pattern `^[0-9]{3}$`
+3. Verify `acceptance_criteria` is non-empty array
+4. Verify `spec_paths.technical_design` and `spec_paths.adr` files exist
+
+If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
 ## Process
 
@@ -80,47 +152,86 @@ Once all acceptance criteria pass:
 
 ### 6. Signal Completion
 
-Output the completion signal in **YAML format** (required for conductor parsing):
+Output the completion signal in **JSON format** (required for conductor parsing).
 
-```yaml
 ---
-signal: IMPLEMENTATION_COMPLETE
-files_changed:
-  - src/models/user.ts
-  - src/services/auth.ts
-test_file: tests/services/auth.test.ts
-commit_hash: abc1234
-acceptance_criteria_met:
-  - criterion: "AC-001"
-    test: "should create user with valid email"
-  - criterion: "AC-002"
-    test: "should reject duplicate emails"
----
+
+## Output Schema (JSON)
+
+All output MUST be valid JSON wrapped in a code block with language `json`.
+
+### Success: IMPLEMENTATION_COMPLETE
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["signal", "files_changed", "test_file", "commit_hash", "acceptance_criteria_met"],
+  "properties": {
+    "signal": { "const": "IMPLEMENTATION_COMPLETE" },
+    "files_changed": { "type": "array", "items": { "type": "string" } },
+    "test_file": { "type": "string" },
+    "commit_hash": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
+    "acceptance_criteria_met": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion", "test"],
+        "properties": {
+          "criterion": { "type": "string" },
+          "test": { "type": "string" }
+        }
+      }
+    }
+  }
+}
 ```
 
-**Signal Format Requirements:**
-- Must be valid YAML
-- Must start and end with `---`
-- `signal` field must be exactly `IMPLEMENTATION_COMPLETE`
-- `files_changed` must be an array of file paths
-- `test_file` must be the path to the primary test file
-- `commit_hash` must be the short hash of the commit
-- `acceptance_criteria_met` should map each criterion to its verifying test
+**Example:**
 
-### If Blocked
+```json
+{
+  "signal": "IMPLEMENTATION_COMPLETE",
+  "files_changed": ["src/models/user.ts", "src/services/auth.ts"],
+  "test_file": "tests/services/auth.test.ts",
+  "commit_hash": "abc1234",
+  "acceptance_criteria_met": [
+    {"criterion": "AC-001", "test": "should create user with valid email"},
+    {"criterion": "AC-002", "test": "should reject duplicate emails"}
+  ]
+}
+```
 
-If you encounter blockers you cannot resolve, output a blocked signal:
+### Blocked: IMPLEMENTATION_BLOCKED
 
-```yaml
----
-signal: IMPLEMENTATION_BLOCKED
-reason: "Cannot find the User model referenced in TECHNICAL_DESIGN.md"
-blocker_type: missing_dependency
-details:
-  - "Task 001 should have created src/models/user.ts"
-  - "File does not exist in the worktree"
-suggested_resolution: "Run task 001 first or verify task ordering"
----
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["signal", "reason", "blocker_type", "suggested_resolution"],
+  "properties": {
+    "signal": { "const": "IMPLEMENTATION_BLOCKED" },
+    "reason": { "type": "string" },
+    "blocker_type": { "enum": ["missing_dependency", "unclear_requirements", "technical_constraint", "test_failure"] },
+    "details": { "type": "array", "items": { "type": "string" } },
+    "suggested_resolution": { "type": "string" }
+  }
+}
+```
+
+**Example:**
+
+```json
+{
+  "signal": "IMPLEMENTATION_BLOCKED",
+  "reason": "Cannot find the User model referenced in TECHNICAL_DESIGN.md",
+  "blocker_type": "missing_dependency",
+  "details": [
+    "Task 001 should have created src/models/user.ts",
+    "File does not exist in the worktree"
+  ],
+  "suggested_resolution": "Run task 001 first or verify task ordering"
+}
 ```
 
 **Blocker Types:**
@@ -128,6 +239,52 @@ suggested_resolution: "Run task 001 first or verify task ordering"
 - `unclear_requirements` - Acceptance criteria are ambiguous
 - `technical_constraint` - Cannot implement as specified (e.g., API limitation)
 - `test_failure` - Tests fail and cannot be fixed within scope
+
+### Validation Error: VALIDATION_ERROR
+
+Return this if input validation fails:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["signal", "error_type", "errors"],
+  "properties": {
+    "signal": { "const": "VALIDATION_ERROR" },
+    "error_type": { "enum": ["invalid_input", "semantic_error"] },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "message"],
+        "properties": {
+          "path": { "type": "string", "description": "JSON path to invalid field, e.g., $.task.id" },
+          "message": { "type": "string" },
+          "expected": { "type": "string" },
+          "received": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+```
+
+**Example:**
+
+```json
+{
+  "signal": "VALIDATION_ERROR",
+  "error_type": "invalid_input",
+  "errors": [
+    {
+      "path": "$.task.acceptance_criteria",
+      "message": "acceptance_criteria array is empty",
+      "expected": "non-empty array",
+      "received": "[]"
+    }
+  ]
+}
+```
 
 ## Red Flags - STOP
 
