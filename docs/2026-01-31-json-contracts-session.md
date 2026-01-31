@@ -1,7 +1,7 @@
 # Session: JSON Skill Contracts + Haiku Decomposition
 
 **Date:** 2026-01-31
-**Status:** In Progress
+**Status:** Complete
 
 ## Completed
 
@@ -33,11 +33,11 @@
 - Added `skill_log` array to state.json schema
 - Added logging protocol to conductor
 
-## Remaining: Haiku Decomposition (B+E+F Approach)
+### Phase 6: Haiku Decomposition (B+E+F Approach)
 
-### Approach B: Task Type Classification
+#### Approach B: Task Type Classification ✅
 
-Add to planning skill - classify tasks and assign default model:
+Added to planning skill - classify tasks and assign default model:
 
 ```json
 {
@@ -56,40 +56,41 @@ Add to planning skill - classify tasks and assign default model:
 }
 ```
 
-### Approach E: Haiku Implements, Sonnet Reviews
+#### Approach E: Haiku Implements, Sonnet Reviews ✅
 
-Update conductor:
+Updated conductor:
 - Implementer model: from task's `model` field (haiku or sonnet)
 - Reviewer model: always sonnet
 - On rejection with severity=high from sonnet reviewer → re-implement with sonnet
 
-### Approach F: Decomposition Rules
+#### Approach F: Decomposition Rules ✅
 
 In planning skill, when task_type.decomposable=true:
 1. Break into atomic subtasks (single file, single function)
 2. Each subtask gets `model: "haiku"`
 3. Parent task completes when all subtasks complete
 
-Subtask patterns:
-- create_model → [create_class, add_field, add_validation_method...]
-- create_service → [create_interface, implement_method...]
-- add_endpoint_with_auth → [add_route, add_auth_middleware, add_handler]
+### Phase 7: Directory Rename ✅
+
+- Renamed plugin directory from `create-workflow` to `homerun`
+- Updated `.gitmodules` in parent repo
+- Plugin name, skills, and directory now all align as "homerun"
 
 ## Files Modified This Session
 
 - `.claude-plugin/plugin.json` - name: homerun
 - `CLAUDE.md` - updated docs
 - `commands/create.md` - homerun references
-- `skills/conductor/SKILL.md` - JSON, skill logging
+- `skills/conductor/SKILL.md` - JSON, skill logging, model routing, escalation logic
 - `skills/discovery/SKILL.md` - JSON schemas, skill_log
 - `skills/implement/SKILL.md` - JSON schemas
-- `skills/planning/SKILL.md` - tasks.json, subtasks
-- `skills/review/SKILL.md` - JSON schemas
+- `skills/planning/SKILL.md` - tasks.json, subtasks, task_type classification
+- `skills/review/SKILL.md` - JSON schemas with severity field
 - `skills/superpowers/*` - 4 cloned skills + supporting files
 
 ## Next Steps
 
 1. ~~Add task_type classification table to planning skill~~ ✅ Done
-2. Update conductor to use task.model for implementer, always sonnet for reviewer
-3. Add escalation logic: high-severity rejection → sonnet re-implementation
+2. ~~Update conductor to use task.model for implementer, always sonnet for reviewer~~ ✅ Done
+3. ~~Add escalation logic: high-severity rejection → sonnet re-implementation~~ ✅ Done
 4. Test end-to-end with a sample workflow

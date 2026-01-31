@@ -439,10 +439,14 @@ const implementerInput = buildImplementerInput(state, task);
 // Log skill invocation
 logSkillInvocation(state, "homerun:implement", task.id);
 
-// Spawn implementer agent
+// Determine model: use task.model (default: sonnet), or escalated_model if set
+const implementerModel = task.escalated_model || task.model || "sonnet";
+
+// Spawn implementer agent with appropriate model
 Task({
   description: `Implement task: ${task.title}`,
-  prompt: `Use the homerun:implement skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(implementerInput, null, 2)}\n\`\`\``
+  prompt: `Use the homerun:implement skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(implementerInput, null, 2)}\n\`\`\``,
+  model: implementerModel  // haiku for simple tasks, sonnet for complex or escalated
 });
 ```
 
@@ -553,10 +557,12 @@ const reviewerInput = buildReviewerInput(state, task, implementerResult);
 // Log skill invocation
 logSkillInvocation(state, "homerun:review", task.id);
 
-// Spawn reviewer agent
+// Spawn reviewer agent - ALWAYS use sonnet for reviews
+// Sonnet provides better judgment for acceptance criteria verification
 Task({
   description: `Review implementation: ${task.title}`,
-  prompt: `Use the homerun:review skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(reviewerInput, null, 2)}\n\`\`\``
+  prompt: `Use the homerun:review skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(reviewerInput, null, 2)}\n\`\`\``,
+  model: "sonnet"  // Reviews always use sonnet for quality assurance
 });
 ```
 
@@ -695,12 +701,21 @@ function handleRejection(task, feedback) {
   task.attempts++;
   task.feedback.push(feedback);
 
+  // Check for high-severity issues - escalate model to sonnet
+  const hasHighSeverity = feedback.issues?.some(issue => issue.severity === "high");
+  if (hasHighSeverity && task.model === "haiku") {
+    task.escalated_model = "sonnet";
+    console.log(`High-severity rejection: escalating ${task.id} from haiku to sonnet`);
+  }
+
   if (task.attempts < 2) {
     // Retry with same implementer, include feedback
-    return { action: 'retry_same', feedback };
+    // If escalated_model is set, next spawn will use sonnet
+    return { action: 'retry_same', feedback, model: task.escalated_model || task.model };
   } else if (task.attempts === 2) {
-    // Fresh start with new implementer
-    return { action: 'retry_fresh', allFeedback: task.feedback };
+    // Fresh start with new implementer (always sonnet for fresh attempts)
+    task.escalated_model = "sonnet";
+    return { action: 'retry_fresh', allFeedback: task.feedback, model: "sonnet" };
   } else {
     // Escalate to user
     task.status = 'escalated';
@@ -731,6 +746,58 @@ Each rejected attempt's feedback is preserved:
   ]
 }
 ```
+
+## Model Routing Strategy
+
+The conductor uses different models for different roles and escalates on failures.
+
+### Role-Based Model Assignment
+
+| Role | Model | Rationale |
+|------|-------|-----------|
+| Implementer (simple tasks) | haiku | Fast, cost-effective for add_field, add_method, refactor |
+| Implementer (complex tasks) | sonnet | Better reasoning for create_model, create_service, bug_fix |
+| Reviewer | sonnet (always) | Quality assurance requires stronger judgment |
+
+### Task Model Selection
+
+The planning phase assigns `model` to each task based on `task_type`:
+
+```javascript
+// Model comes from task.model field (set by planning skill)
+const implementerModel = task.escalated_model || task.model || "sonnet";
+```
+
+### Escalation on High-Severity Rejection
+
+When a reviewer rejects with `severity: "high"` issues:
+
+1. **Detect**: Check if any `issue.severity === "high"`
+2. **Escalate**: Set `task.escalated_model = "sonnet"`
+3. **Retry**: Next implementation attempt uses sonnet instead of haiku
+
+```javascript
+// In handleRejection:
+const hasHighSeverity = feedback.issues?.some(issue => issue.severity === "high");
+if (hasHighSeverity && task.model === "haiku") {
+  task.escalated_model = "sonnet";
+}
+```
+
+### Escalation Flow
+
+```
+haiku implements → sonnet reviews → REJECTED (high severity)
+                                         ↓
+                               sonnet re-implements → sonnet reviews
+```
+
+This ensures:
+- Simple tasks stay fast and cheap with haiku
+- Complex issues get escalated to sonnet automatically
+- Reviews always have sonnet-level quality assurance
+
+---
 
 ## State Updates
 
