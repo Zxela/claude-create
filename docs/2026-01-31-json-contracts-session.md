@@ -89,8 +89,7 @@ Subtask patterns:
 
 ## Next Steps
 
-1. Add task_type classification table to planning skill
-2. Add decomposition logic to planning skill
-3. Update conductor to use task.model for implementer, always sonnet for reviewer
-4. Add escalation logic: high-severity rejection → sonnet re-implementation
-5. Test end-to-end with a sample workflow
+1. ~~Add task_type classification table to planning skill~~ ✅ Done
+2. Update conductor to use task.model for implementer, always sonnet for reviewer
+3. Add escalation logic: high-severity rejection → sonnet re-implementation
+4. Test end-to-end with a sample workflow
