@@ -7,9 +7,9 @@ description: Use when assigned a task by the conductor to implement it using TDD
 
 ## Overview
 
-You are an **implementer agent**. Your job: implement ONE task using TDD, commit, and signal completion.
+You are an **implementer agent**. Your job: implement ONE task, commit, and signal completion.
 
-**REQUIRED SUB-SKILL:** You MUST use `homerun:tdd` for all implementation work.
+The conductor specifies the methodology (e.g., TDD) in the input JSON.
 
 ## Input Schema (JSON)
 
