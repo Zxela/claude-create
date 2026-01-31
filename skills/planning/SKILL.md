@@ -191,6 +191,42 @@ test_file: null
 no_test_reason: "documentation only"
 ```
 
+### Task Type Classification (Model Routing)
+
+Classify each task to determine which model executes it:
+
+| Task Type | Model | Decomposable | Examples |
+|-----------|-------|--------------|----------|
+| `add_field` | haiku | no | Add email field to User model |
+| `add_method` | haiku | no | Add validateEmail() to User |
+| `add_validation` | haiku | no | Add input validation to handler |
+| `rename_refactor` | haiku | no | Rename userId to id across files |
+| `add_test` | haiku | no | Add unit test for existing function |
+| `add_config` | haiku | no | Add environment variable |
+| `create_model` | sonnet | yes | Create User model with validation |
+| `create_service` | sonnet | yes | Create AuthService with methods |
+| `add_endpoint` | haiku | no | Add GET /users route (simple) |
+| `add_endpoint_complex` | sonnet | yes | Add POST /auth/login with JWT |
+| `create_middleware` | sonnet | yes | Create auth middleware |
+| `bug_fix` | sonnet | no | Fix race condition in cache |
+| `integration_test` | sonnet | no | Add e2e test for auth flow |
+| `architectural` | opus | no | Design plugin system |
+
+**Classification Rules:**
+1. Default to `haiku` for mechanical, pattern-following tasks
+2. Use `sonnet` when task requires design decisions or security implications
+3. Use `opus` only for architectural tasks requiring broad context
+4. If `decomposable=true`, break into haiku-sized subtasks
+
+**Decomposition Patterns:**
+
+| Parent Type | Subtask Pattern |
+|-------------|-----------------|
+| `create_model` | create_class → add_field (each) → add_method (each) |
+| `create_service` | create_interface → implement_method (each) → add_error_handling |
+| `add_endpoint_complex` | add_route → add_validation → add_auth_check → add_handler |
+| `create_middleware` | create_function → add_token_validation → add_error_response |
+
 ---
 
 ## Process
