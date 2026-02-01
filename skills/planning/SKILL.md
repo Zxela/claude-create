@@ -1,6 +1,7 @@
 ---
 name: planning
-description: Use when discovery phase complete to break specifications into test-bounded, commit-sized tasks
+description: "[sonnet] Break specifications into test-bounded, commit-sized tasks"
+model: sonnet
 ---
 
 # Planning Skill

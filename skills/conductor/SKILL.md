@@ -1,6 +1,7 @@
 ---
 name: conductor
-description: Use when planning phase complete to orchestrate the implementation loop - spawning implementer and reviewer agents
+description: "[haiku] Orchestrate the implementation loop - spawning implementer and reviewer agents"
+model: haiku
 ---
 
 # Conductor Skill

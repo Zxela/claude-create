@@ -1,6 +1,7 @@
 ---
 name: review
-description: Use when implementation complete to verify task against specification and approve or reject
+description: "[sonnet] Verify implementation against specification and approve or reject"
+model: sonnet
 ---
 
 # Review Skill

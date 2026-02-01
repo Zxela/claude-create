@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Use when starting /create workflow to refine ideas into PRD, ADR, Technical Design, and Wireframes through structured dialogue
+description: "[inherit] Refine ideas into PRD, ADR, Technical Design, and Wireframes through structured dialogue"
 ---
 
 # Discovery Skill

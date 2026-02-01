@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Use when assigned a task by the conductor to implement it using TDD
+description: "[haiku/sonnet] Implement a task using TDD (model set by conductor based on task complexity)"
 ---
 
 # Implement Skill
