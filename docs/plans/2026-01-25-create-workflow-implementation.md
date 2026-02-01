@@ -27,7 +27,7 @@ mkdir -p ~/.claude/plugins/local/create-workflow/.claude-plugin
 {
   "name": "create-workflow",
   "description": "Orchestrated development workflow from idea to implementation with isolated agent contexts",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "author": {
     "name": "zxela"
   },

@@ -159,7 +159,7 @@ These skills are bundled locally (cloned from superpowers) for reference and opt
 
 **Version is tracked in two places - update both when bumping:**
 
-1. `.claude-plugin/plugin.json` - Primary plugin metadata
-2. `docs/plans/2026-01-25-create-workflow-implementation.md` - Original implementation plan
+1. `.claude-plugin/plugin.json` - Plugin metadata (this repo)
+2. `../.claude-plugin/marketplace.json` - Parent marketplace registry
 
 Use semantic versioning: `MAJOR.MINOR.PATCH`
