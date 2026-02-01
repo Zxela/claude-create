@@ -7,18 +7,19 @@ description: Use when planning phase complete to orchestrate the implementation 
 
 ## Overview
 
-The conductor orchestrates Phase 3 (Implementation) of the workflow. Its responsibilities:
+The conductor orchestrates Phase 3 (Implementation) of the workflow using a **reactive scheduler** that supports parallel task execution. Its responsibilities:
 
-1. **Read state** - Load `state.json` to understand current progress
-2. **Find next task** - Identify the next pending task from the plan
-3. **Spawn implementer** - Launch a Task agent to implement the current task
-4. **Spawn reviewer** - Launch a Task agent to review the implementation
-5. **Handle retries** - Manage failed reviews with progressive retry logic
-6. **Advance workflow** - Mark tasks complete and move to next, or transition to Phase 4
+1. **Poll running tasks** - Check which implementer agents have completed
+2. **Process reviews sequentially** - Review completed implementations one at a time
+3. **Handle failures by severity** - Low/medium go to retry queue, high blocks and escalates
+4. **Find ready tasks** - Identify tasks with resolved dependencies
+5. **Spawn implementers in parallel** - Launch multiple agents within concurrency limits
+6. **Manage context** - Refresh conductor after N completed tasks to prevent bloat
+7. **Transition to Phase 4** - When all tasks complete or deadlock detected
 
-The conductor runs in a loop until all tasks are complete or escalation is required.
+The conductor uses **haiku** by default (configurable via `config.conductor_model`) since scheduling is mechanical work that doesn't require deep reasoning.
 
-## Loop Flow
+## Loop Flow (Reactive Scheduler)
 
 ```dot
 digraph conductor_loop {
@@ -26,44 +27,68 @@ digraph conductor_loop {
     node [shape=box, style=rounded];
 
     start [label="Start Conductor Loop", shape=ellipse];
-    read_state [label="Read state.json"];
-    find_task [label="Find Next Pending Task"];
-    check_task [label="Task Found?", shape=diamond];
-    spawn_impl [label="Spawn Implementer Agent"];
-    impl_done [label="Wait for\nIMPLEMENTATION_COMPLETE"];
-    spawn_review [label="Spawn Reviewer Agent"];
-    review_done [label="Check Review Result", shape=diamond];
-    mark_complete [label="Mark Task Complete\nUpdate state.json"];
-    check_more [label="More Tasks?", shape=diamond];
-    retry_check [label="Check Attempt Count", shape=diamond];
-    retry_same [label="Retry with\nSame Implementer\n(attempts 0-1)"];
-    retry_fresh [label="Retry with\nFresh Implementer\n(attempt 2)"];
-    escalate [label="Escalate to User\n(attempts >= 3)"];
-    phase4 [label="Transition to Phase 4\nfinishing-a-development-branch"];
+    read_state [label="Read state.json\nInitialize parallel_state if missing"];
+    poll_running [label="Poll Running Tasks\nCheck for completions"];
+    move_to_review [label="Move Completed\nto pending_review"];
+    check_review_queue [label="Review Queue\nNon-empty?", shape=diamond];
+    process_review [label="Process One Review\n(Sequential)"];
+    check_result [label="Review Result?", shape=diamond];
+    mark_complete [label="Mark Complete\nUnblock Dependents\nIncrement tasks_since_refresh"];
+    add_retry [label="Add to retry_queue"];
+    block_high [label="Set blocked_by_failure\nEscalate to User"];
+    check_blocked [label="Blocked by\nFailure?", shape=diamond];
+    wait_recovery [label="Present TUI\nRecovery Options"];
+    find_ready [label="Find Ready Tasks\n(deps resolved, not running)"];
+    calc_slots [label="Calculate Available Slots\n(global + model limits)"];
+    spawn_tasks [label="Spawn Implementers\n(up to slots available)"];
+    check_done [label="Running Empty\n+ No Ready?", shape=diamond];
+    all_complete [label="All Tasks\nComplete?", shape=diamond];
+    phase4 [label="Transition to Phase 4\nhomerun:finishing-a-development-branch"];
+    deadlock [label="Deadlock Detected\nEscalate to User"];
+    check_refresh [label="Refresh\nNeeded?", shape=diamond];
+    spawn_fresh [label="Spawn Fresh Conductor\nExit Current"];
     end_node [label="End", shape=ellipse];
 
     start -> read_state;
-    read_state -> find_task;
-    find_task -> check_task;
-    check_task -> spawn_impl [label="Yes"];
-    check_task -> phase4 [label="No (all complete)"];
-    spawn_impl -> impl_done;
-    impl_done -> spawn_review;
-    spawn_review -> review_done;
-    review_done -> mark_complete [label="APPROVED"];
-    review_done -> retry_check [label="REJECTED"];
-    mark_complete -> check_more;
-    check_more -> find_task [label="Yes"];
-    check_more -> phase4 [label="No"];
-    retry_check -> retry_same [label="< 2"];
-    retry_check -> retry_fresh [label="== 2"];
-    retry_check -> escalate [label=">= 3"];
-    retry_same -> spawn_impl;
-    retry_fresh -> spawn_impl;
-    escalate -> end_node;
+    read_state -> poll_running;
+    poll_running -> move_to_review;
+    move_to_review -> check_review_queue;
+    check_review_queue -> process_review [label="Yes"];
+    check_review_queue -> check_blocked [label="No"];
+    process_review -> check_result;
+    check_result -> mark_complete [label="APPROVED"];
+    check_result -> add_retry [label="REJECTED\n(low/med)"];
+    check_result -> block_high [label="REJECTED\n(high)"];
+    mark_complete -> check_review_queue;
+    add_retry -> check_review_queue;
+    block_high -> end_node;
+    check_blocked -> wait_recovery [label="Yes"];
+    check_blocked -> find_ready [label="No"];
+    wait_recovery -> find_ready;
+    find_ready -> calc_slots;
+    calc_slots -> spawn_tasks;
+    spawn_tasks -> check_done;
+    check_done -> all_complete [label="Yes"];
+    check_done -> check_refresh [label="No"];
+    all_complete -> phase4 [label="Yes"];
+    all_complete -> deadlock [label="No"];
     phase4 -> end_node;
+    deadlock -> end_node;
+    check_refresh -> spawn_fresh [label="Yes"];
+    check_refresh -> poll_running [label="No"];
+    spawn_fresh -> end_node;
 }
 ```
+
+### Key Behavioral Changes from Sequential to Parallel
+
+| Aspect | Sequential (Old) | Parallel (New) |
+|--------|------------------|----------------|
+| Task selection | One task at a time | Multiple ready tasks in parallel |
+| Implementation | Wait for each to complete | Spawn in background, poll for completion |
+| Reviews | Immediately after each implementation | Queued, processed sequentially |
+| Failure handling | Retry or escalate per task | Severity-based: low/med continue, high blocks |
+| Context management | None | Refresh conductor every N tasks |
 
 ## State Management
 
