@@ -765,14 +765,21 @@ After creating tasks.json:
    Task({
      description: "Execute implementation loop",
      subagent_type: "general-purpose",
+     model: "haiku",  // Conductor uses haiku - scheduling is mechanical
      prompt: `Use the homerun:conductor skill.
 
      Worktree: ${state.worktree}
      State file: ${state.worktree}/state.json
 
-     Read state.json, find pending tasks, and orchestrate implementation.`
+     Read state.json, find pending tasks, and orchestrate parallel implementation.`
    });
    ```
+
+   **Why haiku for conductor:**
+   - Conductor does mechanical scheduling, not deep reasoning
+   - Reading state, finding ready tasks, spawning agents
+   - Cost-effective for the orchestration loop
+   - Implementers/Reviewers use appropriate models per task complexity
 
    **Why Task agent instead of direct invocation:**
    - Planning deliberation no longer consuming tokens
