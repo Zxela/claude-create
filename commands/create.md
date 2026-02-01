@@ -1,5 +1,9 @@
 ---
-description: "Start orchestrated development workflow from idea to implementation"
+name: create
+description: "Start orchestrated development workflow from idea to implementation. Use when building new features, adding functionality, or implementing complete development tasks from scratch."
+argument-hint: "<prompt> [--auto] [--resume] [--retries N,M]"
+disable-model-invocation: true
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill
 ---
 
 # /create Command
