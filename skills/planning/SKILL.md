@@ -691,36 +691,38 @@ After creating tasks.json:
    $(jq -r '.tasks[] | "- \(.id): \(.title)"' docs/tasks.json)"
    ```
 
-2. **Context Break (Recommended)**
+2. **Spawn Conductor Agent (Fresh Context)**
 
-   After planning, the conversation context contains discovery dialogue and planning
-   deliberation that are no longer needed. All critical information is now persisted
-   in state.json and spec files.
+   Use the Task tool to spawn conductor in a fresh agent context:
 
-   **Always recommend a fresh session for implementation:**
+   ```javascript
+   Task({
+     description: "Execute implementation loop",
+     subagent_type: "general-purpose",
+     prompt: `Use the homerun:conductor skill.
 
-   ```
-   ## Planning Complete
+     Worktree: ${state.worktree}
+     State file: ${state.worktree}/state.json
 
-   Created {N} tasks for implementation. All specifications and tasks are saved.
-
-   **To start implementation with fresh context, run:**
-   ```
-   /create --resume
-   ```
-
-   This ensures optimal context usage during the implementation loop.
+     Read state.json, find pending tasks, and orchestrate implementation.`
+   });
    ```
 
-   **Rationale:**
-   - Discovery + planning can consume 50-100K+ tokens of context
-   - Conductor only needs ~5-10K tokens (state.json + current task)
-   - Fresh context = better reasoning quality for implementation
-   - Staying under 50% context window prevents degraded results
+   **Why Task agent instead of direct invocation:**
+   - Planning deliberation no longer consuming tokens
+   - Conductor starts fresh with ~5-10K tokens
+   - Implementer/Reviewer agents also spawn fresh (nested Task agents)
+   - Each phase runs at optimal context capacity
 
-3. **If user insists on continuing (not recommended):**
-   - Warn about context bloat
-   - Invoke `homerun:conductor` skill directly
+3. **Output signal to main session:**
+
+   ```json
+   {
+     "signal": "PLANNING_COMPLETE",
+     "task_count": N,
+     "message": "Spawned conductor agent. Implementation loop started."
+   }
+   ```
 
 ---
 

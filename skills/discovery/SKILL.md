@@ -490,31 +490,37 @@ After validation is complete:
    git commit -m "chore: transition to planning phase"
    ```
 
-3. **Context Break (Recommended)**
+3. **Spawn Planning Agent (Fresh Context)**
 
-   The discovery dialogue can consume significant context. All critical information
-   is now persisted in spec documents and state.json.
+   Use the Task tool to spawn planning in a fresh agent context:
 
-   **Recommend a fresh session for planning:**
+   ```javascript
+   Task({
+     description: "Plan implementation tasks",
+     subagent_type: "general-purpose",
+     prompt: `Use the homerun:planning skill.
 
+     Worktree: ${state.worktree}
+     State file: ${state.worktree}/state.json
+
+     Read state.json and spec documents, then decompose into tasks.`
+   });
    ```
-   ## Discovery Complete
 
-   Specifications saved to worktree. Ready for task planning.
+   **Why Task agent instead of direct invocation:**
+   - Fresh context = better reasoning quality
+   - Discovery dialogue no longer consuming tokens
+   - Planning only needs spec files + state.json (~10K tokens)
 
-   **To continue with fresh context, run:**
+4. **Output signal to main session:**
+
+   ```json
+   {
+     "signal": "DISCOVERY_COMPLETE",
+     "worktree_path": "...",
+     "message": "Spawned planning agent. Check task output for results."
+   }
    ```
-   /create --resume
-   ```
-   ```
-
-   **When to continue in same session:**
-   - Simple features with short discovery dialogue
-   - Context is still under ~25% of window
-
-4. **If continuing in same session:**
-   - Invoke `homerun:planning` skill directly
-   - Pass the worktree path from state.json
 
 ---
 

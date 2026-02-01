@@ -71,27 +71,36 @@ Tasks are assigned models based on complexity (set during planning):
 
 **Target: Stay under 50% context window for optimal quality.**
 
-The workflow persists all critical information to files, enabling context breaks between phases:
+Each phase spawns the next phase as a **Task agent** with fresh context:
 
 ```
-Discovery ──► [BREAK] ──► Planning ──► [BREAK] ──► Conductor ──► ...
-    │                         │                         │
-    ▼                         ▼                         ▼
- state.json               state.json               state.json
- docs/specs/*             docs/tasks.json          (reads all)
+/create
+   │
+   ▼
+Discovery (main session)
+   │ Task({ homerun:planning })
+   ▼
+Planning (fresh agent)
+   │ Task({ homerun:conductor })
+   ▼
+Conductor (fresh agent)
+   │ Task({ homerun:implement })  Task({ homerun:review })
+   ▼                              ▼
+Implementer (fresh)            Reviewer (fresh)
 ```
 
-**Recommended breaks:**
-- After Discovery: Dialogue no longer needed, specs are written
-- After Planning: Task breakdown complete, ready for implementation
+**Why Task agents for phase transitions:**
+- Each phase starts with clean context (~5-10K tokens)
+- No manual `/create --resume` needed
+- Discovery dialogue doesn't bloat planning
+- Planning deliberation doesn't bloat implementation
+- Automatic, seamless to user
 
-**To resume after break:** `/create --resume`
-
-**Why this matters:**
-- Discovery + Planning can consume 50-100K+ tokens
-- Conductor only needs ~5-10K tokens to start
-- Implementer/Reviewer agents already spawn fresh (via Task tool)
-- Context bloat degrades reasoning quality
+**Context per phase:**
+- Discovery: Grows during dialogue, cleared after
+- Planning: Just specs + state (~10K)
+- Conductor: State + current task (~5K)
+- Implementer/Reviewer: Task + specs (~10K each)
 
 ## Key Files
 
