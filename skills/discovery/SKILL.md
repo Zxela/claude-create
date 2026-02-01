@@ -498,6 +498,7 @@ After validation is complete:
    Task({
      description: "Plan implementation tasks",
      subagent_type: "general-purpose",
+     model: "sonnet",  // Planning requires reasoning about task decomposition
      prompt: `Use the homerun:planning skill.
 
      Worktree: ${state.worktree}

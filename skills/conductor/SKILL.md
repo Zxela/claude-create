@@ -1418,6 +1418,7 @@ suggestions:
 // Spawn reviewer agent
 Task({
   description: `Review implementation: ${task.title}`,
+  model: "sonnet",  // Reviews always use sonnet
   prompt: renderReviewerPrompt(task, implementationDetails)
 });
 ```
