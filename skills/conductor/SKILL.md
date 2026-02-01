@@ -183,6 +183,192 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 | `config.conductor_refresh_interval` | Tasks between conductor refresh (default: 5) |
 | `config.conductor_model` | Model for conductor itself (default: haiku) |
 
+---
+
+## Finding Ready Tasks
+
+The conductor identifies tasks that are ready to execute using dependency resolution.
+
+### Ready Task Criteria
+
+A task is **ready** if:
+1. Status is `pending` (not already running or complete)
+2. All `blocked_by` dependencies have status `completed`
+3. Not already in `parallel_state.running_tasks`
+
+### Subtask Handling
+
+When a task has subtasks:
+1. **Parent never executes directly** - Only subtasks run
+2. **Subtask deps resolve locally first** - Check sibling subtasks before parent-level deps
+3. **Subtasks inherit parent's model** - For concurrency limit calculation
+4. **Parent auto-completes** - When all subtasks reach `completed` status
+
+### findReadyTasks Algorithm
+
+```javascript
+function findReadyTasks(state) {
+  const ready = [];
+  const running = new Set(state.parallel_state.running_tasks);
+
+  for (const task of state.tasks) {
+    // Skip non-actionable tasks
+    if (!['pending', 'in_progress'].includes(task.status)) continue;
+    if (running.has(task.id)) continue;
+
+    // Check parent-level dependencies
+    const parentDepsResolved = (task.blocked_by || []).every(depId =>
+      isTaskComplete(state, depId)
+    );
+    if (!parentDepsResolved) continue;
+
+    if (task.subtasks?.length > 0) {
+      // Process subtasks - parent doesn't run directly
+      for (const subtask of task.subtasks) {
+        if (subtask.status !== 'pending') continue;
+        if (running.has(subtask.id)) continue;
+
+        const subtaskDepsResolved = (subtask.blocked_by || []).every(depId => {
+          // Check siblings first
+          const sibling = task.subtasks.find(s => s.id === depId);
+          if (sibling) return sibling.status === 'completed';
+          // Then parent-level deps
+          return isTaskComplete(state, depId);
+        });
+
+        if (subtaskDepsResolved) {
+          ready.push({
+            ...subtask,
+            parent_id: task.id,
+            model: subtask.model || task.model || 'sonnet'
+          });
+        }
+      }
+    } else if (task.status === 'pending') {
+      // No subtasks - task is directly executable
+      ready.push(task);
+    }
+  }
+
+  return ready;
+}
+
+function isTaskComplete(state, taskId) {
+  // Check top-level tasks
+  const task = state.tasks.find(t => t.id === taskId);
+  if (task) return task.status === 'completed';
+
+  // Check subtasks
+  for (const parent of state.tasks) {
+    const subtask = parent.subtasks?.find(s => s.id === taskId);
+    if (subtask) return subtask.status === 'completed';
+  }
+
+  return false;
+}
+```
+
+### Example: Dependency Resolution
+
+Initial state:
+```
+Task 001: Create User model (no deps)
+  ├── 001a: Create class (no deps)         → READY
+  ├── 001b: Add validation (needs 001a)    → blocked
+  └── 001c: Add serialization (needs 001a) → blocked
+
+Task 002: Create Auth service (needs 001)  → blocked (parent incomplete)
+```
+
+After 001a completes:
+```
+  ├── 001a: completed
+  ├── 001b: Add validation (needs 001a)    → READY
+  └── 001c: Add serialization (needs 001a) → READY  (parallel with 001b!)
+```
+
+After 001b and 001c complete:
+```
+Task 001: completed (all subtasks done)
+Task 002: Create Auth service (needs 001)  → READY
+```
+
+---
+
+## Concurrency Control
+
+The conductor limits parallel execution using global and model-based limits.
+
+### Slot Calculation
+
+```javascript
+function calculateAvailableSlots(state, readyTasks) {
+  const config = state.config;
+  const running = state.parallel_state.running_tasks;
+
+  // Global limit
+  const globalLimit = config.max_parallel_tasks || 3;
+  let availableSlots = globalLimit - running.length;
+
+  if (availableSlots <= 0) return 0;
+
+  // Count running tasks by model
+  const runningByModel = {};
+  for (const taskId of running) {
+    const task = findTask(state, taskId);
+    const model = task?.model || 'sonnet';
+    runningByModel[model] = (runningByModel[model] || 0) + 1;
+  }
+
+  // Check model limits for ready tasks
+  const modelLimits = config.max_parallel_by_model || {
+    haiku: 5,
+    sonnet: 3,
+    opus: 1
+  };
+
+  // Find the most constrained model among ready tasks
+  for (const task of readyTasks) {
+    const model = task.model || 'sonnet';
+    const modelLimit = modelLimits[model] || globalLimit;
+    const modelRunning = runningByModel[model] || 0;
+    const modelSlots = modelLimit - modelRunning;
+    availableSlots = Math.min(availableSlots, modelSlots);
+  }
+
+  return Math.max(0, availableSlots);
+}
+```
+
+### Model Allocation Strategy
+
+| Role | Default Model | Rationale |
+|------|---------------|-----------|
+| Conductor | haiku | Scheduling is mechanical, low-cost |
+| Implementer (simple) | haiku | add_field, add_method, refactor tasks |
+| Implementer (complex) | sonnet | create_model, bug_fix, architecture tasks |
+| Reviewer | sonnet | Quality judgment requires stronger model |
+
+### Example: Slot Calculation
+
+Config:
+- `max_parallel_tasks: 3`
+- `max_parallel_by_model: { haiku: 5, sonnet: 3, opus: 1 }`
+
+Current state:
+- Running: 1 haiku task, 1 sonnet task (2 total)
+- Ready: 2 haiku tasks, 1 sonnet task
+
+Calculation:
+```
+Global: 3 - 2 = 1 slot available
+Haiku: 5 - 1 = 4 slots → min(1, 4) = 1
+Sonnet: 3 - 1 = 2 slots → min(1, 2) = 1
+Result: 1 slot (global limit is the constraint)
+```
+
+---
+
 ## Skill Invocation Logging
 
 Track all skill invocations in `state.json` for visibility and debugging:
