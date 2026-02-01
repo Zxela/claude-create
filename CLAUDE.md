@@ -110,23 +110,25 @@ Tasks are assigned models based on `task_type` (set during planning):
 
 **Target: Stay under 50% context window for optimal quality.**
 
-Each phase spawns the next phase as a **Task agent** with fresh context:
+Each phase spawns the next phase as a **Task agent** with fresh context and explicit model:
 
 ```
 /create
    │
    ▼
-Discovery (main session)
-   │ Task({ homerun:planning })
+Discovery (inherits caller model)
+   │ Task({ model: "sonnet", homerun:planning })
    ▼
-Planning (fresh agent)
-   │ Task({ homerun:conductor })
+Planning (sonnet - task decomposition requires reasoning)
+   │ Task({ model: "haiku", homerun:conductor })
    ▼
-Conductor (fresh agent)
-   │ Task({ homerun:implement })  Task({ homerun:review })
-   ▼                              ▼
-Implementer (fresh)            Reviewer (fresh)
+Conductor (haiku - scheduling is mechanical)
+   │ Task({ model: task.model })     Task({ model: "sonnet" })
+   ▼                                 ▼
+Implementer (haiku/sonnet)        Reviewer (always sonnet)
 ```
+
+**IMPORTANT:** All Task invocations must include explicit `model` parameter to ensure proper model routing and cost tracking.
 
 **Why Task agents for phase transitions:**
 - Each phase starts with clean context (~5-10K tokens)

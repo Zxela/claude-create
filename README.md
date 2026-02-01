@@ -121,7 +121,7 @@ Each phase spawns fresh agents to maintain optimal context window usage:
 │  CONDUCTOR AGENT                                                          │
 │  Skill: homerun:conductor                                                 │
 │  Context: ~5K tokens (state + current task)                               │
-│  Model: sonnet                                                            │
+│  Model: haiku (scheduling is mechanical)                                  │
 │                                                                           │
 │     ┌────────────────────┐         ┌────────────────────┐                │
 │     │  Task()            │         │  Task()            │                │
