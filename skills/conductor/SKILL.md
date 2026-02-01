@@ -75,7 +75,7 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 {
   "workflow_id": "feature-auth-system",
   "phase": "implementation",
-  "current_task": "task-002",
+  "current_task": null,
   "spec_paths": {
     "prd": "docs/specs/PRD.md",
     "adr": "docs/specs/ADR.md",
@@ -105,16 +105,33 @@ The conductor reads and updates `state.json` throughout the implementation loop.
       "id": "task-003",
       "title": "Add login endpoint",
       "status": "pending",
-      "attempts": 0
+      "attempts": 0,
+      "blocked_by": ["task-002"]
     }
   ],
+  "parallel_state": {
+    "running_tasks": ["task-002"],
+    "pending_review": [],
+    "retry_queue": [],
+    "blocked_by_failure": false,
+    "failure_severity": null,
+    "tasks_since_refresh": 0
+  },
   "created_at": "2026-01-25T10:00:00Z",
   "updated_at": "2026-01-25T14:30:00Z",
   "config": {
     "timeout_minutes": 30,
     "max_identical_rejections": 3,
     "max_iterations_without_progress": 3,
-    "max_total_attempts": 5
+    "max_total_attempts": 5,
+    "max_parallel_tasks": 3,
+    "max_parallel_by_model": {
+      "haiku": 5,
+      "sonnet": 3,
+      "opus": 1
+    },
+    "conductor_refresh_interval": 5,
+    "conductor_model": "haiku"
   }
 }
 ```
@@ -124,12 +141,22 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 | Field | Purpose |
 |-------|---------|
 | `phase` | Current workflow phase (`planning`, `implementation`, `completion`) |
-| `current_task` | ID of task currently being worked on |
+| `current_task` | Deprecated in parallel mode; use `parallel_state.running_tasks` |
 | `spec_paths` | Explicit paths to spec documents (PRD, ADR, technical_design, wireframes) |
 | `tasks_file` | Path to JSON file with all tasks (e.g., `docs/tasks.json`) |
-| `tasks[].status` | Task status: `pending`, `in_progress`, `completed`, `escalated` |
+| `tasks[].status` | Task status: `pending`, `in_progress`, `completed`, `escalated`, `skipped` |
 | `tasks[].attempts` | Number of implementation attempts for retry logic |
 | `tasks[].feedback` | Array of reviewer feedback from rejected attempts |
+| `tasks[].blocked_by` | Array of task IDs that must complete before this task can start |
+| `parallel_state.running_tasks` | Task IDs currently being implemented (parallel) |
+| `parallel_state.pending_review` | Completed implementations awaiting sequential review |
+| `parallel_state.retry_queue` | Failed tasks awaiting retry (lower priority than fresh tasks) |
+| `parallel_state.blocked_by_failure` | Whether high-severity failure has paused execution |
+| `parallel_state.tasks_since_refresh` | Counter for conductor context refresh |
+| `config.max_parallel_tasks` | Global concurrency limit (default: 3) |
+| `config.max_parallel_by_model` | Per-model concurrency limits: haiku=5, sonnet=3, opus=1 |
+| `config.conductor_refresh_interval` | Tasks between conductor refresh (default: 5) |
+| `config.conductor_model` | Model for conductor itself (default: haiku) |
 
 ## Skill Invocation Logging
 
