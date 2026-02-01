@@ -25,10 +25,11 @@ This is the **homerun** Claude Code plugin - an orchestrated development workflo
 ### State Management
 
 - `state.json` in worktree root tracks:
-  - session_id, branch, worktree path, phase, tasks array, current_task, config
+  - session_id, branch, worktree path, phase, tasks array, config
   - **`spec_paths`** - Explicit paths to spec documents (prd, adr, technical_design, wireframes)
   - **`tasks_file`** - Path to tasks.json (replaces tasks_dir)
   - **`traceability`** - Links between user stories, acceptance criteria, ADR decisions, and tasks
+  - **`parallel_state`** - Running tasks, pending reviews, retry queue, failure status
 - Phases: `discovery` → `planning` → `implementing` → `completing` → `done`
 - Enables resumability via `/create --resume`
 - **Important**: Implementors must use paths from `spec_paths` in state.json, not hardcoded paths
@@ -36,6 +37,27 @@ This is the **homerun** Claude Code plugin - an orchestrated development workflo
 ### Isolation Model
 
 Each workflow creates an isolated git worktree at `../repo-create-feature-uuid/` to prevent conflicts with main workspace.
+
+### Parallel Execution
+
+The conductor supports parallel task execution:
+- **Independent tasks** run in parallel (up to `config.max_parallel_tasks`, default 3)
+- **Subtasks** within a parent run in parallel when their deps resolve
+- **Reviews** are sequential to avoid cascade issues
+- **Model limits** prevent overloading expensive models:
+  - haiku: 5 concurrent
+  - sonnet: 3 concurrent
+  - opus: 1 concurrent
+- **Conductor refresh** every N tasks (default 5) prevents context bloat
+
+### Failure Handling
+
+| Severity | Response |
+|----------|----------|
+| Low/Medium | Add to retry queue, continue other tasks in parallel |
+| High | Block new spawns, let running finish, present TUI recovery options |
+
+Recovery options: Retry with guidance, Mark as fixed, Skip task, Return to planning
 
 ### Retry Logic
 
@@ -61,6 +83,13 @@ The conductor explicitly passes methodology to implement skill:
 This decouples methodology from the implement skill, making it configurable per-task.
 
 ### Model Routing
+
+| Role | Model | Notes |
+|------|-------|-------|
+| Conductor | haiku | Scheduling is mechanical work |
+| Implementer (simple) | haiku | add_field, add_method, refactor tasks |
+| Implementer (complex) | sonnet | create_model, bug_fix, architecture tasks |
+| Reviewer | sonnet | Always sonnet for quality judgment |
 
 Tasks are assigned models based on `task_type` (set during planning):
 
