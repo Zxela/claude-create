@@ -1930,40 +1930,121 @@ Handle errors gracefully to maintain workflow integrity.
 | Invalid task reference | Task ID not in state | Log error, skip to next valid task |
 | Git conflicts | Commit/merge fails | Pause workflow, notify user for resolution |
 
-### Error Handling Implementation
+### Error Handling Implementation (Parallel Version)
 
 ```javascript
-async function conductorLoop() {
-  try {
-    const state = await readState();
+async function conductorLoop(state) {
+  // Initialize parallel_state if missing (first run or legacy state)
+  state.parallel_state = state.parallel_state || {
+    running_tasks: [],
+    pending_review: [],
+    retry_queue: [],
+    blocked_by_failure: false,
+    failure_severity: null,
+    tasks_since_refresh: 0
+  };
 
-    while (true) {
-      const task = findNextPendingTask(state);
+  while (true) {
+    // 1. Poll for completed implementations
+    const completed = pollCompletedTasks(state);
+    processCompletions(state, completed);
 
-      if (!task) {
-        // All tasks complete
-        await transitionToPhase4(state);
-        break;
+    // 2. Process review queue (sequential - one at a time)
+    while (state.parallel_state.pending_review.length > 0) {
+      const result = processReviewQueue(state);
+
+      if (result.action === 'blocked') {
+        // High-severity failure - present TUI and exit
+        await handleHighSeverityFailure(state, result.task_id, result.feedback);
+        await saveState(state);
+        return; // Exit loop, wait for user recovery
       }
-
-      try {
-        await executeTask(task, state);
-      } catch (error) {
-        if (error.type === 'BLOCKED') {
-          await escalateToUser(task, error.reason);
-          break;
-        }
-        // Log and continue to next task or retry
-        console.error(`Task ${task.id} failed:`, error);
-        await handleTaskError(task, error, state);
-      }
-
-      await saveState(state);
     }
-  } catch (error) {
-    console.error('Conductor loop failed:', error);
-    await notifyUser('Workflow paused due to error', error);
+
+    // 3. Check if blocked by failure (recovery in progress)
+    if (state.parallel_state.blocked_by_failure) {
+      // User needs to make a recovery choice via TUI
+      continue;
+    }
+
+    // 4. Find ready tasks (fresh tasks + retries)
+    const freshReady = findReadyTasks(state);
+    const retryReady = processRetryQueue(state);
+    const allReady = [...freshReady, ...retryReady]; // Fresh tasks prioritized
+
+    // 5. Calculate available slots and spawn
+    const slots = calculateAvailableSlots(state, allReady);
+    if (slots > 0 && allReady.length > 0) {
+      spawnReadyTasks(state, allReady, slots);
+    }
+
+    // 6. Check for completion or deadlock
+    if (state.parallel_state.running_tasks.length === 0 &&
+        allReady.length === 0 &&
+        state.parallel_state.pending_review.length === 0) {
+
+      if (allTasksComplete(state)) {
+        await transitionToPhase4(state);
+        return;
+      } else {
+        // Deadlock - no tasks running, none ready, but not all complete
+        await handleDeadlock(state);
+        return;
+      }
+    }
+
+    // 7. Check if conductor needs refresh
+    if (checkConductorRefresh(state)) {
+      spawnFreshConductor(state);
+      return; // This conductor exits, fresh one continues
+    }
+
+    // 8. Save state and continue loop
+    await saveState(state);
+    await sleep(1000); // Poll interval
   }
+}
+
+function allTasksComplete(state) {
+  return state.tasks.every(task => {
+    if (task.subtasks?.length > 0) {
+      return task.subtasks.every(s => s.status === 'completed');
+    }
+    return task.status === 'completed' || task.status === 'skipped';
+  });
+}
+
+async function handleDeadlock(state) {
+  // Present deadlock report to user
+  const stuckTasks = state.tasks.filter(t =>
+    t.status === 'pending' || t.status === 'in_progress'
+  );
+
+  AskUserQuestion({
+    questions: [{
+      question: `Workflow appears deadlocked. ${stuckTasks.length} tasks cannot proceed. How would you like to resolve this?`,
+      header: "Deadlock",
+      options: [
+        {
+          label: "Show details",
+          description: "Display which tasks are stuck and why"
+        },
+        {
+          label: "Skip blocked tasks",
+          description: "Mark unresolvable tasks as skipped and continue"
+        },
+        {
+          label: "Return to planning",
+          description: "Restructure the task dependencies"
+        },
+        {
+          label: "Abort workflow",
+          description: "Stop the workflow and preserve current state"
+        }
+      ],
+      multiSelect: false
+    }]
+  });
 }
 ```
 
