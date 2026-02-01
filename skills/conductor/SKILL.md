@@ -2,6 +2,7 @@
 name: conductor
 description: "[haiku] Orchestrate the implementation loop - spawning implementer and reviewer agents"
 model: haiku
+color: green
 ---
 
 # Conductor Skill

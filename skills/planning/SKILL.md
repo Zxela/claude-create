@@ -2,6 +2,7 @@
 name: planning
 description: "[sonnet] Break specifications into test-bounded, commit-sized tasks"
 model: sonnet
+color: blue
 ---
 
 # Planning Skill

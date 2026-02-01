@@ -1,6 +1,7 @@
 ---
 name: discovery
 description: "[inherit] Refine ideas into PRD, ADR, Technical Design, and Wireframes through structured dialogue"
+color: yellow
 ---
 
 # Discovery Skill

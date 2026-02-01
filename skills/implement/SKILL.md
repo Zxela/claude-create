@@ -1,6 +1,7 @@
 ---
 name: implement
 description: "[haiku/sonnet] Implement a task using TDD (model set by conductor based on task complexity)"
+color: yellow
 ---
 
 # Implement Skill

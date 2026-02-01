@@ -2,6 +2,7 @@
 name: review
 description: "[sonnet] Verify implementation against specification and approve or reject"
 model: sonnet
+color: blue
 ---
 
 # Review Skill
