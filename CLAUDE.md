@@ -117,9 +117,9 @@ Each phase spawns the next phase as a **Task agent** with fresh context and expl
    │
    ▼
 Discovery (inherits caller model)
-   │ Task({ model: "sonnet", homerun:planning })
+   │ Task({ model: "opus", homerun:planning })
    ▼
-Planning (sonnet - task decomposition requires reasoning)
+Planning (opus - high-leverage, bad decomposition cascades)
    │ Task({ model: "haiku", homerun:conductor })
    ▼
 Conductor (haiku - scheduling is mechanical)

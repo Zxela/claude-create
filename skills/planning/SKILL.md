@@ -1,8 +1,8 @@
 ---
 name: planning
-description: "[sonnet] Break specifications into test-bounded, commit-sized tasks"
-model: sonnet
-color: blue
+description: "[opus] Break specifications into test-bounded, commit-sized tasks"
+model: opus
+color: purple
 ---
 
 # Planning Skill

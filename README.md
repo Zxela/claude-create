@@ -103,7 +103,7 @@ Each phase spawns fresh agents to maintain optimal context window usage:
 │  DISCOVERY AGENT                                                          │
 │  Skill: homerun:discovery                                                 │
 │  Context: ~10-20K tokens (grows during dialogue)                          │
-│  Model: sonnet                                                            │
+│  Model: inherits caller                                                   │
 └───────────────────────────────┬──────────────────────────────────────────┘
                                 │
                                 │ Task()  ← Fresh context
@@ -112,7 +112,7 @@ Each phase spawns fresh agents to maintain optimal context window usage:
 │  PLANNING AGENT                                                           │
 │  Skill: homerun:planning                                                  │
 │  Context: ~10K tokens (specs + state only)                                │
-│  Model: sonnet                                                            │
+│  Model: opus (high-leverage decomposition)                                │
 └───────────────────────────────┬──────────────────────────────────────────┘
                                 │
                                 │ Task()  ← Fresh context
