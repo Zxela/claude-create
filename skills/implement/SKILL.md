@@ -28,6 +28,14 @@ The conductor provides input as a JSON object. **Validate input before proceedin
         "id": { "type": "string", "pattern": "^[0-9]{3}$" },
         "title": { "type": "string" },
         "objective": { "type": "string" },
+        "task_type": {
+          "type": "string",
+          "enum": ["add_field", "add_method", "add_validation", "rename_refactor",
+                   "add_test", "add_config", "create_model", "create_service",
+                   "add_endpoint", "add_endpoint_complex", "create_middleware",
+                   "bug_fix", "integration_test", "architectural"],
+          "description": "Task classification for logging and model routing context"
+        },
         "acceptance_criteria": {
           "type": "array",
           "items": {
@@ -80,6 +88,7 @@ The conductor provides input as a JSON object. **Validate input before proceedin
     "id": "002",
     "title": "Implement user authentication service",
     "objective": "Create auth service with login and session management",
+    "task_type": "create_service",
     "acceptance_criteria": [
       {"id": "AC-001", "criterion": "User can log in with valid credentials"},
       {"id": "AC-002", "criterion": "Invalid credentials return 401 error"}

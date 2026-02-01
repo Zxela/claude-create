@@ -75,11 +75,11 @@ When planning completes, output a JSON signal:
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "tasks_count", "tasks_dir"],
+  "required": ["signal", "tasks_count", "tasks_file"],
   "properties": {
     "signal": { "const": "PLANNING_COMPLETE" },
     "tasks_count": { "type": "integer" },
-    "tasks_dir": { "type": "string" },
+    "tasks_file": { "type": "string" },
     "tasks": {
       "type": "array",
       "items": {
@@ -109,7 +109,7 @@ When planning completes, output a JSON signal:
 {
   "signal": "PLANNING_COMPLETE",
   "tasks_count": 8,
-  "tasks_dir": "docs/tasks",
+  "tasks_file": "docs/tasks.json",
   "tasks": [
     {"id": "001", "title": "Setup database schema", "depends_on": []},
     {"id": "002", "title": "Create User model", "depends_on": ["001"]},
@@ -139,6 +139,52 @@ Read the following documents from the worktree's `docs/specs/` directory:
 Also read:
 - `state.json` - Current workflow state and configuration
 - `CLAUDE.md` - Project conventions and patterns
+
+### Load Traceability from State
+
+Planning MUST preserve traceability links from discovery:
+
+```javascript
+// Load state.json and extract traceability
+const state = JSON.parse(fs.readFileSync('state.json'));
+const traceability = state.traceability;
+
+// When creating each task, populate traces_to:
+function createTask(taskData, traceability) {
+  return {
+    ...taskData,
+    traces_to: {
+      user_stories: findMatchingStories(taskData, traceability),
+      acceptance_criteria: findMatchingCriteria(taskData, traceability),
+      adr_decisions: findMatchingDecisions(taskData, traceability)
+    }
+  };
+}
+
+function findMatchingCriteria(task, traceability) {
+  // Match task objective/acceptance_criteria to traceability.acceptance_criteria
+  const matches = [];
+  for (const [acId, ac] of Object.entries(traceability.acceptance_criteria)) {
+    if (task.acceptance_criteria.some(tc =>
+      tc.criterion.toLowerCase().includes(ac.description.toLowerCase().slice(0, 20))
+    )) {
+      matches.push(acId);
+    }
+  }
+  return matches;
+}
+```
+
+**Validation:** After creating tasks.json, verify coverage:
+
+```bash
+# Check every AC from state.json maps to at least one task
+jq -r '.traceability.acceptance_criteria | keys[]' state.json | while read ac; do
+  if ! jq -e ".tasks[] | select(.traces_to.acceptance_criteria | contains([\"$ac\"]))" docs/tasks.json > /dev/null; then
+    echo "COVERAGE_GAP: $ac has no implementing task"
+  fi
+done
+```
 
 ---
 
@@ -404,11 +450,25 @@ docs/
   "definitions": {
     "task": {
       "type": "object",
-      "required": ["id", "title", "objective", "acceptance_criteria", "status", "depends_on"],
+      "required": ["id", "title", "objective", "acceptance_criteria", "status", "depends_on", "task_type"],
       "properties": {
         "id": { "type": "string", "pattern": "^[0-9]{3}[a-z]?$" },
         "title": { "type": "string" },
         "objective": { "type": "string" },
+        "task_type": {
+          "type": "string",
+          "enum": ["add_field", "add_method", "add_validation", "rename_refactor",
+                   "add_test", "add_config", "create_model", "create_service",
+                   "add_endpoint", "add_endpoint_complex", "create_middleware",
+                   "bug_fix", "integration_test", "architectural"],
+          "description": "Task classification for model routing"
+        },
+        "methodology": {
+          "type": "string",
+          "enum": ["tdd", "direct"],
+          "default": "tdd",
+          "description": "Implementation approach - 'direct' for config/docs only"
+        },
         "acceptance_criteria": {
           "type": "array",
           "items": {
@@ -451,6 +511,8 @@ docs/
       "id": "001",
       "title": "Setup database schema for users",
       "objective": "Create the database schema for the users table with all required fields for authentication as specified in TECHNICAL_DESIGN.md.",
+      "task_type": "add_config",
+      "methodology": "tdd",
       "acceptance_criteria": [
         {
           "id": "AC-001",
@@ -472,12 +534,14 @@ docs/
         "adr_decisions": ["ADR-001"]
       },
       "technical_notes": "Use UUID for primary key. Password hash using bcrypt (ADR-001). Soft delete via deleted_at.",
-      "model": "sonnet"
+      "model": "haiku"
     },
     {
       "id": "002",
       "title": "Create User model with validation",
       "objective": "Implement User model class with email validation and password hashing.",
+      "task_type": "create_model",
+      "methodology": "tdd",
       "acceptance_criteria": [
         {
           "id": "AC-003",
@@ -510,6 +574,8 @@ docs/
 | id | string | Yes | Sequential ID: "001", "002", or subtask "001a", "001b" |
 | title | string | Yes | Brief, imperative task description |
 | objective | string | Yes | What this task accomplishes |
+| task_type | enum | Yes | Classification for model routing (see Task Type Classification) |
+| methodology | enum | No | `tdd` (default) or `direct` for config/docs only |
 | acceptance_criteria | array | Yes | List of criteria with test assertions |
 | test_file | string | Conditional | Path to test file, null if exception applies |
 | no_test_reason | string | Conditional | Required if test_file is null |
@@ -771,7 +837,14 @@ Before transitioning to implementation, verify all criteria are met:
 
 **REQUIRED:** Before transitioning to implementation phase, run these automated validations:
 
-### DAG Cycle Detection
+### DAG Cycle Detection (REQUIRED)
+
+Task dependencies MUST form a Directed Acyclic Graph. **This validation is REQUIRED before transition.**
+
+If cycle detection fails:
+1. **Do not output PLANNING_COMPLETE**
+2. Fix the cycle by reordering tasks
+3. Re-validate
 
 Task dependencies must form a Directed Acyclic Graph (no circular dependencies):
 
@@ -818,6 +891,51 @@ for task_id in "${!deps[@]}"; do
     detect_cycle "$task_id" visited rec_stack
   fi
 done
+```
+
+**Alternative: JavaScript validation using Kahn's algorithm:**
+
+```javascript
+function validateDAG(tasks) {
+  // Build adjacency list
+  const graph = new Map();
+  tasks.forEach(t => graph.set(t.id, t.depends_on || []));
+
+  // Kahn's algorithm for cycle detection
+  const inDegree = new Map();
+  tasks.forEach(t => inDegree.set(t.id, 0));
+
+  graph.forEach((deps, id) => {
+    deps.forEach(dep => {
+      inDegree.set(dep, (inDegree.get(dep) || 0) + 1);
+    });
+  });
+
+  const queue = [...inDegree.entries()].filter(([_, d]) => d === 0).map(([id]) => id);
+  const sorted = [];
+
+  while (queue.length) {
+    const node = queue.shift();
+    sorted.push(node);
+    (graph.get(node) || []).forEach(neighbor => {
+      inDegree.set(neighbor, inDegree.get(neighbor) - 1);
+      if (inDegree.get(neighbor) === 0) queue.push(neighbor);
+    });
+  }
+
+  if (sorted.length !== tasks.length) {
+    const inCycle = tasks.filter(t => !sorted.includes(t.id)).map(t => t.id);
+    return { valid: false, cycle: inCycle };
+  }
+  return { valid: true, order: sorted };
+}
+
+// Usage:
+const result = validateDAG(tasks);
+if (!result.valid) {
+  console.error('VALIDATION_FAILED: Cycle detected involving tasks:', result.cycle);
+  // DO NOT proceed to PLANNING_COMPLETE
+}
 ```
 
 ### Test File Path Validation

@@ -82,7 +82,7 @@ The conductor reads and updates `state.json` throughout the implementation loop.
     "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
     "wireframes": "docs/specs/WIREFRAMES.md"
   },
-  "tasks_dir": "docs/tasks",
+  "tasks_file": "docs/tasks.json",
   "tasks": [
     {
       "id": "task-001",
@@ -113,7 +113,8 @@ The conductor reads and updates `state.json` throughout the implementation loop.
   "config": {
     "timeout_minutes": 30,
     "max_identical_rejections": 3,
-    "max_iterations_without_progress": 3
+    "max_iterations_without_progress": 3,
+    "max_total_attempts": 5
   }
 }
 ```
@@ -125,7 +126,7 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 | `phase` | Current workflow phase (`planning`, `implementation`, `completion`) |
 | `current_task` | ID of task currently being worked on |
 | `spec_paths` | Explicit paths to spec documents (PRD, ADR, technical_design, wireframes) |
-| `tasks_dir` | Directory containing task files (e.g., `docs/tasks`) |
+| `tasks_file` | Path to JSON file with all tasks (e.g., `docs/tasks.json`) |
 | `tasks[].status` | Task status: `pending`, `in_progress`, `completed`, `escalated` |
 | `tasks[].attempts` | Number of implementation attempts for retry logic |
 | `tasks[].feedback` | Array of reviewer feedback from rejected attempts |
@@ -202,6 +203,55 @@ fi
 if git remote get-url origin &>/dev/null; then
   git pull --rebase origin "$expected_branch" 2>/dev/null || true
 fi
+```
+
+### Input Validation Before Spawn
+
+Before spawning implementer or reviewer, validate the input will be processable:
+
+```javascript
+function validateBeforeSpawn(state, task, type) {
+  const errors = [];
+
+  // Check task exists and has required fields
+  if (!task.id) errors.push("Task missing 'id' field");
+  if (!task.title) errors.push("Task missing 'title' field");
+  if (!task.acceptance_criteria?.length) errors.push("Task missing acceptance criteria");
+
+  // Check spec files exist
+  const specPaths = state.spec_paths;
+  if (!fs.existsSync(specPaths.technical_design)) {
+    errors.push(`Technical design not found: ${specPaths.technical_design}`);
+  }
+
+  // Check tasks.json is valid
+  try {
+    JSON.parse(fs.readFileSync(state.tasks_file));
+  } catch (e) {
+    errors.push(`Invalid tasks.json: ${e.message}`);
+  }
+
+  // For reviewer: verify commit exists
+  if (type === 'reviewer' && task.commit_hash) {
+    const result = execSync(`git cat-file -t ${task.commit_hash} 2>/dev/null || echo "missing"`);
+    if (result.toString().trim() === 'missing') {
+      errors.push(`Commit not found: ${task.commit_hash}`);
+    }
+  }
+
+  return errors.length ? { valid: false, errors } : { valid: true };
+}
+```
+
+**Usage before spawning:**
+
+```javascript
+const validation = validateBeforeSpawn(state, task, 'implementer');
+if (!validation.valid) {
+  console.error('Pre-spawn validation failed:', validation.errors);
+  return { action: 'validation_failed', errors: validation.errors };
+}
+// Proceed with spawn...
 ```
 
 ---
@@ -327,6 +377,56 @@ function detectNoProgress(state) {
 }
 ```
 
+### Circuit Breaker
+
+Prevent infinite retry loops with hard limits:
+
+```javascript
+const MAX_TOTAL_ATTEMPTS = 5;  // Hard limit per task
+const MAX_IDENTICAL_REJECTIONS = 3;  // Same feedback = stop
+
+function checkCircuitBreaker(task) {
+  // Hard limit check
+  if (task.attempts >= MAX_TOTAL_ATTEMPTS) {
+    return {
+      tripped: true,
+      reason: `Max attempts (${MAX_TOTAL_ATTEMPTS}) exceeded`,
+      action: 'escalate_permanently'
+    };
+  }
+
+  // Identical rejection check
+  if (task.feedback?.length >= MAX_IDENTICAL_REJECTIONS) {
+    const hashes = task.feedback.slice(-MAX_IDENTICAL_REJECTIONS)
+      .map(f => JSON.stringify(f.issues?.sort() || []));
+    if (new Set(hashes).size === 1) {
+      return {
+        tripped: true,
+        reason: `Same rejection ${MAX_IDENTICAL_REJECTIONS}x in a row`,
+        action: 'escalate_permanently'
+      };
+    }
+  }
+
+  return { tripped: false };
+}
+```
+
+Update `handleRejection()` to check circuit breaker first:
+
+```javascript
+function handleRejectionWithBreaker(task, feedback) {
+  const breaker = checkCircuitBreaker(task);
+  if (breaker.tripped) {
+    task.status = 'permanently_failed';
+    task.failure_reason = breaker.reason;
+    return { action: 'circuit_breaker', reason: breaker.reason };
+  }
+  // ... proceed with existing retry logic
+  return handleRejection(task, feedback);
+}
+```
+
 ### Deadlock Response
 
 If deadlock is detected:
@@ -355,7 +455,7 @@ cd "$WORKTREE_PATH"
 TECHNICAL_DESIGN_PATH=$(jq -r '.spec_paths.technical_design // "docs/specs/TECHNICAL_DESIGN.md"' state.json)
 ADR_PATH=$(jq -r '.spec_paths.adr // "docs/specs/ADR.md"' state.json)
 PRD_PATH=$(jq -r '.spec_paths.prd // "docs/specs/PRD.md"' state.json)
-TASKS_DIR=$(jq -r '.tasks_dir // "docs/tasks"' state.json)
+TASKS_FILE=$(jq -r '.tasks_file // "docs/tasks.json"' state.json)
 
 # Verify paths exist
 for path in "$TECHNICAL_DESIGN_PATH" "$ADR_PATH"; do
@@ -371,6 +471,10 @@ Build the JSON input object from state and task file:
 
 ```javascript
 function buildImplementerInput(state, task) {
+  // Get model from task (set by planning based on task_type)
+  // Fall back to sonnet if not specified
+  const model = task.escalated_model || task.model || "sonnet";
+
   return {
     task: {
       id: task.id,
@@ -380,7 +484,8 @@ function buildImplementerInput(state, task) {
         id: ac.id,
         criterion: ac.criterion
       })),
-      test_file: task.test_file
+      test_file: task.test_file,
+      task_type: task.task_type  // Pass through for logging/routing
     },
     methodology: task.methodology || "tdd",  // Explicit methodology (tdd, direct, etc.)
     spec_paths: {
@@ -388,7 +493,8 @@ function buildImplementerInput(state, task) {
       adr: state.spec_paths.adr
     },
     previous_feedback: task.feedback || [],
-    worktree_path: state.worktree
+    worktree_path: state.worktree,
+    model: model  // Model for Task agent to use
   };
 }
 ```

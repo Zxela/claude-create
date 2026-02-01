@@ -344,7 +344,7 @@ Create `state.json` in the worktree root with traceability structure:
     "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
     "wireframes": "docs/specs/WIREFRAMES.md"
   },
-  "tasks_dir": "docs/tasks",
+  "tasks_file": "docs/tasks.json",
   "traceability": {
     "user_stories": {
       "US-001": {
@@ -542,7 +542,7 @@ When starting a new discovery session, initialize state with this structure:
     "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
     "wireframes": "docs/specs/WIREFRAMES.md"
   },
-  "tasks_dir": "docs/tasks",
+  "tasks_file": "docs/tasks.json",
   "traceability": {
     "user_stories": {},
     "acceptance_criteria": {},
@@ -580,7 +580,7 @@ When starting a new discovery session, initialize state with this structure:
 | created_at | ISO 8601 timestamp of session creation |
 | phase | Current workflow phase (discovery, planning, implementing, etc.) |
 | spec_paths | Explicit paths to spec documents (PRD, ADR, technical_design, wireframes) |
-| tasks_dir | Directory containing task files (e.g., "docs/tasks") |
+| tasks_file | Path to JSON file with all tasks (e.g., "docs/tasks.json") |
 | traceability | Links between user stories, acceptance criteria, ADR decisions, and tasks |
 | tasks | Map of task IDs to status objects (populated in planning) |
 | current_task | ID of task currently being worked on (null in discovery) |

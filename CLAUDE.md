@@ -27,7 +27,8 @@ This is the **homerun** Claude Code plugin - an orchestrated development workflo
 - `state.json` in worktree root tracks:
   - session_id, branch, worktree path, phase, tasks array, current_task, config
   - **`spec_paths`** - Explicit paths to spec documents (prd, adr, technical_design, wireframes)
-  - **`tasks_dir`** - Directory containing task files (default: `docs/tasks`)
+  - **`tasks_file`** - Path to tasks.json (replaces tasks_dir)
+  - **`traceability`** - Links between user stories, acceptance criteria, ADR decisions, and tasks
 - Phases: `discovery` → `planning` → `implementing` → `completing` → `done`
 - Enables resumability via `/create --resume`
 - **Important**: Implementors must use paths from `spec_paths` in state.json, not hardcoded paths
@@ -61,9 +62,18 @@ This decouples methodology from the implement skill, making it configurable per-
 
 ### Model Routing
 
-Tasks are assigned models based on complexity (set during planning):
-- **haiku**: Simple tasks (add_field, add_method, refactor)
-- **sonnet**: Complex tasks (create_model, create_service, bug_fix)
+Tasks are assigned models based on `task_type` (set during planning):
+
+| task_type | model | methodology |
+|-----------|-------|-------------|
+| add_field, add_method, add_config | haiku | tdd |
+| rename_refactor, add_test, add_validation | haiku | tdd |
+| add_endpoint | haiku | tdd |
+| create_model, create_service | sonnet | tdd |
+| create_middleware, add_endpoint_complex | sonnet | tdd |
+| bug_fix, integration_test | sonnet | tdd |
+| architectural | opus | tdd |
+
 - **Reviews always use sonnet** for quality assurance
 - **Escalation**: High-severity rejections upgrade haiku tasks to sonnet
 
@@ -144,3 +154,12 @@ These skills are bundled locally (cloned from superpowers) for reference and opt
 - **Commits**: `feat(feature-name): task title` format during implementation
 - **Tasks**: Must be single-commit, test-bounded, with explicit dependencies
 - **Specs**: YAML frontmatter for metadata, markdown body for content
+
+## Version Management
+
+**Version is tracked in two places - update both when bumping:**
+
+1. `.claude-plugin/plugin.json` - Primary plugin metadata
+2. `docs/plans/2026-01-25-create-workflow-implementation.md` - Original implementation plan
+
+Use semantic versioning: `MAJOR.MINOR.PATCH`
