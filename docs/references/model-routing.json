@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "description": "Authoritative task type to model routing configuration",
+
+  "task_routing": {
+    "haiku": {
+      "task_types": [
+        "add_field",
+        "add_method",
+        "add_validation",
+        "rename_refactor",
+        "add_test",
+        "add_config",
+        "add_endpoint"
+      ],
+      "characteristics": "Mechanical, single-focus, <15 min",
+      "max_parallel": 5,
+      "decomposable": false
+    },
+    "sonnet": {
+      "task_types": [
+        "create_model",
+        "create_service",
+        "add_endpoint_complex",
+        "create_middleware",
+        "bug_fix",
+        "integration_test"
+      ],
+      "characteristics": "Multi-file, requires judgment, 15-45 min",
+      "max_parallel": 3,
+      "decomposable": true
+    },
+    "opus": {
+      "task_types": [
+        "architectural"
+      ],
+      "characteristics": "High-leverage decisions, decomposition cascades if wrong",
+      "max_parallel": 1,
+      "decomposable": false
+    }
+  },
+
+  "phase_models": {
+    "discovery": "inherit",
+    "planning": "opus",
+    "conductor": "haiku",
+    "reviewer": "sonnet"
+  },
+
+  "escalation": {
+    "trigger": "high_severity_rejection",
+    "from": "haiku",
+    "to": "sonnet"
+  },
+
+  "no_test_exceptions": [
+    "documentation_only",
+    "config_static",
+    "type_definitions_only",
+    "dependency_update",
+    "delete_dead_code"
+  ]
+}

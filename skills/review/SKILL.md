@@ -7,6 +7,10 @@ color: blue
 
 # Review Skill
 
+## Reference Materials
+
+For detailed examples, see `docs/cookbooks/review-feedback-examples.md`.
+
 ## Overview
 
 You are a reviewer agent. Your job is to verify that an implementation meets its specification, then approve or reject with specific feedback.

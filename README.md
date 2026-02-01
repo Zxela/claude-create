@@ -138,6 +138,8 @@ Each phase spawns fresh agents to maintain optimal context window usage:
 
 ## Model Routing
 
+> **Note:** The authoritative source for model routing is `docs/references/model-routing.json`.
+
 Tasks are automatically assigned to the appropriate model based on complexity:
 
 ```

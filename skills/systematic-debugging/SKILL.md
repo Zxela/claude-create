@@ -5,6 +5,8 @@ description: Use when encountering any bug, test failure, or unexpected behavior
 
 # Systematic Debugging
 
+> **Quick Reference:** For rapid troubleshooting of workflow issues, see `docs/references/debugging-flowchart.md`
+
 ## Overview
 
 Random fixes waste time and create new bugs. Quick patches mask underlying issues.

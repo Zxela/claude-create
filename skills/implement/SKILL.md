@@ -204,10 +204,11 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["criterion", "test"],
+        "required": ["criterion", "implementation_file", "test_location"],
         "properties": {
-          "criterion": { "type": "string" },
-          "test": { "type": "string" }
+          "criterion": { "type": "string", "description": "AC ID (e.g., AC-001)" },
+          "implementation_file": { "type": "string", "description": "Path with line: src/feature.ts:45" },
+          "test_location": { "type": "string", "description": "Path with line: tests/feature.test.ts:23" }
         }
       }
     }
@@ -224,10 +225,21 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
   "test_file": "tests/services/auth.test.ts",
   "commit_hash": "abc1234",
   "acceptance_criteria_met": [
-    {"criterion": "AC-001", "test": "should create user with valid email"},
-    {"criterion": "AC-002", "test": "should reject duplicate emails"}
+    {
+      "criterion": "AC-001",
+      "implementation_file": "src/services/auth.ts:45",
+      "test_location": "tests/services/auth.test.ts:12"
+    },
+    {
+      "criterion": "AC-002",
+      "implementation_file": "src/services/auth.ts:67",
+      "test_location": "tests/services/auth.test.ts:34"
+    }
   ]
 }
+```
+
+**IMPORTANT:** If any acceptance criterion cannot be addressed, return `IMPLEMENTATION_BLOCKED` with reason. Do NOT omit criteria silently.
 ```
 
 ### Blocked: IMPLEMENTATION_BLOCKED

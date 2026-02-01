@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "description": "Signal envelope schema and contracts for homerun skills",
+
+  "envelope_schema": {
+    "type": "object",
+    "required": ["signal", "timestamp", "source", "payload"],
+    "properties": {
+      "signal": {
+        "type": "string",
+        "description": "Signal name (DISCOVERY_COMPLETE, APPROVED, etc.)"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO8601 timestamp of signal emission"
+      },
+      "source": {
+        "type": "object",
+        "required": ["skill"],
+        "properties": {
+          "skill": {
+            "type": "string",
+            "description": "Skill that emitted the signal"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "Task ID if applicable"
+          },
+          "attempt": {
+            "type": "integer",
+            "description": "Attempt number if retry"
+          }
+        }
+      },
+      "payload": {
+        "type": "object",
+        "description": "Signal-specific data"
+      },
+      "envelope_version": {
+        "type": "string",
+        "default": "1.0.0"
+      }
+    }
+  },
+
+  "signals": {
+    "DISCOVERY_COMPLETE": {
+      "producer": "homerun:discovery",
+      "envelope_example": {
+        "signal": "DISCOVERY_COMPLETE",
+        "timestamp": "2026-01-25T10:30:00Z",
+        "source": { "skill": "homerun:discovery" },
+        "payload": {
+          "worktree_path": "/path/to/worktree",
+          "branch": "create/feature-uuid",
+          "spec_paths": {
+            "prd": "docs/PRD.md",
+            "adr": "docs/ADR.md",
+            "technical_design": "docs/TECHNICAL_DESIGN.md",
+            "wireframes": "docs/WIREFRAMES.md"
+          },
+          "user_stories_count": 3,
+          "acceptance_criteria_count": 8
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "PLANNING_COMPLETE": {
+      "producer": "homerun:planning",
+      "envelope_example": {
+        "signal": "PLANNING_COMPLETE",
+        "timestamp": "2026-01-25T10:45:00Z",
+        "source": { "skill": "homerun:planning" },
+        "payload": {
+          "tasks_count": 8,
+          "tasks_file": "docs/tasks.json",
+          "dependency_graph_valid": true,
+          "coverage": {
+            "user_stories": 3,
+            "acceptance_criteria": 12
+          }
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "IMPLEMENTATION_COMPLETE": {
+      "producer": "homerun:implement",
+      "envelope_example": {
+        "signal": "IMPLEMENTATION_COMPLETE",
+        "timestamp": "2026-01-25T11:00:00Z",
+        "source": {
+          "skill": "homerun:implement",
+          "task_id": "001",
+          "attempt": 1
+        },
+        "payload": {
+          "files_changed": ["src/feature.ts"],
+          "test_file": "tests/feature.test.ts",
+          "commit_hash": "abc1234",
+          "acceptance_criteria_met": [
+            {
+              "criterion": "AC-001",
+              "implementation_file": "src/feature.ts:45",
+              "test_location": "tests/feature.test.ts:23"
+            }
+          ]
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "IMPLEMENTATION_BLOCKED": {
+      "producer": "homerun:implement",
+      "envelope_example": {
+        "signal": "IMPLEMENTATION_BLOCKED",
+        "timestamp": "2026-01-25T11:00:00Z",
+        "source": {
+          "skill": "homerun:implement",
+          "task_id": "001",
+          "attempt": 1
+        },
+        "payload": {
+          "reason": "Cannot find the User model referenced in TECHNICAL_DESIGN.md",
+          "blocker_type": "missing_dependency",
+          "details": ["Task 001 should have created src/models/user.ts"],
+          "suggested_resolution": "Run task 001 first or verify task ordering"
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "APPROVED": {
+      "producer": "homerun:review",
+      "envelope_example": {
+        "signal": "APPROVED",
+        "timestamp": "2026-01-25T11:15:00Z",
+        "source": {
+          "skill": "homerun:review",
+          "task_id": "001"
+        },
+        "payload": {
+          "summary": "User authentication service implemented with password hashing",
+          "verified": [
+            {
+              "criterion": "AC-001",
+              "description": "User can register with email/password",
+              "implementation_file": "src/services/auth.ts:45",
+              "test_file": "tests/services/auth.test.ts:12"
+            }
+          ]
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "REJECTED": {
+      "producer": "homerun:review",
+      "envelope_example": {
+        "signal": "REJECTED",
+        "timestamp": "2026-01-25T11:15:00Z",
+        "source": {
+          "skill": "homerun:review",
+          "task_id": "001"
+        },
+        "payload": {
+          "summary": "Missing test for AC-002",
+          "issues": [
+            {
+              "criterion": "AC-002",
+              "severity": "medium",
+              "description": "No test covers error handling case",
+              "file": "src/feature.ts",
+              "line": 45
+            }
+          ],
+          "required_fixes": ["Add test for error handling"]
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "VALIDATION_ERROR": {
+      "producer": "any",
+      "envelope_example": {
+        "signal": "VALIDATION_ERROR",
+        "timestamp": "2026-01-25T11:00:00Z",
+        "source": { "skill": "homerun:implement" },
+        "payload": {
+          "error_type": "invalid_input",
+          "errors": [
+            {
+              "path": "$.task.acceptance_criteria",
+              "message": "acceptance_criteria array is empty",
+              "expected": "non-empty array",
+              "received": "[]"
+            }
+          ]
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "COVERAGE_GAPS_DETECTED": {
+      "producer": "homerun:conductor",
+      "envelope_example": {
+        "signal": "COVERAGE_GAPS_DETECTED",
+        "timestamp": "2026-01-25T12:00:00Z",
+        "source": { "skill": "homerun:conductor" },
+        "payload": {
+          "errors": [
+            {
+              "type": "ac_uncovered",
+              "criterion": "AC-005",
+              "message": "Acceptance criterion AC-005 has no completed tasks"
+            }
+          ],
+          "coverage": {
+            "user_stories": { "total": 3, "covered": 3 },
+            "acceptance_criteria": { "total": 8, "covered": 7 }
+          }
+        },
+        "envelope_version": "1.0.0"
+      }
+    }
+  },
+
+  "validation": {
+    "quick_check": "function isValidEnvelope(signal) { const required = ['signal', 'timestamp', 'source', 'payload']; return required.every(field => signal.hasOwnProperty(field)) && typeof signal.source === 'object' && signal.source.skill; }",
+    "common_errors": [
+      { "error": "Missing timestamp", "cause": "Old skill version", "fix": "Update skill or add manually" },
+      { "error": "No source.skill", "cause": "Skill not identified", "fix": "Add skill name to source" },
+      { "error": "Payload is string", "cause": "JSON not parsed", "fix": "Parse payload as object" }
+    ]
+  }
+}

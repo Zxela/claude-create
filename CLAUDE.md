@@ -84,6 +84,9 @@ This decouples methodology from the implement skill, making it configurable per-
 
 ### Model Routing
 
+See `docs/references/model-routing.json` for the authoritative task type to model mapping.
+
+**Quick reference:**
 | Role | Model | Notes |
 |------|-------|-------|
 | Conductor | haiku | Scheduling is mechanical work |
@@ -91,24 +94,14 @@ This decouples methodology from the implement skill, making it configurable per-
 | Implementer (complex) | sonnet | create_model, bug_fix, architecture tasks |
 | Reviewer | sonnet | Always sonnet for quality judgment |
 
-Tasks are assigned models based on `task_type` (set during planning):
-
-| task_type | model | methodology |
-|-----------|-------|-------------|
-| add_field, add_method, add_config | haiku | tdd |
-| rename_refactor, add_test, add_validation | haiku | tdd |
-| add_endpoint | haiku | tdd |
-| create_model, create_service | sonnet | tdd |
-| create_middleware, add_endpoint_complex | sonnet | tdd |
-| bug_fix, integration_test | sonnet | tdd |
-| architectural | opus | tdd |
-
 - **Reviews always use sonnet** for quality assurance
 - **Escalation**: High-severity rejections upgrade haiku tasks to sonnet
 
 ### Context Management
 
 **Target: Stay under 50% context window for optimal quality.**
+
+See `docs/references/token-estimation.md` for token budgets and refresh triggers.
 
 Each phase spawns the next phase as a **Task agent** with fresh context and explicit model:
 
@@ -177,6 +170,8 @@ These skills are bundled locally (cloned from superpowers) for reference and opt
 | `homerun:using-git-worktrees` | `skills/using-git-worktrees/SKILL.md` | Worktree reference (discovery has worktree creation inline) |
 | `homerun:finishing-a-development-branch` | `skills/finishing-a-development-branch/SKILL.md` | PR/merge handling (invoked by conductor at completion) |
 | `homerun:systematic-debugging` | `skills/systematic-debugging/SKILL.md` | Debugging reference for stuck implementations |
+
+For quick troubleshooting, see `docs/references/debugging-flowchart.md`.
 
 **Note:** Core workflow skills (discovery, planning, conductor, implement, review) have key logic inline rather than invoking sub-skills, reducing coupling and making each skill self-contained.
 

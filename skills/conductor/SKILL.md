@@ -7,6 +7,11 @@ color: green
 
 # Conductor Skill
 
+## Reference Documents
+
+Before executing, read these reference documents as needed:
+- `docs/references/state-machine.md` - Detailed algorithms, pseudocode, and state transitions
+
 ## Overview
 
 The conductor orchestrates Phase 3 (Implementation) of the workflow using a **reactive scheduler** that supports parallel task execution. Its responsibilities:
@@ -23,64 +28,15 @@ The conductor uses **haiku** by default (configurable via `config.conductor_mode
 
 ## Loop Flow (Reactive Scheduler)
 
-```dot
-digraph conductor_loop {
-    rankdir=TB;
-    node [shape=box, style=rounded];
+See `docs/references/state-machine.md` for the full loop diagram and pseudocode.
 
-    start [label="Start Conductor Loop", shape=ellipse];
-    read_state [label="Read state.json\nInitialize parallel_state if missing"];
-    poll_running [label="Poll Running Tasks\nCheck for completions"];
-    move_to_review [label="Move Completed\nto pending_review"];
-    check_review_queue [label="Review Queue\nNon-empty?", shape=diamond];
-    process_review [label="Process One Review\n(Sequential)"];
-    check_result [label="Review Result?", shape=diamond];
-    mark_complete [label="Mark Complete\nUnblock Dependents\nIncrement tasks_since_refresh"];
-    add_retry [label="Add to retry_queue"];
-    block_high [label="Set blocked_by_failure\nEscalate to User"];
-    check_blocked [label="Blocked by\nFailure?", shape=diamond];
-    wait_recovery [label="Present TUI\nRecovery Options"];
-    find_ready [label="Find Ready Tasks\n(deps resolved, not running)"];
-    calc_slots [label="Calculate Available Slots\n(global + model limits)"];
-    spawn_tasks [label="Spawn Implementers\n(up to slots available)"];
-    check_done [label="Running Empty\n+ No Ready?", shape=diamond];
-    all_complete [label="All Tasks\nComplete?", shape=diamond];
-    phase4 [label="Transition to Phase 4\nhomerun:finishing-a-development-branch"];
-    deadlock [label="Deadlock Detected\nEscalate to User"];
-    check_refresh [label="Refresh\nNeeded?", shape=diamond];
-    spawn_fresh [label="Spawn Fresh Conductor\nExit Current"];
-    end_node [label="End", shape=ellipse];
-
-    start -> read_state;
-    read_state -> poll_running;
-    poll_running -> move_to_review;
-    move_to_review -> check_review_queue;
-    check_review_queue -> process_review [label="Yes"];
-    check_review_queue -> check_blocked [label="No"];
-    process_review -> check_result;
-    check_result -> mark_complete [label="APPROVED"];
-    check_result -> add_retry [label="REJECTED\n(low/med)"];
-    check_result -> block_high [label="REJECTED\n(high)"];
-    mark_complete -> check_review_queue;
-    add_retry -> check_review_queue;
-    block_high -> end_node;
-    check_blocked -> wait_recovery [label="Yes"];
-    check_blocked -> find_ready [label="No"];
-    wait_recovery -> find_ready;
-    find_ready -> calc_slots;
-    calc_slots -> spawn_tasks;
-    spawn_tasks -> check_done;
-    check_done -> all_complete [label="Yes"];
-    check_done -> check_refresh [label="No"];
-    all_complete -> phase4 [label="Yes"];
-    all_complete -> deadlock [label="No"];
-    phase4 -> end_node;
-    deadlock -> end_node;
-    check_refresh -> spawn_fresh [label="Yes"];
-    check_refresh -> poll_running [label="No"];
-    spawn_fresh -> end_node;
-}
-```
+**Key steps:**
+1. Poll running tasks for completions
+2. Process reviews sequentially
+3. Handle failures by severity
+4. Find ready tasks
+5. Spawn implementers (respecting concurrency limits)
+6. Refresh context periodically
 
 ### Key Behavioral Changes from Sequential to Parallel
 
@@ -189,160 +145,28 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 
 ## Finding Ready Tasks
 
-The conductor identifies tasks that are ready to execute using dependency resolution.
+See `docs/references/state-machine.md` for the full `findReadyTasks` algorithm.
 
-### Ready Task Criteria
-
-A task is **ready** if:
+**Ready task criteria:**
 1. Status is `pending` (not already running or complete)
 2. All `blocked_by` dependencies have status `completed`
 3. Not already in `parallel_state.running_tasks`
 
-### Subtask Handling
-
-When a task has subtasks:
-1. **Parent never executes directly** - Only subtasks run
-2. **Subtask deps resolve locally first** - Check sibling subtasks before parent-level deps
-3. **Subtasks inherit parent's model** - For concurrency limit calculation
-4. **Parent auto-completes** - When all subtasks reach `completed` status
-
-### findReadyTasks Algorithm
-
-```javascript
-function findReadyTasks(state) {
-  const ready = [];
-  const running = new Set(state.parallel_state.running_tasks);
-
-  for (const task of state.tasks) {
-    // Skip non-actionable tasks
-    if (!['pending', 'in_progress'].includes(task.status)) continue;
-    if (running.has(task.id)) continue;
-
-    // Check parent-level dependencies
-    const parentDepsResolved = (task.blocked_by || []).every(depId =>
-      isTaskComplete(state, depId)
-    );
-    if (!parentDepsResolved) continue;
-
-    if (task.subtasks?.length > 0) {
-      // Process subtasks - parent doesn't run directly
-      for (const subtask of task.subtasks) {
-        if (subtask.status !== 'pending') continue;
-        if (running.has(subtask.id)) continue;
-
-        const subtaskDepsResolved = (subtask.blocked_by || []).every(depId => {
-          // Check siblings first
-          const sibling = task.subtasks.find(s => s.id === depId);
-          if (sibling) return sibling.status === 'completed';
-          // Then parent-level deps
-          return isTaskComplete(state, depId);
-        });
-
-        if (subtaskDepsResolved) {
-          ready.push({
-            ...subtask,
-            parent_id: task.id,
-            model: subtask.model || task.model || 'sonnet'
-          });
-        }
-      }
-    } else if (task.status === 'pending') {
-      // No subtasks - task is directly executable
-      ready.push(task);
-    }
-  }
-
-  return ready;
-}
-
-function isTaskComplete(state, taskId) {
-  // Check top-level tasks
-  const task = state.tasks.find(t => t.id === taskId);
-  if (task) return task.status === 'completed';
-
-  // Check subtasks
-  for (const parent of state.tasks) {
-    const subtask = parent.subtasks?.find(s => s.id === taskId);
-    if (subtask) return subtask.status === 'completed';
-  }
-
-  return false;
-}
-```
-
-### Example: Dependency Resolution
-
-Initial state:
-```
-Task 001: Create User model (no deps)
-  ├── 001a: Create class (no deps)         → READY
-  ├── 001b: Add validation (needs 001a)    → blocked
-  └── 001c: Add serialization (needs 001a) → blocked
-
-Task 002: Create Auth service (needs 001)  → blocked (parent incomplete)
-```
-
-After 001a completes:
-```
-  ├── 001a: completed
-  ├── 001b: Add validation (needs 001a)    → READY
-  └── 001c: Add serialization (needs 001a) → READY  (parallel with 001b!)
-```
-
-After 001b and 001c complete:
-```
-Task 001: completed (all subtasks done)
-Task 002: Create Auth service (needs 001)  → READY
-```
+**Subtask handling:**
+- Parent never executes directly - only subtasks run
+- Subtask deps resolve locally first (check siblings before parent-level deps)
+- Subtasks inherit parent's model for concurrency limits
+- Parent auto-completes when all subtasks complete
 
 ---
 
 ## Concurrency Control
 
-The conductor limits parallel execution using global and model-based limits.
+See `docs/references/state-machine.md` for the slot calculation algorithm.
 
-### Slot Calculation
-
-```javascript
-function calculateAvailableSlots(state, readyTasks) {
-  const config = state.config;
-  const running = state.parallel_state.running_tasks;
-
-  // Global limit
-  const globalLimit = config.max_parallel_tasks || 3;
-  let availableSlots = globalLimit - running.length;
-
-  if (availableSlots <= 0) return 0;
-
-  // Count running tasks by model
-  const runningByModel = {};
-  for (const taskId of running) {
-    const task = findTask(state, taskId);
-    const model = task?.model || 'sonnet';
-    runningByModel[model] = (runningByModel[model] || 0) + 1;
-  }
-
-  // Check model limits for ready tasks
-  const modelLimits = config.max_parallel_by_model || {
-    haiku: 5,
-    sonnet: 3,
-    opus: 1
-  };
-
-  // Find the most constrained model among ready tasks
-  for (const task of readyTasks) {
-    const model = task.model || 'sonnet';
-    const modelLimit = modelLimits[model] || globalLimit;
-    const modelRunning = runningByModel[model] || 0;
-    const modelSlots = modelLimit - modelRunning;
-    availableSlots = Math.min(availableSlots, modelSlots);
-  }
-
-  return Math.max(0, availableSlots);
-}
-```
-
-### Model Allocation Strategy
+The conductor limits parallel execution using:
+- **Global limit**: `config.max_parallel_tasks` (default: 3)
+- **Per-model limits**: `config.max_parallel_by_model` (haiku: 5, sonnet: 3, opus: 1)
 
 | Role | Default Model | Rationale |
 |------|---------------|-----------|
@@ -350,24 +174,6 @@ function calculateAvailableSlots(state, readyTasks) {
 | Implementer (simple) | haiku | add_field, add_method, refactor tasks |
 | Implementer (complex) | sonnet | create_model, bug_fix, architecture tasks |
 | Reviewer | sonnet | Quality judgment requires stronger model |
-
-### Example: Slot Calculation
-
-Config:
-- `max_parallel_tasks: 3`
-- `max_parallel_by_model: { haiku: 5, sonnet: 3, opus: 1 }`
-
-Current state:
-- Running: 1 haiku task, 1 sonnet task (2 total)
-- Ready: 2 haiku tasks, 1 sonnet task
-
-Calculation:
-```
-Global: 3 - 2 = 1 slot available
-Haiku: 5 - 1 = 4 slots → min(1, 4) = 1
-Sonnet: 3 - 1 = 2 slots → min(1, 2) = 1
-Result: 1 slot (global limit is the constraint)
-```
 
 ---
 
@@ -520,6 +326,28 @@ function handleReviewResult(state, task, result) {
   const reviewResult = parseReviewerOutput(result);
 
   if (reviewResult.signal === "APPROVED") {
+    // Validate traceability before marking complete
+    const validation = validateTaskTraceability(task, reviewResult);
+
+    if (!validation.valid) {
+      // Return to implementer with validation error
+      return {
+        action: 'return_to_implementer',
+        signal: 'VALIDATION_ERROR',
+        errors: validation.errors,
+        message: 'Implementation approved but traceability validation failed'
+      };
+    }
+
+    // Log any warnings
+    if (validation.warnings.length > 0) {
+      state.skill_log.push({
+        event: 'traceability_warnings',
+        task: task.id,
+        warnings: validation.warnings
+      });
+    }
+
     // Mark complete and unblock dependents
     markTaskComplete(state, task.id);
     unblockDependents(state, task.id);
@@ -550,6 +378,55 @@ function handleReviewResult(state, task, result) {
     addToRetryQueue(state, task.id, reviewResult);
     return { action: 'continue' };
   }
+}
+```
+
+---
+
+## Traceability Validation
+
+### Per-Task Validation
+
+Before marking a task `completed`, validate acceptance criteria coverage:
+
+```javascript
+function validateTaskTraceability(task, implementerOutput) {
+  const errors = [];
+  const warnings = [];
+
+  // 1. All acceptance criteria addressed
+  for (const ac of task.acceptance_criteria) {
+    const met = implementerOutput.acceptance_criteria_met
+      ?.find(m => m.criterion === ac.id || m.criterion === ac.text);
+
+    if (!met) {
+      errors.push({
+        type: 'ac_not_addressed',
+        criterion: ac.id,
+        message: `Acceptance criterion "${ac.id}" not in implementation output`
+      });
+    } else if (!met.test_location) {
+      warnings.push({
+        type: 'ac_no_test',
+        criterion: ac.id,
+        message: `Acceptance criterion "${ac.id}" has no test reference`
+      });
+    }
+  }
+
+  // 2. Test file exists (if specified)
+  if (task.test_file && !implementerOutput.test_file) {
+    errors.push({
+      type: 'test_file_missing',
+      message: `Task specifies test_file but none in output`
+    });
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  };
 }
 ```
 
@@ -718,7 +595,55 @@ function handleRecoveryChoice(state, taskId, choice) {
 
 The conductor refreshes itself to prevent token accumulation over long-running workflows.
 
-### Refresh Trigger
+See `docs/references/token-estimation.md` for detailed token estimation formulas.
+
+### Refresh Triggers
+
+Refresh when ANY of:
+1. `tasks_since_refresh >= conductor_refresh_interval` (default: 5)
+2. `estimated_tokens > refresh_threshold_percent * window_size` (token-based)
+3. `feedback_accumulation > 10KB`
+
+### Token-Aware Refresh Decision
+
+```javascript
+function shouldRefreshConductor(state) {
+  const tracking = state.token_tracking;
+  const config = tracking?.config || {};
+
+  // Task-count trigger (existing)
+  if (state.parallel_state.tasks_since_refresh >= 5) {
+    return { refresh: true, reason: 'task_count' };
+  }
+
+  // Token-based trigger
+  if (tracking?.enabled) {
+    const estimated = estimateCurrentTokens(state);
+    const threshold = (config.refresh_threshold_percent / 100) * config.window_size;
+
+    if (estimated > threshold) {
+      return { refresh: true, reason: 'token_threshold', estimated };
+    }
+  }
+
+  return { refresh: false };
+}
+```
+
+### Logging Refreshes
+
+When refreshing, log to `token_tracking.refresh_log`:
+
+```javascript
+state.token_tracking.refresh_log.push({
+  timestamp: new Date().toISOString(),
+  reason: refreshDecision.reason,
+  tasks_completed: state.parallel_state.tasks_since_refresh,
+  estimated_tokens: refreshDecision.estimated
+});
+```
+
+### Spawn Fresh Conductor
 
 After completing `conductor_refresh_interval` tasks (default: 5), spawn a fresh conductor:
 
@@ -946,132 +871,19 @@ If a task times out:
 
 ## Deadlock Detection
 
-Detect when the implementation loop is stuck without progress.
-
-### Deadlock Indicators
+See `docs/references/state-machine.md` for detailed deadlock detection algorithms.
 
 | Indicator | Detection | Threshold |
 |-----------|-----------|-----------|
-| Identical rejections | Same task rejected with identical feedback hash | 3 consecutive |
-| No progress | No tasks completed in N iterations | 3 iterations |
-| Circular rejection | Task A rejected, then Task B rejected citing Task A | 2 occurrences |
+| Identical rejections | Same feedback hash | 3 consecutive |
+| No progress | No tasks completed | 3 iterations |
+| Circuit breaker | Max attempts exceeded | 5 attempts |
 
-### Identical Rejection Detection
-
-```javascript
-function detectIdenticalRejections(task) {
-  if (!task.feedback || task.feedback.length < 2) return false;
-
-  // Hash feedback for comparison
-  const hashFeedback = (fb) => JSON.stringify(fb.issues?.sort() || []);
-
-  const recentHashes = task.feedback.slice(-3).map(hashFeedback);
-  const uniqueHashes = new Set(recentHashes);
-
-  if (recentHashes.length >= 3 && uniqueHashes.size === 1) {
-    return {
-      deadlocked: true,
-      reason: "Same rejection feedback received 3+ times",
-      feedback: task.feedback[task.feedback.length - 1]
-    };
-  }
-  return { deadlocked: false };
-}
-```
-
-### Progress Tracking
-
-Track completed tasks per iteration:
-
-```json
-{
-  "progress": {
-    "iteration": 5,
-    "tasks_completed_this_iteration": 0,
-    "last_completion_iteration": 2
-  }
-}
-```
-
-```javascript
-function detectNoProgress(state) {
-  const config = state.config || {};
-  const maxIterationsWithoutProgress = config.max_iterations_without_progress || 3;
-
-  const iterationsSinceProgress =
-    state.progress.iteration - state.progress.last_completion_iteration;
-
-  if (iterationsSinceProgress >= maxIterationsWithoutProgress) {
-    return {
-      deadlocked: true,
-      reason: `No tasks completed in ${iterationsSinceProgress} iterations`,
-      stalled_tasks: state.tasks.filter(t => t.status === 'in_progress')
-    };
-  }
-  return { deadlocked: false };
-}
-```
-
-### Circuit Breaker
-
-Prevent infinite retry loops with hard limits:
-
-```javascript
-const MAX_TOTAL_ATTEMPTS = 5;  // Hard limit per task
-const MAX_IDENTICAL_REJECTIONS = 3;  // Same feedback = stop
-
-function checkCircuitBreaker(task) {
-  // Hard limit check
-  if (task.attempts >= MAX_TOTAL_ATTEMPTS) {
-    return {
-      tripped: true,
-      reason: `Max attempts (${MAX_TOTAL_ATTEMPTS}) exceeded`,
-      action: 'escalate_permanently'
-    };
-  }
-
-  // Identical rejection check
-  if (task.feedback?.length >= MAX_IDENTICAL_REJECTIONS) {
-    const hashes = task.feedback.slice(-MAX_IDENTICAL_REJECTIONS)
-      .map(f => JSON.stringify(f.issues?.sort() || []));
-    if (new Set(hashes).size === 1) {
-      return {
-        tripped: true,
-        reason: `Same rejection ${MAX_IDENTICAL_REJECTIONS}x in a row`,
-        action: 'escalate_permanently'
-      };
-    }
-  }
-
-  return { tripped: false };
-}
-```
-
-Update `handleRejection()` to check circuit breaker first:
-
-```javascript
-function handleRejectionWithBreaker(task, feedback) {
-  const breaker = checkCircuitBreaker(task);
-  if (breaker.tripped) {
-    task.status = 'permanently_failed';
-    task.failure_reason = breaker.reason;
-    return { action: 'circuit_breaker', reason: breaker.reason };
-  }
-  // ... proceed with existing retry logic
-  return handleRejection(task, feedback);
-}
-```
-
-### Deadlock Response
-
-If deadlock is detected:
-1. **Do not continue** the implementation loop
+**Deadlock response:**
+1. Do not continue the implementation loop
 2. Mark workflow as `needs_intervention`
-3. Present detailed deadlock report to user:
-   - Which task(s) are stuck
-   - What feedback has been repeated
-   - Suggested actions (simplify task, split task, clarify requirements)
-4. Wait for user guidance before continuing
+3. Present detailed report to user
+4. Wait for user guidance
 
 ---
 
@@ -1196,17 +1008,37 @@ After the implementer signals completion, spawn a reviewer agent.
 
 ### Parsing Implementer Output
 
-Parse the JSON output from the implementer:
+Parse the JSON output from the implementer. Supports both envelope and legacy formats.
+
+See `docs/references/signal-contracts.json` for the envelope schema.
 
 ```javascript
-function parseImplementerOutput(output) {
+function parseSignal(output) {
   // Find JSON block in output
   const jsonMatch = output.match(/```json\s*([\s\S]*?)\s*```/);
   if (!jsonMatch) {
-    throw new Error("No JSON output found in implementer response");
+    throw new Error("No JSON output found in response");
   }
 
   const result = JSON.parse(jsonMatch[1]);
+
+  // Support both envelope and legacy format
+  if (result.envelope_version) {
+    // New envelope format - extract and flatten
+    return {
+      signal: result.signal,
+      timestamp: result.timestamp,
+      source: result.source,
+      ...result.payload
+    };
+  } else {
+    // Legacy format - use as-is
+    return result;
+  }
+}
+
+function parseImplementerOutput(output) {
+  const result = parseSignal(output);
 
   // Validate signal
   const validSignals = ["IMPLEMENTATION_COMPLETE", "IMPLEMENTATION_BLOCKED", "VALIDATION_ERROR"];
@@ -1488,55 +1320,172 @@ Each rejected attempt's feedback is preserved:
 }
 ```
 
+---
+
+## Rollback Strategy
+
+When a task permanently fails (circuit breaker tripped, user skips, or unrecoverable error), choose a rollback strategy:
+
+### Option 1: Revert Commits (Clean History)
+
+Use when: Task commits broke something, need clean history
+
+```bash
+# Get task's commits from state
+TASK_ID="001"
+TASK_COMMITS=$(jq -r ".tasks[] | select(.id == \"$TASK_ID\") | .commits // []" tasks.json)
+
+# Revert each commit (newest first to avoid conflicts)
+for commit in $(echo "$TASK_COMMITS" | jq -r '.[]' | tac); do
+  git revert --no-commit "$commit"
+done
+
+# Single revert commit
+git commit -m "revert(feature): rollback task $TASK_ID - $FAILURE_REASON"
+```
+
+**State update:**
+```json
+{
+  "status": "rolled_back",
+  "rollback": {
+    "strategy": "revert_commits",
+    "reverted_commits": ["abc123", "def456"],
+    "revert_commit": "ghi789",
+    "reason": "circuit_breaker_max_attempts",
+    "rolled_back_at": "2026-01-25T12:00:00Z"
+  }
+}
+```
+
+### Option 2: Soft Skip (Preserve Work)
+
+Use when: Partial work is valuable, can be completed later
+
+```json
+{
+  "status": "skipped",
+  "skip_reason": "blocked_by_external_dependency",
+  "preserved_commits": ["abc123"],
+  "resume_notes": "Waiting for API v2 release"
+}
+```
+
+**Effects:**
+- Dependents unblocked (may need manual adjustment)
+- Work preserved in git history
+- Warning added to COMPLETION_REPORT.md
+- Can resume with `/create --resume` after resolving blocker
+
+### Option 3: Reset to Planning
+
+Use when: Task was incorrectly specified, needs re-decomposition
+
+```bash
+# Mark task for replanning
+jq '.tasks[] |= if .id == "001" then .status = "needs_replanning" else . end' tasks.json > tmp && mv tmp tasks.json
+```
+
+**State update:**
+```json
+{
+  "phase": "planning",
+  "replanning_context": {
+    "failed_task": "001",
+    "failure_reason": "task_too_large",
+    "feedback": ["Consider splitting into 3 subtasks"]
+  }
+}
+```
+
+### Option 4: User Takeover
+
+Use when: Automated recovery not possible, human judgment needed
+
+```json
+{
+  "status": "user_takeover",
+  "takeover_reason": "requires_domain_expertise",
+  "handoff_notes": "Need to decide between approach A and B",
+  "related_files": ["src/complex.ts", "docs/ADR.md"]
+}
+```
+
+Present options to user:
+1. Implement manually, then mark complete
+2. Provide guidance, retry automated
+3. Remove from scope (update PRD)
+4. Decompose differently (return to planning)
+
+### Choosing Rollback Strategy
+
+```javascript
+function chooseRollbackStrategy(task, failure) {
+  // Circuit breaker - usually needs revert
+  if (failure.type === 'circuit_breaker') {
+    if (task.commits?.length > 0) return 'revert_commits';
+    return 'soft_skip';
+  }
+
+  // External blocker - preserve and skip
+  if (failure.type === 'blocked_external') return 'soft_skip';
+
+  // Specification issue - replan
+  if (failure.type === 'spec_unclear' || failure.type === 'task_too_large') {
+    return 'reset_to_planning';
+  }
+
+  // Complex judgment needed
+  return 'user_takeover';
+}
+```
+
+### Recovery Commands
+
+```bash
+# Check task status
+jq '.tasks[] | select(.status != "completed") | {id, status, attempts}' tasks.json
+
+# Find commits for task
+TASK_ID="001"
+git log --oneline --grep="task $TASK_ID" --grep="($TASK_ID)" --all-match
+
+# Revert single commit
+git revert --no-commit <commit-hash>
+git commit -m "revert: undo <commit-hash> due to <reason>"
+
+# Reset task for retry
+jq '.tasks[] |= if .id == "001" then .status = "pending" | .attempts = 0 | .feedback = [] else . end' tasks.json > tmp && mv tmp tasks.json
+
+# Force complete task (manual override)
+jq '.tasks[] |= if .id == "001" then .status = "completed" | .manual_override = true else . end' tasks.json > tmp && mv tmp tasks.json
+```
+
+---
+
 ## Model Routing Strategy
 
-The conductor uses different models for different roles and escalates on failures.
-
-### Role-Based Model Assignment
-
-| Role | Model | Rationale |
-|------|-------|-----------|
-| Implementer (simple tasks) | haiku | Fast, cost-effective for add_field, add_method, refactor |
-| Implementer (complex tasks) | sonnet | Better reasoning for create_model, create_service, bug_fix |
-| Reviewer | sonnet (always) | Quality assurance requires stronger judgment |
+See `docs/references/model-routing.json` for the authoritative task type to model mapping.
 
 ### Task Model Selection
 
-The planning phase assigns `model` to each task based on `task_type`:
+The planning phase assigns `model` to each task based on `task_type`. The conductor reads this from the task:
 
 ```javascript
-// Model comes from task.model field (set by planning skill)
 const implementerModel = task.escalated_model || task.model || "sonnet";
 ```
 
 ### Escalation on High-Severity Rejection
 
-When a reviewer rejects with `severity: "high"` issues:
+When a reviewer rejects with `severity: "high"`, escalate haiku tasks to sonnet:
+1. Detect high-severity issues
+2. Set `task.escalated_model = "sonnet"`
+3. Next attempt uses sonnet
 
-1. **Detect**: Check if any `issue.severity === "high"`
-2. **Escalate**: Set `task.escalated_model = "sonnet"`
-3. **Retry**: Next implementation attempt uses sonnet instead of haiku
-
-```javascript
-// In handleRejection:
-const hasHighSeverity = feedback.issues?.some(issue => issue.severity === "high");
-if (hasHighSeverity && task.model === "haiku") {
-  task.escalated_model = "sonnet";
-}
+**Escalation flow:**
 ```
-
-### Escalation Flow
-
+haiku implements → sonnet reviews → REJECTED (high severity) → sonnet re-implements
 ```
-haiku implements → sonnet reviews → REJECTED (high severity)
-                                         ↓
-                               sonnet re-implements → sonnet reviews
-```
-
-This ensures:
-- Simple tasks stay fast and cheap with haiku
-- Complex issues get escalated to sonnet automatically
-- Reviews always have sonnet-level quality assurance
 
 ---
 
@@ -1712,7 +1661,67 @@ When all tasks are completed, transition to the completion phase.
    const allComplete = state.tasks.every(t => t.status === 'completed');
    ```
 
-2. **Run PRD Verification Gate** (REQUIRED)
+2. **Run Workflow Coverage Validation** (REQUIRED)
+
+   Before running PRD verification, validate full traceability coverage:
+
+   ```javascript
+   function validateWorkflowTraceability(state) {
+     const errors = [];
+     const coverage = {
+       user_stories: { total: 0, covered: 0 },
+       acceptance_criteria: { total: 0, covered: 0 }
+     };
+
+     const traceability = state.traceability;
+     const tasks = loadTasks(state.tasks_file);
+     const completedTasks = tasks.filter(t => t.status === 'completed');
+
+     // Check each user story
+     for (const [storyId, story] of Object.entries(traceability.user_stories)) {
+       coverage.user_stories.total++;
+       const storyTasks = completedTasks.filter(t =>
+         t.traces_to?.user_story === storyId
+       );
+       if (storyTasks.length > 0) {
+         coverage.user_stories.covered++;
+       } else {
+         errors.push({
+           type: 'story_uncovered',
+           story: storyId,
+           message: `User story "${storyId}" has no completed tasks`
+         });
+       }
+     }
+
+     // Check each acceptance criterion
+     for (const [acId, ac] of Object.entries(traceability.acceptance_criteria)) {
+       coverage.acceptance_criteria.total++;
+       const acTasks = completedTasks.filter(t =>
+         t.traces_to?.acceptance_criteria?.includes(acId) ||
+         t.acceptance_criteria?.some(c => c.id === acId)
+       );
+       if (acTasks.length > 0) {
+         coverage.acceptance_criteria.covered++;
+       } else {
+         errors.push({
+           type: 'ac_uncovered',
+           criterion: acId,
+           message: `Acceptance criterion "${acId}" has no completed tasks`
+         });
+       }
+     }
+
+     return { valid: errors.length === 0, errors, coverage };
+   }
+   ```
+
+   If coverage gaps are found, present options:
+   - Create additional tasks for uncovered criteria
+   - Mark criteria as out-of-scope (update PRD)
+   - Proceed anyway (document gaps in COMPLETION_REPORT.md)
+
+3. **Run PRD Verification Gate** (REQUIRED)
 
    Before transitioning to completion, verify the implementation meets PRD requirements.
 
@@ -1933,136 +1942,13 @@ Handle errors gracefully to maintain workflow integrity.
 | Invalid task reference | Task ID not in state | Log error, skip to next valid task |
 | Git conflicts | Commit/merge fails | Pause workflow, notify user for resolution |
 
-### Error Handling Implementation (Parallel Version)
+### Error Handling Implementation
 
-```javascript
-async function conductorLoop(state) {
-  // Initialize parallel_state if missing (first run or legacy state)
-  state.parallel_state = state.parallel_state || {
-    running_tasks: [],
-    pending_review: [],
-    retry_queue: [],
-    blocked_by_failure: false,
-    failure_severity: null,
-    tasks_since_refresh: 0
-  };
+See `docs/references/state-machine.md` for the full `conductorLoop` implementation with parallel support.
 
-  while (true) {
-    // 1. Poll for completed implementations
-    const completed = pollCompletedTasks(state);
-    processCompletions(state, completed);
-
-    // 2. Process review queue (sequential - one at a time)
-    while (state.parallel_state.pending_review.length > 0) {
-      const result = processReviewQueue(state);
-
-      if (result.action === 'blocked') {
-        // High-severity failure - present TUI and exit
-        await handleHighSeverityFailure(state, result.task_id, result.feedback);
-        await saveState(state);
-        return; // Exit loop, wait for user recovery
-      }
-    }
-
-    // 3. Check if blocked by failure (recovery in progress)
-    if (state.parallel_state.blocked_by_failure) {
-      // User needs to make a recovery choice via TUI
-      continue;
-    }
-
-    // 4. Find ready tasks (fresh tasks + retries)
-    const freshReady = findReadyTasks(state);
-    const retryReady = processRetryQueue(state);
-    const allReady = [...freshReady, ...retryReady]; // Fresh tasks prioritized
-
-    // 5. Calculate available slots and spawn
-    const slots = calculateAvailableSlots(state, allReady);
-    if (slots > 0 && allReady.length > 0) {
-      spawnReadyTasks(state, allReady, slots);
-    }
-
-    // 6. Check for completion or deadlock
-    if (state.parallel_state.running_tasks.length === 0 &&
-        allReady.length === 0 &&
-        state.parallel_state.pending_review.length === 0) {
-
-      if (allTasksComplete(state)) {
-        await transitionToPhase4(state);
-        return;
-      } else {
-        // Deadlock - no tasks running, none ready, but not all complete
-        await handleDeadlock(state);
-        return;
-      }
-    }
-
-    // 7. Check if conductor needs refresh
-    if (checkConductorRefresh(state)) {
-      spawnFreshConductor(state);
-      return; // This conductor exits, fresh one continues
-    }
-
-    // 8. Save state and continue loop
-    await saveState(state);
-    await sleep(1000); // Poll interval
-  }
-}
-
-function allTasksComplete(state) {
-  return state.tasks.every(task => {
-    if (task.subtasks?.length > 0) {
-      return task.subtasks.every(s => s.status === 'completed');
-    }
-    return task.status === 'completed' || task.status === 'skipped';
-  });
-}
-
-async function handleDeadlock(state) {
-  // Present deadlock report to user
-  const stuckTasks = state.tasks.filter(t =>
-    t.status === 'pending' || t.status === 'in_progress'
-  );
-
-  AskUserQuestion({
-    questions: [{
-      question: `Workflow appears deadlocked. ${stuckTasks.length} tasks cannot proceed. How would you like to resolve this?`,
-      header: "Deadlock",
-      options: [
-        {
-          label: "Show details",
-          description: "Display which tasks are stuck and why"
-        },
-        {
-          label: "Skip blocked tasks",
-          description: "Mark unresolvable tasks as skipped and continue"
-        },
-        {
-          label: "Return to planning",
-          description: "Restructure the task dependencies"
-        },
-        {
-          label: "Abort workflow",
-          description: "Stop the workflow and preserve current state"
-        }
-      ],
-      multiSelect: false
-    }]
-  });
-}
-```
-
-### State Backup
-
-Before critical operations, create state backups:
-
-```javascript
-async function saveState(state) {
-  // Backup current state
-  const backupPath = `${statePath}.backup`;
-  await copyFile(statePath, backupPath);
-
-  // Write new state
-  state.updated_at = new Date().toISOString();
-  await writeFile(statePath, JSON.stringify(state, null, 2));
-}
-```
+**Key behaviors:**
+- Initialize `parallel_state` if missing
+- Poll for completions, process review queue sequentially
+- Block on high-severity failures, continue on low/medium
+- Detect deadlock when no tasks running, none ready, but not all complete
+- Refresh conductor after N completed tasks

@@ -241,39 +241,150 @@ no_test_reason: "documentation only"
 
 ### Task Type Classification (Model Routing)
 
-Classify each task to determine which model executes it:
+See `docs/references/model-routing.json` for the authoritative task type to model mapping.
 
-| Task Type | Model | Decomposable | Examples |
-|-----------|-------|--------------|----------|
-| `add_field` | haiku | no | Add email field to User model |
-| `add_method` | haiku | no | Add validateEmail() to User |
-| `add_validation` | haiku | no | Add input validation to handler |
-| `rename_refactor` | haiku | no | Rename userId to id across files |
-| `add_test` | haiku | no | Add unit test for existing function |
-| `add_config` | haiku | no | Add environment variable |
-| `create_model` | sonnet | yes | Create User model with validation |
-| `create_service` | sonnet | yes | Create AuthService with methods |
-| `add_endpoint` | haiku | no | Add GET /users route (simple) |
-| `add_endpoint_complex` | sonnet | yes | Add POST /auth/login with JWT |
-| `create_middleware` | sonnet | yes | Create auth middleware |
-| `bug_fix` | sonnet | no | Fix race condition in cache |
-| `integration_test` | sonnet | no | Add e2e test for auth flow |
-| `architectural` | opus | no | Design plugin system |
-
-**Classification Rules:**
+**Classification rules:**
 1. Default to `haiku` for mechanical, pattern-following tasks
 2. Use `sonnet` when task requires design decisions or security implications
 3. Use `opus` only for architectural tasks requiring broad context
-4. If `decomposable=true`, break into haiku-sized subtasks
+4. If `decomposable=true` in the routing config, break into haiku-sized subtasks
 
-**Decomposition Patterns:**
+---
 
-| Parent Type | Subtask Pattern |
-|-------------|-----------------|
-| `create_model` | create_class → add_field (each) → add_method (each) |
-| `create_service` | create_interface → implement_method (each) → add_error_handling |
-| `add_endpoint_complex` | add_route → add_validation → add_auth_check → add_handler |
-| `create_middleware` | create_function → add_token_validation → add_error_response |
+## Task Decomposition Rules
+
+### MUST Decompose (Required)
+
+A task MUST be decomposed into subtasks if ANY of these conditions:
+
+| Condition | Threshold | Rationale |
+|-----------|-----------|-----------|
+| Acceptance criteria count | > 3 | Too many behaviors for single focus |
+| Estimated files changed | > 4 | Too much scope for single commit |
+| Multiple architectural layers | >= 2 layers | E.g., model + service + API |
+| Task type is decomposable | See model-routing.json | Sonnet tasks often need subtasks |
+| Title contains "and" | Connecting distinct ops | "Create user AND send email" |
+
+### SHOULD Decompose (Recommended)
+
+Consider decomposition if ANY of these:
+
+| Condition | Signal | Action |
+|-----------|--------|--------|
+| Multiple test files needed | Different test concerns | Split by test file |
+| Mixed methodologies | TDD + config changes | Separate TDD from direct |
+| External dependencies | API calls, DB setup | Isolate integration points |
+| Risk concentration | One task blocks many | Reduce blast radius |
+
+### MUST NOT Decompose
+
+Do NOT decompose if:
+- Task is already haiku-level (add_field, add_method, etc.)
+- Single acceptance criterion
+- Pure refactoring with no behavior change
+- Documentation-only changes
+
+### Decomposition Patterns
+
+**Pattern 1: Vertical Slice**
+```
+Parent: "Create user registration"
+  +-- 001a: Create User model with fields
+  +-- 001b: Add validation methods to User
+  +-- 001c: Create UserService.register()
+  +-- 001d: Add /register endpoint
+  +-- 001e: Add registration tests
+```
+
+**Pattern 2: By Acceptance Criterion**
+```
+Parent: "Implement password reset" (AC-001, AC-002, AC-003)
+  +-- 001a: AC-001 - Generate reset token
+  +-- 001b: AC-002 - Send reset email
+  +-- 001c: AC-003 - Validate and update password
+```
+
+**Pattern 3: By Layer**
+```
+Parent: "Add audit logging"
+  +-- 001a: Create AuditLog model
+  +-- 001b: Create AuditService
+  +-- 001c: Add middleware for auto-logging
+  +-- 001d: Add audit log endpoint
+```
+
+### Subtask Specifications
+
+When decomposing, each subtask MUST have:
+
+```json
+{
+  "id": "001a",
+  "parent_id": "001",
+  "title": "Create User model with fields",
+  "task_type": "add_field",
+  "model": "haiku",
+  "acceptance_criteria": [
+    { "id": "001a-AC1", "text": "User model exists with email, password_hash fields" }
+  ],
+  "test_file": "tests/models/user.test.ts",
+  "blocked_by": [],
+  "estimated_scope": "single_file"
+}
+```
+
+**Subtask constraints:**
+- Max 1 acceptance criterion per subtask (prefer)
+- Single file focus when possible
+- Haiku model unless requires judgment
+- Clear dependency chain (a → b → c)
+
+### Decomposition Validation Gate
+
+Before finalizing tasks.json, validate decomposition:
+
+```javascript
+function validateDecomposition(tasks) {
+  const errors = [];
+  const warnings = [];
+
+  for (const task of tasks) {
+    // Skip subtasks
+    if (task.parent_id) continue;
+
+    const acCount = task.acceptance_criteria?.length || 0;
+    const isDecomposable = getModelConfig(task.task_type)?.decomposable;
+
+    // MUST decompose checks
+    if (acCount > 3 && !hasSubtasks(task, tasks)) {
+      errors.push({
+        task: task.id,
+        rule: 'ac_count_exceeded',
+        message: `Task has ${acCount} AC but no subtasks`
+      });
+    }
+
+    if (isDecomposable && !hasSubtasks(task, tasks)) {
+      warnings.push({
+        task: task.id,
+        rule: 'decomposable_not_decomposed',
+        message: `Task type "${task.task_type}" is decomposable but has no subtasks`
+      });
+    }
+
+    // Title check
+    if (task.title.toLowerCase().includes(' and ') && !hasSubtasks(task, tasks)) {
+      warnings.push({
+        task: task.id,
+        rule: 'compound_title',
+        message: 'Title contains "and" - consider decomposing'
+      });
+    }
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
+}
+```
 
 ---
 

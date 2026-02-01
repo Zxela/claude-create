@@ -6,6 +6,10 @@ color: yellow
 
 # Discovery Skill
 
+## Reference Materials
+
+For detailed examples, see `docs/cookbooks/discovery-dialogue-examples.md`.
+
 ## Overview
 
 Guide the user from a rough idea to complete specification documents through structured, one-question-at-a-time dialogue. This skill is the first phase of the `/create` workflow, transforming initial concepts into formal PRD, ADR, Technical Design, and Wireframe documents.
@@ -32,6 +36,8 @@ The `/create` command provides input as a JSON object:
       "type": "object",
       "properties": {
         "auto_mode": { "type": "boolean", "default": false },
+        "max_dialogue_turns": { "type": "integer", "default": 20 },
+        "dialogue_warning_at": { "type": "integer", "default": 15 },
         "retries": {
           "type": "object",
           "properties": {
@@ -67,47 +73,32 @@ When discovery completes, output a JSON signal:
 
 ### Success: DISCOVERY_COMPLETE
 
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "required": ["signal", "worktree_path", "branch", "spec_paths"],
-  "properties": {
-    "signal": { "const": "DISCOVERY_COMPLETE" },
-    "session_id": { "type": "string" },
-    "worktree_path": { "type": "string" },
-    "branch": { "type": "string" },
-    "spec_paths": {
-      "type": "object",
-      "properties": {
-        "prd": { "type": "string" },
-        "adr": { "type": "string" },
-        "technical_design": { "type": "string" },
-        "wireframes": { "type": ["string", "null"] }
-      }
-    },
-    "user_stories_count": { "type": "integer" },
-    "acceptance_criteria_count": { "type": "integer" }
-  }
-}
-```
-
-**Example:**
+See `docs/references/signal-contracts.json` for the full envelope schema.
 
 ```json
 {
   "signal": "DISCOVERY_COMPLETE",
-  "session_id": "user-auth-a1b2c3d4",
-  "worktree_path": "../myapp-create-user-auth-a1b2c3d4",
-  "branch": "create/user-auth-a1b2c3d4",
-  "spec_paths": {
-    "prd": "docs/specs/PRD.md",
-    "adr": "docs/specs/ADR.md",
-    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
-    "wireframes": "docs/specs/WIREFRAMES.md"
+  "timestamp": "2026-01-25T10:30:00Z",
+  "source": { "skill": "homerun:discovery" },
+  "payload": {
+    "session_id": "user-auth-a1b2c3d4",
+    "worktree_path": "../myapp-create-user-auth-a1b2c3d4",
+    "branch": "create/user-auth-a1b2c3d4",
+    "spec_paths": {
+      "prd": "docs/specs/PRD.md",
+      "adr": "docs/specs/ADR.md",
+      "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
+      "wireframes": "docs/specs/WIREFRAMES.md"
+    },
+    "user_stories_count": 3,
+    "acceptance_criteria_count": 12,
+    "dialogue_stats": {
+      "total_turns": 18,
+      "categories_covered": ["purpose", "users", "scope", "constraints", "edge_cases"],
+      "auto_completed": false
+    }
   },
-  "user_stories_count": 3,
-  "acceptance_criteria_count": 12
+  "envelope_version": "1.0.0"
 }
 ```
 
@@ -234,6 +225,87 @@ E) Depends on the error type (let's discuss)
 - If an answer is unclear, ask a clarifying follow-up
 - Summarize understanding periodically (every 3-4 questions)
 
+---
+
+### Dialogue Turn Limits
+
+Track dialogue turns to prevent infinite loops:
+
+```javascript
+function shouldContinueDialogue(state, config) {
+  const turns = state.dialogue_state.turns_completed;
+  const max = config.max_dialogue_turns || 20;
+  const warning = config.dialogue_warning_at || 15;
+
+  // Hard limit reached
+  if (turns >= max) {
+    return {
+      continue: false,
+      reason: 'max_turns_reached',
+      action: 'auto_generate_specs'
+    };
+  }
+
+  // Warning threshold
+  if (turns >= warning && !state.dialogue_state.warnings_shown) {
+    return {
+      continue: true,
+      showWarning: true,
+      message: `We've gathered substantial detail (${turns} exchanges). Ready to generate specs, or continue refining?`
+    };
+  }
+
+  // Check category coverage
+  const remaining = state.dialogue_state.categories_remaining;
+  if (remaining.length === 0) {
+    return {
+      continue: false,
+      reason: 'all_categories_covered',
+      action: 'generate_specs'
+    };
+  }
+
+  return { continue: true };
+}
+```
+
+**Progression behavior:**
+
+At warning threshold (default: 15 turns):
+```
+"We've gathered substantial detail across N areas.
+Would you like to:
+1. Generate specs with current information
+2. Continue refining (5 turns remaining)"
+```
+
+At max threshold (default: 20 turns):
+```
+"Reached dialogue limit. Generating specs with collected information.
+You can refine the generated documents directly if needed."
+```
+
+**Category completion check:**
+
+Mark category complete when:
+- At least 2 substantive answers received for category
+- User explicitly says "that's enough for [category]"
+- No new information in 2 consecutive questions
+
+```javascript
+function markCategoryComplete(state, category) {
+  state.dialogue_state.categories_covered.push(category);
+  state.dialogue_state.categories_remaining =
+    state.dialogue_state.categories_remaining.filter(c => c !== category);
+}
+```
+
+After each user response, increment turn counter:
+```javascript
+state.dialogue_state.turns_completed++;
+state.dialogue_state.last_question_category = currentCategory;
+```
+
 **Testability Guidance for Acceptance Criteria:**
 
 When gathering acceptance criteria, guide users toward testable patterns. If a user provides vague criteria, help them refine it.
@@ -329,7 +401,7 @@ Generate all documents to `docs/specs/` in the worktree:
 
 #### Initialize State
 
-Create `state.json` in the worktree root with traceability structure:
+Create `state.json` in the worktree root with traceability structure and token tracking:
 
 ```json
 {
@@ -396,6 +468,29 @@ Create `state.json` in the worktree root with traceability structure:
       "same_agent": 2,
       "fresh_agent": 1
     }
+  },
+  "token_tracking": {
+    "enabled": true,
+    "config": {
+      "window_size": 200000,
+      "target_usage_percent": 50,
+      "refresh_threshold_percent": 40,
+      "warning_threshold_percent": 60
+    },
+    "phases": {
+      "discovery": {
+        "started_at": "2026-01-25T10:00:00Z",
+        "dialogue_turns": 0
+      }
+    },
+    "refresh_log": []
+  },
+  "dialogue_state": {
+    "turns_completed": 0,
+    "categories_covered": [],
+    "categories_remaining": ["purpose", "users", "scope", "constraints", "edge_cases"],
+    "last_question_category": null,
+    "warnings_shown": false
   },
   "progress": {
     "iteration": 0,
