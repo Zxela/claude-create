@@ -1,0 +1,47 @@
+name: Update Parent Repository
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  update-parent:
+    runs-on: ubuntu-latest
+    # Only run on main branch tags
+    if: github.ref_type == 'tag'
+
+    steps:
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Checkout parent repository
+        uses: actions/checkout@v4
+        with:
+          repository: Zxela/claude-plugins
+          token: ${{ secrets.PARENT_REPO_PAT }}
+          submodules: true
+          fetch-depth: 0
+
+      - name: Update submodule to new tag
+        run: |
+          cd plugins/homerun
+          git fetch --tags
+          git checkout ${{ github.ref_name }}
+
+      - name: Update marketplace.json version
+        run: |
+          sed -i 's/"version": "[^"]*"/"version": "${{ steps.version.outputs.version }}"/' .claude-plugin/marketplace.json
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugins/homerun .claude-plugin/marketplace.json
+          git commit -m "chore: bump homerun version to ${{ steps.version.outputs.version }} in marketplace
+
+          Automated update triggered by tag ${{ github.ref_name }}
+
+          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git push
