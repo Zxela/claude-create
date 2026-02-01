@@ -1,6 +1,6 @@
 # Parallel Execution Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** Execute this plan task-by-task, committing after each task.
 
 **Goal:** Add parallel task execution to the homerun conductor, allowing independent tasks to run concurrently while respecting dependencies.
 
