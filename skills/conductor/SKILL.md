@@ -369,6 +369,401 @@ Result: 1 slot (global limit is the constraint)
 
 ---
 
+## Parallel Task Spawning
+
+Spawn multiple implementers in parallel using the Task tool with `run_in_background: true`.
+
+### Spawning Multiple Tasks
+
+```javascript
+function spawnReadyTasks(state, readyTasks, slots) {
+  const tasksToSpawn = readyTasks.slice(0, slots);
+
+  for (const task of tasksToSpawn) {
+    // Build input
+    const input = buildImplementerInput(state, task);
+
+    // Log invocation
+    logSkillInvocation(state, "homerun:implement", task.id);
+
+    // Mark as running
+    state.parallel_state.running_tasks.push(task.id);
+    updateTaskStatus(state, task.id, 'in_progress');
+
+    // Spawn in background - don't wait for completion
+    Task({
+      description: `Implement: ${task.title}`,
+      subagent_type: "general-purpose",
+      model: task.model || "sonnet",
+      run_in_background: true,
+      prompt: `Use the homerun:implement skill.
+
+Input:
+\`\`\`json
+${JSON.stringify(input, null, 2)}
+\`\`\`
+`
+    });
+  }
+
+  return tasksToSpawn.length;
+}
+```
+
+### Polling for Completion
+
+After spawning, poll for completed tasks using TaskOutput:
+
+```javascript
+function pollCompletedTasks(state) {
+  const completed = [];
+
+  for (const taskId of state.parallel_state.running_tasks) {
+    // Use TaskOutput with block=false to check without waiting
+    const output = TaskOutput({
+      task_id: taskId,
+      block: false,
+      timeout: 1000
+    });
+
+    if (output && output.status === 'completed') {
+      completed.push({
+        id: taskId,
+        output: output.result
+      });
+    }
+  }
+
+  return completed;
+}
+```
+
+### Processing Completions
+
+```javascript
+function processCompletions(state, completedTasks) {
+  for (const { id, output } of completedTasks) {
+    // Remove from running
+    state.parallel_state.running_tasks =
+      state.parallel_state.running_tasks.filter(t => t !== id);
+
+    // Parse implementer output
+    try {
+      const result = parseImplementerOutput(output);
+
+      if (result.signal === "IMPLEMENTATION_COMPLETE") {
+        // Queue for sequential review
+        state.parallel_state.pending_review.push({
+          task_id: id,
+          implementation: result
+        });
+      } else if (result.signal === "IMPLEMENTATION_BLOCKED") {
+        // Handle blocked task - escalate immediately
+        handleBlockedTask(state, id, result);
+      }
+    } catch (error) {
+      // Parse error - add to retry queue
+      addToRetryQueue(state, id, { error: error.message });
+    }
+  }
+}
+```
+
+---
+
+## Sequential Review Queue
+
+Reviews are processed one at a time to avoid cascading issues and provide clearer feedback loops.
+
+### Processing Reviews
+
+```javascript
+function processReviewQueue(state) {
+  // Process one review at a time
+  if (state.parallel_state.pending_review.length === 0) {
+    return { action: 'continue' };
+  }
+
+  const review = state.parallel_state.pending_review.shift();
+  const task = findTask(state, review.task_id);
+
+  // Build reviewer input
+  const reviewerInput = buildReviewerInput(state, task, review.implementation);
+
+  // Log invocation
+  logSkillInvocation(state, "homerun:review", review.task_id);
+
+  // Spawn reviewer (blocking - wait for result)
+  const result = Task({
+    description: `Review: ${task.title}`,
+    subagent_type: "general-purpose",
+    model: "sonnet",  // Always sonnet for reviews
+    prompt: `Use the homerun:review skill.
+
+Input:
+\`\`\`json
+${JSON.stringify(reviewerInput, null, 2)}
+\`\`\`
+`
+  });
+
+  return handleReviewResult(state, task, result);
+}
+```
+
+### Handling Review Results with Severity
+
+```javascript
+function handleReviewResult(state, task, result) {
+  const reviewResult = parseReviewerOutput(result);
+
+  if (reviewResult.signal === "APPROVED") {
+    // Mark complete and unblock dependents
+    markTaskComplete(state, task.id);
+    unblockDependents(state, task.id);
+
+    // Increment refresh counter
+    state.parallel_state.tasks_since_refresh++;
+
+    return { action: 'continue' };
+  }
+
+  if (reviewResult.signal === "REJECTED") {
+    // Check severity - default to 'medium' if not specified
+    const severity = reviewResult.severity || 'medium';
+
+    if (severity === 'high') {
+      // Block all execution
+      state.parallel_state.blocked_by_failure = true;
+      state.parallel_state.failure_severity = 'high';
+
+      return {
+        action: 'blocked',
+        task_id: task.id,
+        feedback: reviewResult
+      };
+    }
+
+    // Low/medium severity - add to retry queue, continue
+    addToRetryQueue(state, task.id, reviewResult);
+    return { action: 'continue' };
+  }
+}
+```
+
+### Marking Tasks Complete with Subtask Rollup
+
+```javascript
+function markTaskComplete(state, taskId) {
+  // Find task (top-level or subtask)
+  for (const task of state.tasks) {
+    if (task.id === taskId) {
+      task.status = 'completed';
+      task.completed_at = new Date().toISOString();
+      return;
+    }
+
+    // Check subtasks
+    const subtask = task.subtasks?.find(s => s.id === taskId);
+    if (subtask) {
+      subtask.status = 'completed';
+      subtask.completed_at = new Date().toISOString();
+
+      // Check if all subtasks complete → parent auto-completes
+      if (task.subtasks.every(s => s.status === 'completed')) {
+        task.status = 'completed';
+        task.completed_at = new Date().toISOString();
+      }
+      return;
+    }
+  }
+}
+```
+
+---
+
+## Severity-Based Failure Handling
+
+The conductor responds differently based on rejection severity.
+
+### Severity Levels
+
+| Severity | Response | Rationale |
+|----------|----------|-----------|
+| Low | Add to retry queue, continue other tasks | Minor issues, isolated to task |
+| Medium | Add to retry queue, continue other tasks | Moderate issues, doesn't affect others |
+| High | Block new spawns, let running finish, escalate | May affect architecture, needs human judgment |
+
+### Retry Queue Management
+
+```javascript
+function addToRetryQueue(state, taskId, feedback) {
+  const task = findTask(state, taskId);
+
+  state.parallel_state.retry_queue.push({
+    task_id: taskId,
+    attempts: (task.attempts || 0) + 1,
+    feedback: feedback,
+    added_at: new Date().toISOString()
+  });
+
+  // Reset task status for retry
+  task.status = 'pending';
+  task.feedback = task.feedback || [];
+  task.feedback.push(feedback);
+}
+
+function processRetryQueue(state) {
+  // Retries have lower priority than fresh tasks
+  if (state.parallel_state.retry_queue.length === 0) return [];
+
+  const readyRetries = [];
+
+  for (const retry of state.parallel_state.retry_queue) {
+    const task = findTask(state, retry.task_id);
+
+    // Check retry limits
+    if (retry.attempts >= state.config.max_total_attempts) {
+      task.status = 'escalated';
+      continue;
+    }
+
+    // Check if deps still resolved
+    if (areDependenciesResolved(state, task)) {
+      readyRetries.push({
+        ...task,
+        previous_feedback: retry.feedback,
+        is_retry: true,
+        attempt_number: retry.attempts
+      });
+    }
+  }
+
+  return readyRetries;
+}
+```
+
+### High-Severity Escalation with TUI
+
+When blocked by high-severity failure, present structured recovery options using AskUserQuestion:
+
+```javascript
+function handleHighSeverityFailure(state, taskId, feedback) {
+  AskUserQuestion({
+    questions: [{
+      question: `Task ${taskId} failed with high severity: "${feedback.summary}". How would you like to proceed?`,
+      header: "Recovery",
+      options: [
+        {
+          label: "Retry with guidance",
+          description: "Provide additional context and retry implementation"
+        },
+        {
+          label: "Mark as fixed",
+          description: "I manually fixed the issue, continue from here"
+        },
+        {
+          label: "Skip task",
+          description: "Skip this task and unblock dependents"
+        },
+        {
+          label: "Return to planning",
+          description: "Restructure tasks to address the issue"
+        }
+      ],
+      multiSelect: false
+    }]
+  });
+}
+```
+
+### Recovery Actions
+
+```javascript
+function handleRecoveryChoice(state, taskId, choice) {
+  const task = findTask(state, taskId);
+
+  switch (choice) {
+    case "Retry with guidance":
+      state.parallel_state.blocked_by_failure = false;
+      addToRetryQueue(state, taskId, { guidance_requested: true });
+      break;
+
+    case "Mark as fixed":
+      markTaskComplete(state, taskId);
+      unblockDependents(state, taskId);
+      state.parallel_state.blocked_by_failure = false;
+      break;
+
+    case "Skip task":
+      task.status = 'skipped';
+      unblockDependents(state, taskId);
+      state.parallel_state.blocked_by_failure = false;
+      break;
+
+    case "Return to planning":
+      state.phase = 'planning';
+      state.parallel_state.blocked_by_failure = false;
+      // Invoke homerun:planning skill
+      break;
+  }
+}
+```
+
+---
+
+## Conductor Context Management
+
+The conductor refreshes itself to prevent token accumulation over long-running workflows.
+
+### Refresh Trigger
+
+After completing `conductor_refresh_interval` tasks (default: 5), spawn a fresh conductor:
+
+```javascript
+function checkConductorRefresh(state) {
+  const interval = state.config.conductor_refresh_interval || 5;
+
+  if (state.parallel_state.tasks_since_refresh >= interval) {
+    return true;
+  }
+  return false;
+}
+
+function spawnFreshConductor(state) {
+  // Reset counter before saving
+  state.parallel_state.tasks_since_refresh = 0;
+  saveState(state);
+
+  // Spawn fresh conductor with configured model (default haiku)
+  Task({
+    description: "Continue conductor loop",
+    subagent_type: "general-purpose",
+    model: state.config.conductor_model || "haiku",
+    prompt: `Use the homerun:conductor skill.
+
+Worktree: ${state.worktree}
+
+Continue the implementation loop. A fresh conductor is starting with clean context.
+Read state.json to resume from current progress.`
+  });
+
+  // Current conductor exits after spawning replacement
+  return { action: 'refresh_exit' };
+}
+```
+
+### Context Hygiene Practices
+
+To minimize token usage in the conductor:
+
+1. **Store IDs, not content** - Keep task IDs in `parallel_state`, read full task from state.json when needed
+2. **Parse immediately** - Extract signals from agent output, discard raw text
+3. **Write to state** - Persist all important data to state.json, not in-memory
+4. **Fresh agents** - Each implementer/reviewer starts with clean context
+
+---
+
 ## Skill Invocation Logging
 
 Track all skill invocations in `state.json` for visibility and debugging:
