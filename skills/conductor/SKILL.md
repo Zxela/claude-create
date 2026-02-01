@@ -139,8 +139,7 @@ Track all skill invocations in `state.json` for visibility and debugging:
   "skill_log": [
     {"skill": "homerun:discovery", "timestamp": "2026-01-25T10:00:00Z", "phase": "discovery"},
     {"skill": "homerun:planning", "timestamp": "2026-01-25T11:00:00Z", "phase": "planning"},
-    {"skill": "homerun:tdd", "timestamp": "2026-01-25T12:00:00Z", "phase": "implementing", "task": "001"},
-    {"skill": "homerun:implement", "timestamp": "2026-01-25T12:05:00Z", "phase": "implementing", "task": "001"},
+    {"skill": "homerun:implement", "timestamp": "2026-01-25T12:00:00Z", "phase": "implementing", "task": "001"},
     {"skill": "homerun:review", "timestamp": "2026-01-25T12:30:00Z", "phase": "implementing", "task": "001"}
   ]
 }
@@ -166,7 +165,6 @@ function logSkillInvocation(state, skillName, taskId = null) {
 
 // Usage before spawning implementer:
 logSkillInvocation(state, "homerun:implement", task.id);
-logSkillInvocation(state, "homerun:tdd", task.id);
 
 // Usage before spawning reviewer:
 logSkillInvocation(state, "homerun:review", task.id);
@@ -384,6 +382,7 @@ function buildImplementerInput(state, task) {
       })),
       test_file: task.test_file
     },
+    methodology: task.methodology || "tdd",  // Explicit methodology (tdd, direct, etc.)
     spec_paths: {
       technical_design: state.spec_paths.technical_design,
       adr: state.spec_paths.adr
@@ -412,7 +411,7 @@ You are implementing a task from the workflow plan. Use the `homerun:implement` 
 1. **Validate the input** - Check all required fields are present
 2. **Read the task** - Understand objective and acceptance criteria
 3. **Read reference docs** - Use paths from `spec_paths`
-4. **Use TDD** - Invoke `homerun:tdd` for all implementation
+4. **Apply methodology** - Follow the methodology specified in input (default: TDD)
 5. **Output JSON** - Return one of: `IMPLEMENTATION_COMPLETE`, `IMPLEMENTATION_BLOCKED`, or `VALIDATION_ERROR`
 
 ### Output Format

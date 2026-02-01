@@ -40,25 +40,69 @@ Each workflow creates an isolated git worktree at `../repo-create-feature-uuid/`
 
 Progressive escalation: same-agent (default 2x) → fresh-agent (default 1x) → human escalation
 
+### JSON Contracts
+
+All skills communicate via structured JSON:
+- **Input schemas** define required fields (task, spec_paths, worktree_path, etc.)
+- **Output signals** indicate completion status (DISCOVERY_COMPLETE, IMPLEMENTATION_COMPLETE, APPROVED, REJECTED)
+- **Validation errors** provide structured feedback when input is malformed
+
+### Methodology Passing
+
+The conductor explicitly passes methodology to implement skill:
+```json
+{
+  "task": { ... },
+  "methodology": "tdd",  // or "direct" for config-only changes
+  "spec_paths": { ... }
+}
+```
+This decouples methodology from the implement skill, making it configurable per-task.
+
+### Model Routing
+
+Tasks are assigned models based on complexity (set during planning):
+- **haiku**: Simple tasks (add_field, add_method, refactor)
+- **sonnet**: Complex tasks (create_model, create_service, bug_fix)
+- **Reviews always use sonnet** for quality assurance
+- **Escalation**: High-severity rejections upgrade haiku tasks to sonnet
+
 ## Key Files
 
 | Path | Purpose |
 |------|---------|
 | `commands/create.md` | `/create` command entry point and argument parsing |
-| `skills/*/SKILL.md` | Agent behavior definitions (5 core + 4 cloned superpowers) |
+| `skills/*/SKILL.md` | Agent behavior definitions (9 skills total) |
 | `templates/*.md` | Document templates for specs and tasks |
 | `.claude-plugin/plugin.json` | Plugin metadata |
 
-## Bundled Superpowers
+### Skill Directory Structure
 
-These superpowers are cloned locally to prevent external dependency drift:
+```
+skills/
+├── conductor/          # Core: orchestrates implementation loop
+├── discovery/          # Core: requirements gathering
+├── planning/           # Core: task decomposition
+├── implement/          # Core: task execution
+├── review/             # Core: implementation verification
+├── finishing-a-development-branch/  # Bundled: PR/merge handling
+├── systematic-debugging/            # Bundled: debugging reference
+├── test-driven-development/         # Bundled: TDD reference
+└── using-git-worktrees/             # Bundled: worktree reference
+```
+
+## Bundled Skills
+
+These skills are bundled locally (cloned from superpowers) for reference and optional use:
 
 | Skill | Path | Purpose |
 |-------|------|---------|
-| `homerun:tdd` | `skills/superpowers/test-driven-development/SKILL.md` | Mandatory TDD for implement skill |
-| `homerun:using-git-worktrees` | `skills/superpowers/using-git-worktrees/SKILL.md` | Worktree creation in discovery |
-| `homerun:finishing-a-development-branch` | `skills/superpowers/finishing-a-development-branch/SKILL.md` | PR/merge handling |
-| `homerun:systematic-debugging` | `skills/superpowers/systematic-debugging/SKILL.md` | Debugging during implementation |
+| `homerun:tdd` | `skills/test-driven-development/SKILL.md` | TDD methodology reference (implement skill has TDD inline) |
+| `homerun:using-git-worktrees` | `skills/using-git-worktrees/SKILL.md` | Worktree reference (discovery has worktree creation inline) |
+| `homerun:finishing-a-development-branch` | `skills/finishing-a-development-branch/SKILL.md` | PR/merge handling (invoked by conductor at completion) |
+| `homerun:systematic-debugging` | `skills/systematic-debugging/SKILL.md` | Debugging reference for stuck implementations |
+
+**Note:** Core workflow skills (discovery, planning, conductor, implement, review) have key logic inline rather than invoking sub-skills, reducing coupling and making each skill self-contained.
 
 ## Conventions
 

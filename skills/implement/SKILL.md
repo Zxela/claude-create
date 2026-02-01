@@ -50,6 +50,12 @@ The conductor provides input as a JSON object. **Validate input before proceedin
         "adr": { "type": "string" }
       }
     },
+    "methodology": {
+      "type": "string",
+      "enum": ["tdd", "direct"],
+      "default": "tdd",
+      "description": "Implementation approach: 'tdd' for test-driven, 'direct' for config-only changes"
+    },
     "previous_feedback": {
       "type": "array",
       "items": {
@@ -80,6 +86,7 @@ The conductor provides input as a JSON object. **Validate input before proceedin
     ],
     "test_file": "tests/services/auth.test.ts"
   },
+  "methodology": "tdd",
   "spec_paths": {
     "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
     "adr": "docs/specs/ADR.md"
@@ -118,7 +125,11 @@ Scan the reference documents for relevant context using the **explicit paths pro
 
 **Note:** These paths are relative to the worktree root. The conductor will pass them in the `reference_docs` section of your prompt.
 
-### 3. Apply TDD
+### 3. Apply Methodology
+
+Follow the methodology specified in the input JSON (default: `tdd`).
+
+#### If methodology is `tdd` (default):
 
 Follow the TDD cycle strictly:
 
@@ -134,6 +145,13 @@ Key principles:
 - Each test should initially FAIL (proving it tests something real)
 - Write only enough code to pass the current test
 - Refactor only when tests are green
+
+#### If methodology is `direct`:
+
+For config-only or documentation tasks with no testable behavior:
+- Implement the change directly
+- Verify the change works as expected
+- No test required (task should have `test_file: null`)
 
 ### 4. Address Rejection Feedback
 
@@ -290,19 +308,29 @@ Return this if input validation fails:
 
 If you find yourself in any of these situations, STOP and correct course:
 
+**For TDD methodology:**
 - **About to write code before test** - You must write the failing test first
 - **Test passes immediately** - The test is not testing new behavior; rewrite it
 - **Skipping acceptance criterion** - Every criterion needs a corresponding test
 - **"I'll add tests later"** - This violates TDD; tests come first, always
 - **Modifying code to make a test pass that should fail** - Tests drive implementation, not the reverse
+
+**For all methodologies:**
 - **Implementing beyond the task scope** - Stick to the assigned task only
 
 ## Exit Criteria
 
 Before signaling completion, verify this checklist:
 
+**For TDD methodology:**
 - [ ] All acceptance criteria have corresponding passing tests
-- [ ] Tests were written BEFORE implementation code (TDD)
+- [ ] Tests were written BEFORE implementation code
+
+**For direct methodology:**
+- [ ] All acceptance criteria are implemented
+- [ ] Change verified to work as expected
+
+**For all methodologies:**
 - [ ] Code is committed with proper message format: `feat(<feature>): <task title>`
 - [ ] `IMPLEMENTATION_COMPLETE` signal sent with files, test file, and commit hash
 - [ ] No rejection feedback items remain unaddressed (if retry)
