@@ -67,6 +67,32 @@ Tasks are assigned models based on complexity (set during planning):
 - **Reviews always use sonnet** for quality assurance
 - **Escalation**: High-severity rejections upgrade haiku tasks to sonnet
 
+### Context Management
+
+**Target: Stay under 50% context window for optimal quality.**
+
+The workflow persists all critical information to files, enabling context breaks between phases:
+
+```
+Discovery ──► [BREAK] ──► Planning ──► [BREAK] ──► Conductor ──► ...
+    │                         │                         │
+    ▼                         ▼                         ▼
+ state.json               state.json               state.json
+ docs/specs/*             docs/tasks.json          (reads all)
+```
+
+**Recommended breaks:**
+- After Discovery: Dialogue no longer needed, specs are written
+- After Planning: Task breakdown complete, ready for implementation
+
+**To resume after break:** `/create --resume`
+
+**Why this matters:**
+- Discovery + Planning can consume 50-100K+ tokens
+- Conductor only needs ~5-10K tokens to start
+- Implementer/Reviewer agents already spawn fresh (via Task tool)
+- Context bloat degrades reasoning quality
+
 ## Key Files
 
 | Path | Purpose |

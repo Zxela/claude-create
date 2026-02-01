@@ -490,14 +490,31 @@ After validation is complete:
    git commit -m "chore: transition to planning phase"
    ```
 
-3. **If auto_mode is enabled:**
-   - Invoke `homerun:planning` skill directly
-   - Pass the worktree path and session context
+3. **Context Break (Recommended)**
 
-4. **If auto_mode is disabled:**
-   - Present summary of what was created
-   - Ask: "Ready to break this into implementation tasks? (This will start the planning phase)"
-   - On confirmation, invoke `homerun:planning`
+   The discovery dialogue can consume significant context. All critical information
+   is now persisted in spec documents and state.json.
+
+   **Recommend a fresh session for planning:**
+
+   ```
+   ## Discovery Complete
+
+   Specifications saved to worktree. Ready for task planning.
+
+   **To continue with fresh context, run:**
+   ```
+   /create --resume
+   ```
+   ```
+
+   **When to continue in same session:**
+   - Simple features with short discovery dialogue
+   - Context is still under ~25% of window
+
+4. **If continuing in same session:**
+   - Invoke `homerun:planning` skill directly
+   - Pass the worktree path from state.json
 
 ---
 

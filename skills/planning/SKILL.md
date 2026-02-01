@@ -691,15 +691,36 @@ After creating tasks.json:
    $(jq -r '.tasks[] | "- \(.id): \(.title)"' docs/tasks.json)"
    ```
 
-2. **If auto_mode is enabled:**
-   - Invoke `homerun:conductor` skill directly
-   - The conductor will pick up the first unblocked task
+2. **Context Break (Recommended)**
 
-3. **If auto_mode is disabled:**
-   - Present the task list with dependencies
-   - Show the dependency graph
-   - Ask: "Ready to start implementation? (This will begin executing tasks)"
-   - On confirmation, invoke `homerun:conductor`
+   After planning, the conversation context contains discovery dialogue and planning
+   deliberation that are no longer needed. All critical information is now persisted
+   in state.json and spec files.
+
+   **Always recommend a fresh session for implementation:**
+
+   ```
+   ## Planning Complete
+
+   Created {N} tasks for implementation. All specifications and tasks are saved.
+
+   **To start implementation with fresh context, run:**
+   ```
+   /create --resume
+   ```
+
+   This ensures optimal context usage during the implementation loop.
+   ```
+
+   **Rationale:**
+   - Discovery + planning can consume 50-100K+ tokens of context
+   - Conductor only needs ~5-10K tokens (state.json + current task)
+   - Fresh context = better reasoning quality for implementation
+   - Staying under 50% context window prevents degraded results
+
+3. **If user insists on continuing (not recommended):**
+   - Warn about context bloat
+   - Invoke `homerun:conductor` skill directly
 
 ---
 
