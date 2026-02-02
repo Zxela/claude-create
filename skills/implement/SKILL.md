@@ -6,11 +6,18 @@ color: yellow
 
 # Implement Skill
 
+## Reference Materials
+
+- Context patterns: `references/context-engineering.md`
+- TDD methodology: `skills/test-driven-development/SKILL.md`
+
 ## Overview
 
 You are an **implementer agent**. Your job: implement ONE task, commit, and signal completion.
 
 The conductor specifies the methodology (e.g., TDD) in the input JSON.
+
+**Context Budget:** Target < 20K tokens. Apply observation masking to stay efficient.
 
 ## Input Schema (JSON)
 
@@ -98,8 +105,8 @@ The conductor provides input as a JSON object. **Validate input before proceedin
   },
   "methodology": "tdd",
   "spec_paths": {
-    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
-    "adr": "docs/specs/ADR.md"
+    "technical_design": "/home/user/.claude/homerun/a1b2c3d4/user-auth-e5f6g7h8/TECHNICAL_DESIGN.md",
+    "adr": "/home/user/.claude/homerun/a1b2c3d4/user-auth-e5f6g7h8/ADR.md"
   },
   "previous_feedback": [],
   "worktree_path": "/path/to/worktree"
@@ -122,18 +129,57 @@ If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 ### 1. Understand the Task
 
 Before writing any code:
-- Read the task file completely
-- Identify what to build
-- Identify which test file(s) to create/modify
-- Identify dependencies on other tasks or components
+- Read the task from input JSON (already provided - don't re-read)
+- Identify what to build from `task.objective` and `task.acceptance_criteria`
+- Identify test file from `task.test_file`
+- Check `task.traces_to` for spec references
 
-### 2. Read Reference Docs
+**File Reading Strategy:**
 
-Scan the reference documents for relevant context using the **explicit paths provided by the conductor**:
-- Check `docs/specs/TECHNICAL_DESIGN.md` for architectural patterns to follow
-- Check `docs/specs/ADR.md` for decisions that constrain implementation choices
+| Need | Approach |
+|------|----------|
+| Understand existing code | Read function signatures only: `grep -A 5 "function\|class\|export"` |
+| Find import patterns | `head -30 src/similar-file.ts` |
+| Check test patterns | `head -50 tests/existing.test.ts` |
+| Full file context | Only when modifying that specific file |
 
-**Note:** These paths are relative to the worktree root. The conductor will pass them in the `reference_docs` section of your prompt.
+**Avoid:**
+- Reading entire directories
+- Reading files you won't modify
+- Re-reading files already in context
+
+### 2. Read Reference Docs (Targeted Extraction)
+
+**Do NOT read entire spec files.** Extract only relevant sections to stay within context budget.
+
+```bash
+# Extract only the section relevant to this task
+# Use task.traces_to to find relevant sections
+
+# For TECHNICAL_DESIGN.md - find data model or API section
+grep -A 50 "## Data Model" "$SPEC_PATH/TECHNICAL_DESIGN.md" | head -60
+
+# For ADR.md - find specific decision
+grep -A 20 "## Decision" "$SPEC_PATH/ADR.md"
+```
+
+**Targeted extraction by task type:**
+
+| Task Type | Extract From TECHNICAL_DESIGN |
+|-----------|------------------------------|
+| create_model | "## Data Model" section only |
+| add_endpoint | "## API Contracts" section only |
+| create_service | "## Components" + relevant model |
+| add_validation | "## Data Model" constraints |
+| bug_fix | Component where bug exists |
+
+**If task has `traces_to.adr_decisions`:**
+```bash
+# Extract only the referenced ADR decision
+grep -A 30 "ADR-001" "$SPEC_PATH/ADR.md"
+```
+
+**Note:** Spec documents are stored in `$HOME/.claude/homerun/` (centralized storage). Always use the absolute paths from `spec_paths` in the input JSON.
 
 ### 3. Apply Methodology
 
@@ -155,6 +201,43 @@ Key principles:
 - Each test should initially FAIL (proving it tests something real)
 - Write only enough code to pass the current test
 - Refactor only when tests are green
+
+**Methodology by Task Complexity:**
+
+For **simple tasks** (add_field, add_method, add_validation):
+- These are straightforward enough to use `methodology: "direct"` with tests
+- Write implementation, then write tests to verify
+- This is NOT TDD, but is appropriate for mechanical changes
+- The conductor should assign `methodology: "direct"` for these task types
+
+For **complex tasks** (create_service, bug_fix, create_model):
+- Use full TDD cycle: RED → GREEN → REFACTOR per criterion
+- Apply test output masking (see below)
+
+**Test Output Masking:**
+
+Test output can consume 5-10K tokens per run. Apply masking:
+
+```bash
+# Run tests with minimal output
+npm test -- --reporter=dot 2>&1 | tail -30
+
+# Or capture and summarize
+npm test 2>&1 | tee /tmp/test-output.txt
+echo "Tests: $(grep -c 'PASS\|FAIL' /tmp/test-output.txt) total"
+grep -A 2 'FAIL' /tmp/test-output.txt | head -20  # First failure only
+```
+
+**What to keep in context:**
+- Pass/fail summary (1 line)
+- First failure message + stack trace (10-20 lines)
+- Path to full output if needed later
+
+**What to discard:**
+- Passing test details
+- Duplicate failure messages
+- Coverage reports (unless specifically needed)
+- Watch mode output
 
 #### If methodology is `direct`:
 
@@ -340,6 +423,27 @@ If you find yourself in any of these situations, STOP and correct course:
 **For all methodologies:**
 - **Implementing beyond the task scope** - Stick to the assigned task only
 
+## Context Budget
+
+**Target: < 20K tokens per implementation**
+
+| Component | Budget | Strategy |
+|-----------|--------|----------|
+| Task input | ~1K | Already minimal |
+| Spec extraction | ~2K | Targeted grep, not full reads |
+| Existing code reads | ~3K | Signatures only, expand as needed |
+| Test output (per run) | ~0.5K | Masked: summary + first failure |
+| Implementation | ~5K | The actual work |
+| Commit/output | ~0.5K | Minimal |
+| **Buffer** | ~8K | For iterations and edge cases |
+
+**If approaching 20K:**
+1. Stop reading new files
+2. Summarize what you know
+3. Complete with current context or signal BLOCKED
+
+---
+
 ## Exit Criteria
 
 Before signaling completion, verify this checklist:
@@ -356,3 +460,4 @@ Before signaling completion, verify this checklist:
 - [ ] Code is committed with proper message format: `feat(<feature>): <task title>`
 - [ ] `IMPLEMENTATION_COMPLETE` signal sent with files, test file, and commit hash
 - [ ] No rejection feedback items remain unaddressed (if retry)
+- [ ] Context stayed within budget (< 20K tokens)

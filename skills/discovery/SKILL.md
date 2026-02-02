@@ -8,7 +8,10 @@ color: yellow
 
 ## Reference Materials
 
-For detailed examples, see `docs/cookbooks/discovery-dialogue-examples.md`.
+- Question reference: `references/discovery-questions.md`
+- Dialogue examples: `cookbooks/discovery-dialogue-examples.md`
+- Document templates: `templates/*.template.md`
+- Agent handoff patterns: `references/context-engineering.md`
 
 ## Overview
 
@@ -73,7 +76,7 @@ When discovery completes, output a JSON signal:
 
 ### Success: DISCOVERY_COMPLETE
 
-See `docs/references/signal-contracts.json` for the full envelope schema.
+See `references/signal-contracts.json` for the full envelope schema.
 
 ```json
 {
@@ -84,11 +87,12 @@ See `docs/references/signal-contracts.json` for the full envelope schema.
     "session_id": "user-auth-a1b2c3d4",
     "worktree_path": "../myapp-create-user-auth-a1b2c3d4",
     "branch": "create/user-auth-a1b2c3d4",
+    "homerun_docs_dir": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4",
     "spec_paths": {
-      "prd": "docs/specs/PRD.md",
-      "adr": "docs/specs/ADR.md",
-      "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
-      "wireframes": "docs/specs/WIREFRAMES.md"
+      "prd": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/PRD.md",
+      "adr": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/ADR.md",
+      "technical_design": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/TECHNICAL_DESIGN.md",
+      "wireframes": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/WIREFRAMES.md"
     },
     "user_stories_count": 3,
     "acceptance_criteria_count": 12,
@@ -136,87 +140,14 @@ Use this context to:
 
 Engage the user with **ONE question at a time**. Prefer multiple-choice options when possible to reduce cognitive load and speed up the process.
 
-**Question Categories (cover all):**
+**Question Reference:** See `references/discovery-questions.md` for the question catalog.
 
-#### Purpose & Goals
-- "What problem does this solve?"
-- "Who benefits from this feature?"
-- "What does success look like?"
-
-Example:
-```
-What is the primary goal of this feature?
-
-A) Add new functionality that doesn't exist yet
-B) Improve or extend existing functionality
-C) Fix a bug or address a limitation
-D) Refactor for maintainability or performance
-E) Something else (please describe)
-```
-
-#### Users & Personas
-- "Who are the primary users?"
-- "What's their technical level?"
-- "How frequently will they use this?"
-
-Example:
-```
-Who will primarily use this feature?
-
-A) End users (customers/public)
-B) Internal team members
-C) API consumers / developers
-D) Administrators / operators
-E) Multiple user types (please specify)
-```
-
-#### Scope & Boundaries
-- "What's in scope for v1?"
-- "What should we explicitly NOT do?"
-- "Are there related features we should avoid?"
-
-Example:
-```
-Which scope level fits best for the initial implementation?
-
-A) Minimal - Core functionality only, bare essentials
-B) Standard - Core plus common use cases
-C) Comprehensive - Full feature set with edge cases
-D) Let me describe the specific scope...
-```
-
-#### Technical Constraints
-- "Any performance requirements?"
-- "Security or compliance needs?"
-- "Must integrate with specific systems?"
-
-Example:
-```
-Are there specific technical constraints to consider?
-
-A) Must integrate with existing [system/API]
-B) Has performance requirements (latency, throughput)
-C) Security/compliance requirements (auth, encryption, audit)
-D) Must support specific platforms/browsers
-E) No special constraints
-F) Multiple constraints (please list)
-```
-
-#### Edge Cases & Error Handling
-- "What happens when X fails?"
-- "How should we handle invalid input?"
-- "What are the boundary conditions?"
-
-Example:
-```
-How should the feature handle errors?
-
-A) Fail fast with clear error messages
-B) Gracefully degrade with fallback behavior
-C) Retry automatically with backoff
-D) Queue for manual review
-E) Depends on the error type (let's discuss)
-```
+**Categories to cover:**
+1. **Purpose & Goals** - What problem, who benefits, success criteria
+2. **Users & Personas** - Who uses it, technical level, frequency
+3. **Scope & Boundaries** - What's in/out of scope for v1
+4. **Technical Constraints** - Performance, security, integrations
+5. **Edge Cases & Error Handling** - Failure modes, validation
 
 **Dialogue Guidelines:**
 - Ask only ONE question per message
@@ -346,7 +277,17 @@ Would that work, or did you have something else in mind?
 
 Once sufficient information is gathered, create the worktree and generate documents.
 
-#### Create Worktree
+#### Create Worktree and Document Storage
+
+Documents are stored in a centralized location to keep the project directory clean:
+
+```
+$HOME/.claude/homerun/<project-hash>/<feature-slug>/
+  ├── PRD.md
+  ├── ADR.md
+  ├── TECHNICAL_DESIGN.md
+  └── WIREFRAMES.md (if applicable)
+```
 
 ```bash
 # Generate session ID
@@ -359,18 +300,44 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 REPO_NAME=$(basename "$REPO_ROOT")
 WORKTREE_PATH="${REPO_ROOT}/../${REPO_NAME}-create-${FEATURE_SLUG}-${SESSION_UUID}"
 
+# Create project hash for centralized storage (avoids path conflicts)
+PROJECT_HASH=$(echo "$REPO_ROOT" | md5sum | cut -c1-8)
+# IMPORTANT: Use $HOME, not ~ (tilde doesn't expand in all contexts)
+HOMERUN_DOCS_DIR="${HOME}/.claude/homerun/${PROJECT_HASH}/${FEATURE_SLUG}-${SESSION_UUID}"
+
 # Create branch and worktree
 git branch "$BRANCH_NAME"
 git worktree add "$WORKTREE_PATH" "$BRANCH_NAME"
 
-# Create docs structure
-mkdir -p "${WORKTREE_PATH}/docs/specs"
-mkdir -p "${WORKTREE_PATH}/docs/tasks"
+# Create centralized docs structure (NOT in project repo)
+mkdir -p "$HOMERUN_DOCS_DIR"
+
+# Create worktree task directory (tasks stay in worktree for git tracking)
+mkdir -p "${WORKTREE_PATH}/docs"
 ```
+
+**Why centralized storage:**
+- Keeps ADRs, PRDs, design docs out of project repo
+- Documents persist across sessions for reference
+- No conflicts when running multiple features on same project
+- Easy to find: `$HOME/.claude/homerun/` contains all homerun docs
+
+**IMPORTANT:** When storing paths in `state.json`:
+- Use the **fully expanded absolute path** from `$HOME`, not the variable itself
+- Example: If `$HOME` is `/home/alice`, store `/home/alice/.claude/homerun/...`
+- Never store `~` or `$HOME` literally - JSON doesn't expand shell variables
+- The examples below use `/home/user/` as a placeholder for the actual home directory
 
 #### Write Specification Documents
 
-Generate all documents to `docs/specs/` in the worktree:
+Generate documents to the centralized `~/.claude/homerun/` directory.
+
+Use templates from `templates/` as starting points:
+- `templates/PRD.template.md`
+- `templates/ADR.template.md`
+- `templates/TECHNICAL_DESIGN.template.md`
+
+**Documents to generate:**
 
 1. **PRD.md** - Product Requirements Document
    - Problem statement from gathered context
@@ -399,6 +366,24 @@ Generate all documents to `docs/specs/` in the worktree:
    - User flow diagrams
    - Component hierarchy
 
+**Write documents:**
+```bash
+# Write to centralized location
+cat > "$HOMERUN_DOCS_DIR/PRD.md" << 'EOF'
+{{Generated PRD content}}
+EOF
+
+cat > "$HOMERUN_DOCS_DIR/ADR.md" << 'EOF'
+{{Generated ADR content}}
+EOF
+
+cat > "$HOMERUN_DOCS_DIR/TECHNICAL_DESIGN.md" << 'EOF'
+{{Generated TECHNICAL_DESIGN content}}
+EOF
+
+# WIREFRAMES.md only if UI feature
+```
+
 #### Initialize State
 
 Create `state.json` in the worktree root with traceability structure and token tracking:
@@ -411,11 +396,12 @@ Create `state.json` in the worktree root with traceability structure and token t
   "feature": "user-auth",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
+  "homerun_docs_dir": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4",
   "spec_paths": {
-    "prd": "docs/specs/PRD.md",
-    "adr": "docs/specs/ADR.md",
-    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
-    "wireframes": "docs/specs/WIREFRAMES.md"
+    "prd": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/PRD.md",
+    "adr": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/ADR.md",
+    "technical_design": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/TECHNICAL_DESIGN.md",
+    "wireframes": "/home/user/.claude/homerun/a1b2c3d4/user-auth-a1b2c3d4/WIREFRAMES.md"
   },
   "tasks_file": "docs/tasks.json",
   "traceability": {
@@ -550,21 +536,21 @@ Present each document section-by-section for user confirmation.
 ```
 
 After all sections confirmed:
-- Commit all documents to the branch
-- Update state.json
+- Documents are already in centralized storage (not committed to repo)
+- Commit state.json to track the feature
 
 ```bash
 cd "$WORKTREE_PATH"
-git add docs/specs/ state.json
-git commit -m "docs: add specification documents for ${FEATURE_SLUG}
+git add state.json
+git commit -m "chore: initialize ${FEATURE_SLUG} workflow
 
-- PRD.md: Product requirements and user stories
-- ADR.md: Architecture decision record
-- TECHNICAL_DESIGN.md: Technical design and data models
-- WIREFRAMES.md: UI wireframes (if applicable)
+Session ID: ${SESSION_UUID}
+Docs location: ${HOMERUN_DOCS_DIR}
 
 Generated by /create workflow discovery phase"
 ```
+
+**Note:** Spec documents are stored in `~/.claude/homerun/` and NOT committed to the project repo. This keeps the project clean while preserving design history for reference.
 
 ---
 
@@ -633,11 +619,12 @@ When starting a new discovery session, initialize state with this structure:
   "feature": "feature-name",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
+  "homerun_docs_dir": "/home/user/.claude/homerun/b1c2d3e4/feature-name-a1b2c3d4",
   "spec_paths": {
-    "prd": "docs/specs/PRD.md",
-    "adr": "docs/specs/ADR.md",
-    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
-    "wireframes": "docs/specs/WIREFRAMES.md"
+    "prd": "/home/user/.claude/homerun/b1c2d3e4/feature-name-a1b2c3d4/PRD.md",
+    "adr": "/home/user/.claude/homerun/b1c2d3e4/feature-name-a1b2c3d4/ADR.md",
+    "technical_design": "/home/user/.claude/homerun/b1c2d3e4/feature-name-a1b2c3d4/TECHNICAL_DESIGN.md",
+    "wireframes": "/home/user/.claude/homerun/b1c2d3e4/feature-name-a1b2c3d4/WIREFRAMES.md"
   },
   "tasks_file": "docs/tasks.json",
   "traceability": {
@@ -714,13 +701,11 @@ Before transitioning to the planning phase, verify all criteria are met:
 Verify the PRD meets quality standards:
 
 ```bash
-cd "$WORKTREE_PATH"
-
 # Check for measurable success metrics (must have at least one with target value)
-grep -E "Target.*[0-9]|[0-9]+%|< ?[0-9]|> ?[0-9]" docs/specs/PRD.md || echo "VALIDATION_FAILED: No measurable success metrics found"
+grep -E "Target.*[0-9]|[0-9]+%|< ?[0-9]|> ?[0-9]" "$HOMERUN_DOCS_DIR/PRD.md" || echo "VALIDATION_FAILED: No measurable success metrics found"
 
 # Check for explicit non-goals section with content
-grep -A 5 "## Non-Goals" docs/specs/PRD.md | grep -E "^- " || echo "VALIDATION_FAILED: Non-goals section empty"
+grep -A 5 "## Non-Goals" "$HOMERUN_DOCS_DIR/PRD.md" | grep -E "^- " || echo "VALIDATION_FAILED: Non-goals section empty"
 ```
 
 ### User Story Testability Validation
@@ -741,7 +726,7 @@ Every user story acceptance criterion MUST match one of these testable patterns:
 Run validation:
 ```bash
 # Extract acceptance criteria and check for testable patterns
-grep -E "^\s*-\s*\[" docs/specs/PRD.md | while read -r criterion; do
+grep -E "^\s*-\s*\[" "$HOMERUN_DOCS_DIR/PRD.md" | while read -r criterion; do
   if ! echo "$criterion" | grep -qE "(Given|When|Then|should|must|can|will) [a-z]+|[<>=≤≥] ?[0-9]"; then
     echo "VALIDATION_WARNING: Potentially untestable criterion: $criterion"
   fi
@@ -754,10 +739,10 @@ Verify the ADR has required sections:
 
 ```bash
 # Check for explicit non-goals or constraints in ADR
-grep -E "## (Non-Goals|Constraints|Out of Scope)" docs/specs/ADR.md || echo "VALIDATION_WARNING: ADR missing non-goals/constraints section"
+grep -E "## (Non-Goals|Constraints|Out of Scope)" "$HOMERUN_DOCS_DIR/ADR.md" || echo "VALIDATION_WARNING: ADR missing non-goals/constraints section"
 
 # Check decision has rationale
-grep -A 10 "## Decision" docs/specs/ADR.md | grep -E "(because|due to|since|rationale)" || echo "VALIDATION_WARNING: Decision lacks explicit rationale"
+grep -A 10 "## Decision" "$HOMERUN_DOCS_DIR/ADR.md" | grep -E "(because|due to|since|rationale)" || echo "VALIDATION_WARNING: Decision lacks explicit rationale"
 ```
 
 ### Validation Response

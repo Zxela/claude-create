@@ -1,0 +1,15 @@
+name: discovery-basic-prompt
+description: "Test basic discovery skill invocation with a simple prompt"
+workflow: homerun:discovery
+tags: [smoke, discovery, homerun]
+timeout_seconds: 120
+
+input:
+  prompt: |
+    I want to build a simple TODO list application.
+    It should allow users to add, remove, and mark items as complete.
+
+evaluations:
+  - type: behavioral
+    checks:
+      - command_succeeds: "echo 'Basic sanity check'"

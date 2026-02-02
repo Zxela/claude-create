@@ -138,7 +138,7 @@ Each phase spawns fresh agents to maintain optimal context window usage:
 
 ## Model Routing
 
-> **Note:** The authoritative source for model routing is `docs/references/model-routing.json`.
+> **Note:** The authoritative source for model routing is `references/model-routing.json`.
 
 Tasks are automatically assigned to the appropriate model based on complexity:
 
@@ -198,7 +198,8 @@ state.json
 ├── branch              # Git branch name
 ├── worktree            # Path to isolated worktree
 ├── phase               # discovery → planning → implementing → completing
-├── spec_paths          # Explicit paths to spec documents
+├── homerun_docs_dir    # Centralized docs location (absolute path)
+├── spec_paths          # Explicit paths to spec documents (in homerun_docs_dir)
 │   ├── prd
 │   ├── adr
 │   ├── technical_design
@@ -256,17 +257,24 @@ state.json
 
 ## File Structure
 
+**Worktree (project-specific):**
 ```
-docs/
-├── specs/
-│   ├── PRD.md                 # Product requirements & user stories
-│   ├── ADR.md                 # Architecture decision record
-│   ├── TECHNICAL_DESIGN.md    # Technical design & data models
-│   └── WIREFRAMES.md          # UI wireframes (if applicable)
-└── tasks.json                 # All tasks in single JSON file
+../project-create-feature-uuid/
+├── docs/
+│   └── tasks.json             # All tasks in single JSON file
+└── state.json                 # Workflow state & configuration
+```
 
-state.json                     # Workflow state & configuration
+**Centralized docs (not in project repo):**
 ```
+$HOME/.claude/homerun/<project-hash>/<feature-slug>/
+├── PRD.md                     # Product requirements & user stories
+├── ADR.md                     # Architecture decision record
+├── TECHNICAL_DESIGN.md        # Technical design & data models
+└── WIREFRAMES.md              # UI wireframes (if applicable)
+```
+
+Note: Paths in `state.json` are stored as absolute paths (e.g., `/home/user/.claude/...`).
 
 ## Task Schema
 
@@ -324,3 +332,7 @@ These skills are available for reference during implementation:
 - `homerun:tdd` - TDD methodology guide
 - `homerun:using-git-worktrees` - Git worktree operations
 - `homerun:systematic-debugging` - Debugging methodology
+
+## Credits
+
+See [CREDITS.md](CREDITS.md) for inspiration and sources.

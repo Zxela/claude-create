@@ -1,0 +1,5 @@
+# Eval configuration for homerun plugin
+name: homerun
+description: Evals for homerun development workflow skills
+default_tags:
+  - homerun

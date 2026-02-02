@@ -9,7 +9,7 @@ color: blue
 
 ## Reference Materials
 
-For detailed examples, see `docs/cookbooks/review-feedback-examples.md`.
+For detailed examples, see `cookbooks/review-feedback-examples.md`.
 
 ## Overview
 
@@ -85,8 +85,8 @@ The conductor provides input as a JSON object. **Validate input before proceedin
     "test_file": "tests/services/auth.test.ts"
   },
   "spec_paths": {
-    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
-    "adr": "docs/specs/ADR.md"
+    "technical_design": "/home/user/.claude/homerun/a1b2c3d4/user-auth-e5f6g7h8/TECHNICAL_DESIGN.md",
+    "adr": "/home/user/.claude/homerun/a1b2c3d4/user-auth-e5f6g7h8/ADR.md"
   },
   "worktree_path": "/path/to/worktree"
 }
@@ -120,13 +120,13 @@ For EACH acceptance criterion in the task file:
 
 ### Technical Alignment (Required)
 
-- Implementation matches patterns in `docs/specs/TECHNICAL_DESIGN.md` (or path from `spec_paths.technical_design`)
+- Implementation matches patterns in `spec_paths.technical_design` (centralized in `$HOME/.claude/homerun/`)
 - Data models match those defined in the design
 - API contracts match the specification
 
 ### Security (If Applicable)
 
-- Follows security decisions documented in `docs/specs/ADR.md` (or path from `spec_paths.adr`)
+- Follows security decisions documented in `spec_paths.adr` (centralized in `$HOME/.claude/homerun/`)
 - No obvious vulnerabilities introduced
 - Sensitive data handled appropriately
 

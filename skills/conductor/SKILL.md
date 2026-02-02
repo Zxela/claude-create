@@ -10,7 +10,9 @@ color: green
 ## Reference Documents
 
 Before executing, read these reference documents as needed:
-- `docs/references/state-machine.md` - Detailed algorithms, pseudocode, and state transitions
+- `references/state-machine.md` - Detailed algorithms, pseudocode, and state transitions
+- `references/retry-patterns.md` - Retry queue, circuit breaker, escalation logic
+- `references/context-engineering.md` - Agent spawning patterns, observation masking
 
 ## Overview
 
@@ -28,7 +30,7 @@ The conductor uses **haiku** by default (configurable via `config.conductor_mode
 
 ## Loop Flow (Reactive Scheduler)
 
-See `docs/references/state-machine.md` for the full loop diagram and pseudocode.
+See `references/state-machine.md` for the full loop diagram and pseudocode.
 
 **Key steps:**
 1. Poll running tasks for completions
@@ -59,11 +61,12 @@ The conductor reads and updates `state.json` throughout the implementation loop.
   "workflow_id": "feature-auth-system",
   "phase": "implementation",
   "current_task": null,
+  "homerun_docs_dir": "/home/user/.claude/homerun/a1b2c3d4/feature-auth-a5b6c7d8",
   "spec_paths": {
-    "prd": "docs/specs/PRD.md",
-    "adr": "docs/specs/ADR.md",
-    "technical_design": "docs/specs/TECHNICAL_DESIGN.md",
-    "wireframes": "docs/specs/WIREFRAMES.md"
+    "prd": "/home/user/.claude/homerun/a1b2c3d4/feature-auth-a5b6c7d8/PRD.md",
+    "adr": "/home/user/.claude/homerun/a1b2c3d4/feature-auth-a5b6c7d8/ADR.md",
+    "technical_design": "/home/user/.claude/homerun/a1b2c3d4/feature-auth-a5b6c7d8/TECHNICAL_DESIGN.md",
+    "wireframes": "/home/user/.claude/homerun/a1b2c3d4/feature-auth-a5b6c7d8/WIREFRAMES.md"
   },
   "tasks_file": "docs/tasks.json",
   "tasks": [
@@ -145,7 +148,7 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 
 ## Finding Ready Tasks
 
-See `docs/references/state-machine.md` for the full `findReadyTasks` algorithm.
+See `references/state-machine.md` for the full `findReadyTasks` algorithm.
 
 **Ready task criteria:**
 1. Status is `pending` (not already running or complete)
@@ -162,7 +165,7 @@ See `docs/references/state-machine.md` for the full `findReadyTasks` algorithm.
 
 ## Concurrency Control
 
-See `docs/references/state-machine.md` for the slot calculation algorithm.
+See `references/state-machine.md` for the slot calculation algorithm.
 
 The conductor limits parallel execution using:
 - **Global limit**: `config.max_parallel_tasks` (default: 3)
@@ -181,6 +184,67 @@ The conductor limits parallel execution using:
 
 Spawn multiple implementers in parallel using the Task tool with `run_in_background: true`.
 
+### Pre-Extracting Spec Context
+
+**Key optimization:** Extract relevant spec sections BEFORE spawning, so implementers don't need to read full files.
+
+```javascript
+function extractTaskContext(state, task) {
+  const specDir = state.homerun_docs_dir;
+  const context = { relevant_specs: {} };
+
+  // Extract based on task type
+  switch (task.task_type) {
+    case 'create_model':
+    case 'add_field':
+    case 'add_validation':
+      // Extract data model section
+      context.relevant_specs.data_model = extractSection(
+        `${specDir}/TECHNICAL_DESIGN.md`,
+        '## Data Model',
+        100  // lines
+      );
+      break;
+
+    case 'add_endpoint':
+    case 'add_endpoint_complex':
+      // Extract API contracts section
+      context.relevant_specs.api_contracts = extractSection(
+        `${specDir}/TECHNICAL_DESIGN.md`,
+        '## API Contracts',
+        80
+      );
+      break;
+
+    case 'create_service':
+    case 'create_middleware':
+      // Extract components + dependencies
+      context.relevant_specs.components = extractSection(
+        `${specDir}/TECHNICAL_DESIGN.md`,
+        '## Components',
+        60
+      );
+      break;
+  }
+
+  // Extract referenced ADR decisions
+  if (task.traces_to?.adr_decisions?.length > 0) {
+    context.relevant_specs.adr_decisions = task.traces_to.adr_decisions
+      .map(id => extractSection(`${specDir}/ADR.md`, id, 30))
+      .join('\n---\n');
+  }
+
+  return context;
+}
+
+function extractSection(file, heading, maxLines) {
+  // grep -A maxLines "heading" file | head -(maxLines+5)
+  // Returns just the relevant section, not the full file
+}
+```
+
+**Token savings:** Full TECHNICAL_DESIGN.md might be 5-10K tokens. Extracted section: ~500-1000 tokens.
+
 ### Spawning Multiple Tasks
 
 ```javascript
@@ -188,8 +252,9 @@ function spawnReadyTasks(state, readyTasks, slots) {
   const tasksToSpawn = readyTasks.slice(0, slots);
 
   for (const task of tasksToSpawn) {
-    // Build input
+    // Build input with pre-extracted context
     const input = buildImplementerInput(state, task);
+    input.extracted_context = extractTaskContext(state, task);
 
     // Log invocation
     logSkillInvocation(state, "homerun:implement", task.id);
@@ -463,130 +528,87 @@ function markTaskComplete(state, taskId) {
 
 ## Severity-Based Failure Handling
 
-The conductor responds differently based on rejection severity.
+> **Details:** See `references/retry-patterns.md` for queue management, circuit breaker, and recovery implementations.
 
-### Severity Levels
+| Severity | Response |
+|----------|----------|
+| Low/Medium | Add to retry queue, continue other tasks |
+| High | Block new spawns, let running finish, present recovery TUI |
 
-| Severity | Response | Rationale |
-|----------|----------|-----------|
-| Low | Add to retry queue, continue other tasks | Minor issues, isolated to task |
-| Medium | Add to retry queue, continue other tasks | Moderate issues, doesn't affect others |
-| High | Block new spawns, let running finish, escalate | May affect architecture, needs human judgment |
+**Recovery options** (presented via `AskUserQuestion`):
+- Retry with guidance
+- Mark as fixed (user fixed manually)
+- Skip task (unblock dependents)
+- Return to planning (re-decompose)
 
-### Retry Queue Management
+---
+
+## Observation Masking
+
+Tool outputs consume ~84% of context in agent workflows. The conductor applies masking to prevent bloat.
+
+See `references/context-engineering.md` for full patterns.
+
+### When to Mask
+
+| Output Type | Threshold | Mask Strategy |
+|-------------|-----------|---------------|
+| Git diff | > 100 lines | Write to scratch, return summary |
+| Test results | > 50 lines | Extract pass/fail + first failure |
+| Build output | > 2KB | Return exit code + last 20 lines |
+| File reads | > 500 lines | Summarize relevant sections |
+
+### Implementation
 
 ```javascript
-function addToRetryQueue(state, taskId, feedback) {
-  const task = findTask(state, taskId);
+function maskLargeOutput(output, type) {
+  const THRESHOLD = 2000; // tokens
+  if (estimateTokens(output) < THRESHOLD) return output;
 
-  state.parallel_state.retry_queue.push({
-    task_id: taskId,
-    attempts: (task.attempts || 0) + 1,
-    feedback: feedback,
-    added_at: new Date().toISOString()
-  });
+  // Write full output to scratch file
+  const scratchDir = process.env.SCRATCHPAD_DIR || '/tmp/claude-scratch';
+  const filename = `${type}-${Date.now()}.txt`;
+  const scratchPath = `${scratchDir}/${filename}`;
+  fs.writeFileSync(scratchPath, output);
 
-  // Reset task status for retry
-  task.status = 'pending';
-  task.feedback = task.feedback || [];
-  task.feedback.push(feedback);
+  // Return compact reference
+  return {
+    masked: true,
+    summary: extractSummary(output, type),
+    full_output_path: scratchPath,
+    lines: output.split('\n').length
+  };
 }
 
-function processRetryQueue(state) {
-  // Retries have lower priority than fresh tasks
-  if (state.parallel_state.retry_queue.length === 0) return [];
-
-  const readyRetries = [];
-
-  for (const retry of state.parallel_state.retry_queue) {
-    const task = findTask(state, retry.task_id);
-
-    // Check retry limits
-    if (retry.attempts >= state.config.max_total_attempts) {
-      task.status = 'escalated';
-      continue;
-    }
-
-    // Check if deps still resolved
-    if (areDependenciesResolved(state, task)) {
-      readyRetries.push({
-        ...task,
-        previous_feedback: retry.feedback,
-        is_retry: true,
-        attempt_number: retry.attempts
-      });
-    }
+function extractSummary(output, type) {
+  switch (type) {
+    case 'git_diff':
+      return `Changed ${countFiles(output)} files, +${countAdditions(output)}/-${countDeletions(output)} lines`;
+    case 'test_results':
+      return extractTestSummary(output); // "12 passed, 1 failed: test_name"
+    case 'build':
+      return output.includes('error') ? 'Build failed' : 'Build succeeded';
+    default:
+      return output.slice(0, 200) + '...';
   }
-
-  return readyRetries;
 }
 ```
 
-### High-Severity Escalation with TUI
+### Passing Masked References to Sub-Agents
 
-When blocked by high-severity failure, present structured recovery options using AskUserQuestion:
-
-```javascript
-function handleHighSeverityFailure(state, taskId, feedback) {
-  AskUserQuestion({
-    questions: [{
-      question: `Task ${taskId} failed with high severity: "${feedback.summary}". How would you like to proceed?`,
-      header: "Recovery",
-      options: [
-        {
-          label: "Retry with guidance",
-          description: "Provide additional context and retry implementation"
-        },
-        {
-          label: "Mark as fixed",
-          description: "I manually fixed the issue, continue from here"
-        },
-        {
-          label: "Skip task",
-          description: "Skip this task and unblock dependents"
-        },
-        {
-          label: "Return to planning",
-          description: "Restructure tasks to address the issue"
-        }
-      ],
-      multiSelect: false
-    }]
-  });
-}
-```
-
-### Recovery Actions
+When spawning implementers or reviewers with masked outputs:
 
 ```javascript
-function handleRecoveryChoice(state, taskId, choice) {
-  const task = findTask(state, taskId);
-
-  switch (choice) {
-    case "Retry with guidance":
-      state.parallel_state.blocked_by_failure = false;
-      addToRetryQueue(state, taskId, { guidance_requested: true });
-      break;
-
-    case "Mark as fixed":
-      markTaskComplete(state, taskId);
-      unblockDependents(state, taskId);
-      state.parallel_state.blocked_by_failure = false;
-      break;
-
-    case "Skip task":
-      task.status = 'skipped';
-      unblockDependents(state, taskId);
-      state.parallel_state.blocked_by_failure = false;
-      break;
-
-    case "Return to planning":
-      state.phase = 'planning';
-      state.parallel_state.blocked_by_failure = false;
-      // Invoke homerun:planning skill
-      break;
+const input = {
+  task: task,
+  spec_paths: state.spec_paths,
+  previous_output: {
+    masked: true,
+    summary: "Changed 3 files, +45/-12 lines",
+    full_output_path: "/tmp/claude-scratch/git_diff-1706195400.txt",
+    instruction: "Use Read tool on full_output_path if you need details"
   }
-}
+};
 ```
 
 ---
@@ -595,7 +617,7 @@ function handleRecoveryChoice(state, taskId, choice) {
 
 The conductor refreshes itself to prevent token accumulation over long-running workflows.
 
-See `docs/references/token-estimation.md` for detailed token estimation formulas.
+See `references/token-estimation.md` for detailed token estimation formulas.
 
 ### Refresh Triggers
 
@@ -871,7 +893,7 @@ If a task times out:
 
 ## Deadlock Detection
 
-See `docs/references/state-machine.md` for detailed deadlock detection algorithms.
+See `references/state-machine.md` for detailed deadlock detection algorithms.
 
 | Indicator | Detection | Threshold |
 |-----------|-----------|-----------|
@@ -1010,7 +1032,7 @@ After the implementer signals completion, spawn a reviewer agent.
 
 Parse the JSON output from the implementer. Supports both envelope and legacy formats.
 
-See `docs/references/signal-contracts.json` for the envelope schema.
+See `references/signal-contracts.json` for the envelope schema.
 
 ```javascript
 function parseSignal(output) {
@@ -1259,66 +1281,15 @@ Task({
 
 ## Retry Logic
 
-When a review is rejected, apply progressive retry logic based on attempt count.
+> **Details:** See `references/retry-patterns.md` for implementation details, circuit breaker, and feedback accumulation.
 
-| Attempts | Strategy | Rationale |
-|----------|----------|-----------|
-| 0-1 | Same implementer with feedback | Minor issues, same context helpful |
-| 2 | Fresh implementer | New perspective may solve persistent issues |
-| 3+ | Escalate to user | Likely needs human judgment or clarification |
+| Attempts | Strategy |
+|----------|----------|
+| 0-1 | Same implementer with feedback |
+| 2 | Fresh implementer (escalate to sonnet) |
+| 3+ | Escalate to user |
 
-### Retry Implementation
-
-```javascript
-function handleRejection(task, feedback) {
-  task.attempts++;
-  task.feedback.push(feedback);
-
-  // Check for high-severity issues - escalate model to sonnet
-  const hasHighSeverity = feedback.issues?.some(issue => issue.severity === "high");
-  if (hasHighSeverity && task.model === "haiku") {
-    task.escalated_model = "sonnet";
-    console.log(`High-severity rejection: escalating ${task.id} from haiku to sonnet`);
-  }
-
-  if (task.attempts < 2) {
-    // Retry with same implementer, include feedback
-    // If escalated_model is set, next spawn will use sonnet
-    return { action: 'retry_same', feedback, model: task.escalated_model || task.model };
-  } else if (task.attempts === 2) {
-    // Fresh start with new implementer (always sonnet for fresh attempts)
-    task.escalated_model = "sonnet";
-    return { action: 'retry_fresh', allFeedback: task.feedback, model: "sonnet" };
-  } else {
-    // Escalate to user
-    task.status = 'escalated';
-    return { action: 'escalate', reason: 'Max retries exceeded', feedback: task.feedback };
-  }
-}
-```
-
-### Feedback Accumulation
-
-Each rejected attempt's feedback is preserved:
-
-```json
-{
-  "feedback": [
-    {
-      "attempt": 1,
-      "summary": "Missing error handling",
-      "issues": ["No try-catch around API call", "Missing validation"],
-      "suggestions": ["Wrap in try-catch", "Add input validation"]
-    },
-    {
-      "attempt": 2,
-      "summary": "Tests incomplete",
-      "issues": ["No edge case tests", "Missing mock for external service"],
-      "suggestions": ["Add tests for empty input", "Mock the auth service"]
-    }
-  ]
-}
-```
+**Key behavior:** High-severity rejection of haiku task → set `task.escalated_model = "sonnet"` for next attempt.
 
 ---
 
@@ -1465,7 +1436,7 @@ jq '.tasks[] |= if .id == "001" then .status = "completed" | .manual_override = 
 
 ## Model Routing Strategy
 
-See `docs/references/model-routing.json` for the authoritative task type to model mapping.
+See `references/model-routing.json` for the authoritative task type to model mapping.
 
 ### Task Model Selection
 
@@ -1944,7 +1915,7 @@ Handle errors gracefully to maintain workflow integrity.
 
 ### Error Handling Implementation
 
-See `docs/references/state-machine.md` for the full `conductorLoop` implementation with parallel support.
+See `references/state-machine.md` for the full `conductorLoop` implementation with parallel support.
 
 **Key behaviors:**
 - Initialize `parallel_state` if missing

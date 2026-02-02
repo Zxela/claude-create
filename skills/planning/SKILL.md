@@ -7,11 +7,19 @@ color: purple
 
 # Planning Skill
 
+## Reference Materials
+
+- Model routing: `references/model-routing.json`
+- Decomposition examples: `cookbooks/task-decomposition-examples.md`
+- Agent handoff patterns: `references/context-engineering.md`
+
 ## Overview
 
 Read specification documents and decompose the feature into a sequence of test-bounded tasks. Each task represents exactly one commit with at least one verifying test (unless explicitly exempted). This skill transforms high-level specifications into executable implementation units.
 
 The planning process analyzes the technical design, identifies dependencies between components, and produces task files that can be worked on independently or in sequence by the conductor.
+
+**Model Selection:** This skill runs on **opus** because planning is high-leverage work - poor decomposition cascades into implementation failures. See `references/context-engineering.md` for rationale.
 
 ---
 
@@ -129,7 +137,7 @@ When planning completes, output a JSON signal:
 
 ## Input Documents
 
-Read the following documents from the worktree's `docs/specs/` directory:
+Read spec documents from the centralized `~/.claude/homerun/` directory (paths in state.json's `spec_paths`):
 
 | Document | Purpose |
 |----------|---------|
@@ -139,8 +147,10 @@ Read the following documents from the worktree's `docs/specs/` directory:
 | WIREFRAMES.md | UI layouts and user flows (if applicable) |
 
 Also read:
-- `state.json` - Current workflow state and configuration
+- `state.json` - Current workflow state, config, and spec_paths
 - `CLAUDE.md` - Project conventions and patterns
+
+**Important:** Always use paths from `state.json.spec_paths`, not hardcoded paths. Documents are stored in `$HOME/.claude/homerun/<project-hash>/<feature>/` to keep project directory clean. Paths in state.json are absolute (e.g., `/home/user/.claude/homerun/...`).
 
 ### Load Traceability from State
 
@@ -241,7 +251,7 @@ no_test_reason: "documentation only"
 
 ### Task Type Classification (Model Routing)
 
-See `docs/references/model-routing.json` for the authoritative task type to model mapping.
+See `references/model-routing.json` for the authoritative task type to model mapping.
 
 **Classification rules:**
 1. Default to `haiku` for mechanical, pattern-following tasks

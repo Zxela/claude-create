@@ -5,7 +5,7 @@ description: Use when encountering any bug, test failure, or unexpected behavior
 
 # Systematic Debugging
 
-> **Quick Reference:** For rapid troubleshooting of workflow issues, see `docs/references/debugging-flowchart.md`
+> **Quick Reference:** For rapid troubleshooting of workflow issues, see `references/debugging-flowchart.md`
 
 ## Overview
 

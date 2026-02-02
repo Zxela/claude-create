@@ -14,7 +14,7 @@ This is the **homerun** Claude Code plugin - an orchestrated development workflo
 /create "feature" → Discovery → Planning → Implementation Loop → Completion
 ```
 
-1. **Discovery** (`skills/discovery/SKILL.md`) - One-question-at-a-time dialogue to generate PRD, ADR, Technical Design, and Wireframes in `docs/specs/`
+1. **Discovery** (`skills/discovery/SKILL.md`) - One-question-at-a-time dialogue to generate PRD, ADR, Technical Design, and Wireframes in `~/.claude/homerun/`
 2. **Planning** (`skills/planning/SKILL.md`) - Decomposes specs into test-bounded tasks written to `docs/tasks/NNN-*.md`
 3. **Implementation** - Conductor orchestrates implement/review agent pairs:
    - `skills/conductor/SKILL.md` - Manages task queue and retry logic
@@ -26,6 +26,7 @@ This is the **homerun** Claude Code plugin - an orchestrated development workflo
 
 - `state.json` in worktree root tracks:
   - session_id, branch, worktree path, phase, tasks array, config
+  - **`homerun_docs_dir`** - Centralized docs location (`~/.claude/homerun/<hash>/<feature>/`)
   - **`spec_paths`** - Explicit paths to spec documents (prd, adr, technical_design, wireframes)
   - **`tasks_file`** - Path to tasks.json (replaces tasks_dir)
   - **`traceability`** - Links between user stories, acceptance criteria, ADR decisions, and tasks
@@ -37,6 +38,28 @@ This is the **homerun** Claude Code plugin - an orchestrated development workflo
 ### Isolation Model
 
 Each workflow creates an isolated git worktree at `../repo-create-feature-uuid/` to prevent conflicts with main workspace.
+
+### Centralized Document Storage
+
+Spec documents (PRD, ADR, TECHNICAL_DESIGN, WIREFRAMES) are stored **outside the project repo** at:
+
+```
+$HOME/.claude/homerun/<project-hash>/<feature-slug>/
+  ├── PRD.md
+  ├── ADR.md
+  ├── TECHNICAL_DESIGN.md
+  └── WIREFRAMES.md
+```
+
+**Path format:** Paths stored in `state.json` are always **absolute** (e.g., `/home/user/.claude/homerun/...`), never using `~` which doesn't expand in JSON.
+
+**Benefits:**
+- Keeps project directory clean (no design docs in repo)
+- Documents persist for reference across sessions
+- No conflicts when running multiple features on same project
+- Easy to find: `~/.claude/homerun/` contains all homerun docs
+
+**Important:** Always use paths from `state.json.spec_paths`, not hardcoded paths.
 
 ### Parallel Execution
 
@@ -84,7 +107,7 @@ This decouples methodology from the implement skill, making it configurable per-
 
 ### Model Routing
 
-See `docs/references/model-routing.json` for the authoritative task type to model mapping.
+See `references/model-routing.json` for the authoritative task type to model mapping.
 
 **Quick reference:**
 | Role | Model | Notes |
@@ -97,44 +120,59 @@ See `docs/references/model-routing.json` for the authoritative task type to mode
 - **Reviews always use sonnet** for quality assurance
 - **Escalation**: High-severity rejections upgrade haiku tasks to sonnet
 
-### Context Management
+### Context Engineering
 
-**Target: Stay under 50% context window for optimal quality.**
+See `references/context-engineering.md` for full patterns and rationale.
 
-See `docs/references/token-estimation.md` for token budgets and refresh triggers.
+**Core Principles:**
 
-Each phase spawns the next phase as a **Task agent** with fresh context and explicit model:
+1. **Context Isolation** - Each phase runs in fresh agent context
+2. **Filesystem-as-Memory** - Agents communicate via state.json, not message passing
+3. **Observation Masking** - Large outputs written to scratch files, summaries in context
+4. **Progressive Disclosure** - Skills reference detailed docs, don't inline everything
+5. **Model-Appropriate Routing** - Match model capability to task complexity
+
+**Agent Spawning Pattern:**
 
 ```
-/create
+/create (user's model - typically Opus)
    │
-   ▼
-Discovery (inherits caller model)
-   │ Task({ model: "opus", homerun:planning })
-   ▼
-Planning (opus - high-leverage, bad decomposition cascades)
-   │ Task({ model: "haiku", homerun:conductor })
-   ▼
-Conductor (haiku - scheduling is mechanical)
-   │ Task({ model: task.model })     Task({ model: "sonnet" })
-   ▼                                 ▼
-Implementer (haiku/sonnet)        Reviewer (always sonnet)
+   └─> Task(model: "opus")  → Discovery  [dialogue with user]
+           │
+           └─> Task(model: "opus")  → Planning   [high-leverage decomposition]
+                   │
+                   └─> Task(model: "haiku") → Conductor [mechanical scheduling]
+                           │
+                           ├─> Task(model: task.model) → Implementer [varies]
+                           │
+                           └─> Task(model: "sonnet")   → Reviewer    [judgment]
 ```
 
-**IMPORTANT:** All Task invocations must include explicit `model` parameter to ensure proper model routing and cost tracking.
+**Why this architecture:**
+- Model selection drives 80% of performance variance (research finding)
+- Opus for planning prevents cascading decomposition errors
+- Haiku for conductor saves cost on mechanical scheduling
+- Sonnet for reviews ensures quality judgment
+- Each agent starts fresh (~5-10K tokens, not bloated from prior phases)
 
-**Why Task agents for phase transitions:**
-- Each phase starts with clean context (~5-10K tokens)
-- No manual `/create --resume` needed
-- Discovery dialogue doesn't bloat planning
-- Planning deliberation doesn't bloat implementation
-- Automatic, seamless to user
+**Context Budgets:**
 
-**Context per phase:**
-- Discovery: Grows during dialogue, cleared after
-- Planning: Just specs + state (~10K)
-- Conductor: State + current task (~5K)
-- Implementer/Reviewer: Task + specs (~10K each)
+| Phase | Typical Size | Refresh Trigger |
+|-------|--------------|-----------------|
+| Discovery | Grows during dialogue | Phase transition |
+| Planning | ~10K (specs + state) | Phase transition |
+| Conductor | ~5K (state + current task) | Every 5 tasks or 70% usage |
+| Implementer | ~10K (task + specs) | Per-task (always fresh) |
+| Reviewer | ~10K (task + impl + specs) | Per-task (always fresh) |
+
+**Observation Masking:**
+
+Tool outputs > 2000 tokens are written to scratch files:
+- Git diffs → summary + file path
+- Test results → pass/fail + first failure
+- Build logs → exit code + last 20 lines
+
+See `references/token-estimation.md` for token budgets and estimation formulas.
 
 ## Key Files
 
@@ -142,7 +180,10 @@ Implementer (haiku/sonnet)        Reviewer (always sonnet)
 |------|---------|
 | `commands/create.md` | `/create` command entry point and argument parsing |
 | `skills/*/SKILL.md` | Agent behavior definitions (9 skills total) |
-| `templates/*.md` | Document templates for specs and tasks |
+| `templates/*.template.md` | Document templates (PRD, ADR, TECHNICAL_DESIGN) |
+| `references/*.json` | Extracted config (model-routing, signal-contracts, discovery-questions) |
+| `references/*.md` | Extracted algorithms (state-machine, retry-patterns, debugging-flowchart) |
+| `cookbooks/*.md` | Verbose examples extracted from skills |
 | `.claude-plugin/plugin.json` | Plugin metadata |
 
 ### Skill Directory Structure
@@ -171,7 +212,7 @@ These skills are bundled locally (cloned from superpowers) for reference and opt
 | `homerun:finishing-a-development-branch` | `skills/finishing-a-development-branch/SKILL.md` | PR/merge handling (invoked by conductor at completion) |
 | `homerun:systematic-debugging` | `skills/systematic-debugging/SKILL.md` | Debugging reference for stuck implementations |
 
-For quick troubleshooting, see `docs/references/debugging-flowchart.md`.
+For quick troubleshooting, see `references/debugging-flowchart.md`.
 
 **Note:** Core workflow skills (discovery, planning, conductor, implement, review) have key logic inline rather than invoking sub-skills, reducing coupling and making each skill self-contained.
 

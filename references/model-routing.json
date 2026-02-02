@@ -16,7 +16,9 @@
       ],
       "characteristics": "Mechanical, single-focus, <15 min",
       "max_parallel": 5,
-      "decomposable": false
+      "decomposable": false,
+      "default_methodology": "direct",
+      "methodology_note": "Simple tasks use direct+tests, not full TDD cycle"
     },
     "sonnet": {
       "task_types": [
@@ -29,7 +31,9 @@
       ],
       "characteristics": "Multi-file, requires judgment, 15-45 min",
       "max_parallel": 3,
-      "decomposable": true
+      "decomposable": true,
+      "default_methodology": "tdd",
+      "methodology_note": "Complex tasks benefit from test-first design"
     },
     "opus": {
       "task_types": [
