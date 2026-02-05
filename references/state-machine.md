@@ -174,6 +174,54 @@ Task 002: Create Auth service (needs 001)  -> READY
 
 ---
 
+## Agent ID Tracking
+
+When spawning background tasks, the conductor must track the mapping between homerun task IDs
+and Claude Code agent IDs. This is critical for proper TaskOutput polling.
+
+### The Problem
+
+The Task tool with `run_in_background: true` returns an identifier (like "a1e1957") for polling,
+but the conductor tracks tasks by homerun task ID (like "task-001"). TaskOutput requires the
+background task's ID, not the homerun task ID.
+
+### The Solution
+
+Store the mapping in `parallel_state.agent_mapping`:
+
+```javascript
+// When spawning:
+const result = Task({ run_in_background: true, ... });
+// Capture whatever ID the tool returns (task_id, agentId, or id)
+const backgroundTaskId = result.task_id || result.agentId || result.id;
+state.parallel_state.agent_mapping[task.id] = backgroundTaskId;
+
+// When polling:
+const agentId = state.parallel_state.agent_mapping[taskId];
+const output = TaskOutput({ task_id: agentId, ... });
+
+// When task completes:
+delete state.parallel_state.agent_mapping[taskId];
+```
+
+### State Example
+
+```json
+{
+  "parallel_state": {
+    "running_tasks": ["task-001", "task-002"],
+    "agent_mapping": {
+      "task-001": "a1e1957",
+      "task-002": "b2f2068"
+    },
+    "pending_review": [],
+    ...
+  }
+}
+```
+
+---
+
 ## Concurrency Control
 
 The conductor limits parallel execution using global and model-based limits.
@@ -353,6 +401,7 @@ async function conductorLoop(state) {
   // Initialize parallel_state if missing (first run or legacy state)
   state.parallel_state = state.parallel_state || {
     running_tasks: [],
+    agent_mapping: {},  // Maps homerun task IDs to agent IDs for TaskOutput polling
     pending_review: [],
     retry_queue: [],
     blocked_by_failure: false,
@@ -361,11 +410,14 @@ async function conductorLoop(state) {
   };
 
   while (true) {
-    // 1. Poll for completed implementations
-    const completed = pollCompletedTasks(state);
+    // 1. Poll for completed and failed implementations
+    const { completed, failed } = pollCompletedTasks(state);
     processCompletions(state, completed);
+    processFailures(state, failed);  // Add failed tasks to retry queue
 
     // 2. Process review queue (sequential - one at a time)
+    // Note: processReviewQueue polls for completions before each review
+    // to catch tasks that finished during previous blocking reviews
     while (state.parallel_state.pending_review.length > 0) {
       const result = processReviewQueue(state);
 

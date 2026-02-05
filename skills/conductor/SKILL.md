@@ -97,6 +97,9 @@ The conductor reads and updates `state.json` throughout the implementation loop.
   ],
   "parallel_state": {
     "running_tasks": ["task-002"],
+    "agent_mapping": {
+      "task-002": "a1e1957"
+    },
     "pending_review": [],
     "retry_queue": [],
     "blocked_by_failure": false,
@@ -135,6 +138,7 @@ The conductor reads and updates `state.json` throughout the implementation loop.
 | `tasks[].feedback` | Array of reviewer feedback from rejected attempts |
 | `tasks[].blocked_by` | Array of task IDs that must complete before this task can start |
 | `parallel_state.running_tasks` | Task IDs currently being implemented (parallel) |
+| `parallel_state.agent_mapping` | Maps task IDs to agent IDs for TaskOutput polling |
 | `parallel_state.pending_review` | Completed implementations awaiting sequential review |
 | `parallel_state.retry_queue` | Failed tasks awaiting retry (lower priority than fresh tasks) |
 | `parallel_state.blocked_by_failure` | Whether high-severity failure has paused execution |
@@ -251,6 +255,9 @@ function extractSection(file, heading, maxLines) {
 function spawnReadyTasks(state, readyTasks, slots) {
   const tasksToSpawn = readyTasks.slice(0, slots);
 
+  // Initialize agent_mapping if not present
+  state.parallel_state.agent_mapping = state.parallel_state.agent_mapping || {};
+
   for (const task of tasksToSpawn) {
     // Build input with pre-extracted context
     const input = buildImplementerInput(state, task);
@@ -263,8 +270,8 @@ function spawnReadyTasks(state, readyTasks, slots) {
     state.parallel_state.running_tasks.push(task.id);
     updateTaskStatus(state, task.id, 'in_progress');
 
-    // Spawn in background - don't wait for completion
-    Task({
+    // Spawn in background and capture agent ID
+    const result = Task({
       description: `Implement: ${task.title}`,
       subagent_type: "general-purpose",
       model: task.model || "sonnet",
@@ -277,7 +284,17 @@ ${JSON.stringify(input, null, 2)}
 \`\`\`
 `
     });
+
+    // Store mapping: homerun task ID → agent/task ID for polling
+    // The Task tool returns an identifier (task_id or agentId) when run_in_background is true
+    // Capture whatever ID the tool returns - this is needed for TaskOutput polling
+    const backgroundTaskId = result.task_id || result.agentId || result.id;
+    state.parallel_state.agent_mapping[task.id] = backgroundTaskId;
   }
+
+  // IMPORTANT: Save state immediately after spawning to persist agent mappings
+  // This prevents orphaned agents if conductor crashes before end of loop
+  saveState(state);
 
   return tasksToSpawn.length;
 }
@@ -290,24 +307,48 @@ After spawning, poll for completed tasks using TaskOutput:
 ```javascript
 function pollCompletedTasks(state) {
   const completed = [];
+  const failed = [];
+  const agentMapping = state.parallel_state.agent_mapping || {};
 
   for (const taskId of state.parallel_state.running_tasks) {
-    // Use TaskOutput with block=false to check without waiting
+    // Look up the actual agent ID from the mapping
+    const agentId = agentMapping[taskId];
+    if (!agentId) {
+      // No agent ID mapping - skip (shouldn't happen if spawnReadyTasks worked correctly)
+      state.skill_log = state.skill_log || [];
+      state.skill_log.push({
+        event: 'warning',
+        message: `No agent ID mapping for task ${taskId}`,
+        timestamp: new Date().toISOString()
+      });
+      continue;
+    }
+
+    // Use TaskOutput with the AGENT ID (not task ID) and block=false to check without waiting
     const output = TaskOutput({
-      task_id: taskId,
+      task_id: agentId,  // Use agent ID, not homerun task ID!
       block: false,
       timeout: 1000
     });
 
-    if (output && output.status === 'completed') {
-      completed.push({
-        id: taskId,
-        output: output.result
-      });
+    if (output) {
+      if (output.status === 'completed') {
+        completed.push({
+          id: taskId,
+          output: output.result
+        });
+      } else if (output.status === 'failed' || output.status === 'error') {
+        // Agent failed - will be added to retry queue
+        failed.push({
+          id: taskId,
+          error: output.error || 'Agent failed without error message'
+        });
+      }
+      // status === 'running' means still in progress - do nothing
     }
   }
 
-  return completed;
+  return { completed, failed };
 }
 ```
 
@@ -319,6 +360,11 @@ function processCompletions(state, completedTasks) {
     // Remove from running
     state.parallel_state.running_tasks =
       state.parallel_state.running_tasks.filter(t => t !== id);
+
+    // Clean up agent mapping
+    if (state.parallel_state.agent_mapping) {
+      delete state.parallel_state.agent_mapping[id];
+    }
 
     // Parse implementer output
     try {
@@ -342,11 +388,39 @@ function processCompletions(state, completedTasks) {
 }
 ```
 
+### Processing Failures
+
+Handle agents that failed or errored out:
+
+```javascript
+function processFailures(state, failedTasks) {
+  for (const { id, error } of failedTasks) {
+    // Remove from running
+    state.parallel_state.running_tasks =
+      state.parallel_state.running_tasks.filter(t => t !== id);
+
+    // Clean up agent mapping
+    if (state.parallel_state.agent_mapping) {
+      delete state.parallel_state.agent_mapping[id];
+    }
+
+    // Add to retry queue with error info
+    addToRetryQueue(state, id, {
+      error: error,
+      failure_type: 'agent_failure'
+    });
+  }
+}
+```
+
 ---
 
 ## Sequential Review Queue
 
 Reviews are processed one at a time to avoid cascading issues and provide clearer feedback loops.
+
+**Important:** Before each review, poll running tasks to detect any completions that occurred
+while a previous review was blocking. This prevents tasks from appearing stuck.
 
 ### Processing Reviews
 
@@ -355,6 +429,18 @@ function processReviewQueue(state) {
   // Process one review at a time
   if (state.parallel_state.pending_review.length === 0) {
     return { action: 'continue' };
+  }
+
+  // IMPORTANT: Poll for completions before starting a blocking review
+  // This catches any tasks that finished while we were doing the previous review
+  // Note: processCompletions may add items to pending_review - this is intentional,
+  // as we want to process them in the same review loop iteration
+  const { completed, failed } = pollCompletedTasks(state);
+  if (completed.length > 0) {
+    processCompletions(state, completed);
+  }
+  if (failed.length > 0) {
+    processFailures(state, failed);
   }
 
   const review = state.parallel_state.pending_review.shift();
