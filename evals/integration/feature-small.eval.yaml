@@ -1,0 +1,46 @@
+name: feature-small
+description: "Add a small feature end-to-end"
+workflow: homerun:create
+tags: [integration, feature, homerun]
+timeout_seconds: 900
+
+input:
+  prompt: |
+    Add a formatCurrency function to the sample-repo.
+
+    Requirements:
+    - Takes a number and returns formatted string like "$10.00"
+    - Handles negative numbers: "-$5.00"
+    - Rounds to 2 decimal places
+
+  repo: "${FIXTURES_DIR}/sample-repo"
+
+fixtures:
+  - source: sample-repo/
+    target: ${TEMP_DIR}/repo/
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify workflow completed
+      - signal_has:
+          field: "signal"
+          pattern: "WORKFLOW_COMPLETE|IMPLEMENTATION_COMPLETE"
+      # Check output mentions the feature
+      - output_contains: "formatCurrency|currency"
+      - output_contains: "test|implemented"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate feature implementation:
+
+      1. Function exists and exported (0-2)
+      2. Formats positive numbers correctly (0-2): formatCurrency(10) -> "$10.00"
+      3. Handles negatives (0-2): formatCurrency(-5) -> "-$5.00"
+      4. Rounds correctly (0-2): formatCurrency(10.999) -> "$11.00"
+      5. Has test coverage (0-2)
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

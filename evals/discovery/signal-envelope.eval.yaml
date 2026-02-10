@@ -1,0 +1,51 @@
+name: discovery-signal-envelope
+description: "Verify discovery emits valid DISCOVERY_COMPLETE signal"
+workflow: homerun:discovery
+tags: [discovery, signals, smoke, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Create a simple counter web component.
+    It should display a number and have increment/decrement buttons.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Core signal validation
+      - signal_has:
+          field: "signal"
+          pattern: "DISCOVERY_COMPLETE"
+      - signal_has:
+          field: "timestamp"
+      - signal_has:
+          field: "source.skill"
+          pattern: "homerun:discovery"
+      # Payload validation
+      - signal_has:
+          field: "payload.session_id"
+      - signal_has:
+          field: "payload.worktree_path"
+      - signal_has:
+          field: "payload.branch"
+      - signal_has:
+          field: "payload.spec_paths"
+      - signal_has:
+          field: "payload.user_stories_count"
+      - signal_has:
+          field: "payload.acceptance_criteria_count"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Verify the DISCOVERY_COMPLETE signal envelope is well-formed:
+
+      1. Signal type correct (0-2): Signal is "DISCOVERY_COMPLETE"
+      2. Timestamp valid (0-1): Has ISO8601 format timestamp
+      3. Source correct (0-2): source.skill is "homerun:discovery"
+      4. Paths present (0-3): payload has spec_paths with prd, adr, technical_design
+      5. Counts present (0-2): payload has user_stories_count and acceptance_criteria_count
+
+      Score 0-10. Pass threshold: 8
+    passing_score: 8

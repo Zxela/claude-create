@@ -1,0 +1,81 @@
+name: review-approve-valid
+description: "Verify reviewer approves implementation that meets all acceptance criteria"
+workflow: homerun:review
+tags: [review, approval, smoke, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Review task 001: Add number validation
+
+    Task spec:
+    {
+      "id": "001",
+      "title": "Add number validation",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "criterion": "isPositive returns true for positive numbers",
+          "test_assertion": "expect(isPositive(5)).toBe(true)"
+        },
+        {
+          "id": "AC-002",
+          "criterion": "isPositive returns false for zero and negatives",
+          "test_assertion": "expect(isPositive(-1)).toBe(false)"
+        }
+      ]
+    }
+
+    Implementation (already committed):
+    ```typescript
+    // src/validators.ts
+    export function isPositive(n: number): boolean {
+      return n > 0;
+    }
+    ```
+
+    Test file:
+    ```typescript
+    // tests/validators.test.ts
+    import { isPositive } from '../src/validators';
+
+    describe('isPositive', () => {
+      it('returns true for positive numbers', () => {
+        expect(isPositive(5)).toBe(true);
+        expect(isPositive(100)).toBe(true);
+      });
+
+      it('returns false for zero and negatives', () => {
+        expect(isPositive(0)).toBe(false);
+        expect(isPositive(-1)).toBe(false);
+      });
+    });
+    ```
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify approval signal
+      - signal_has:
+          field: "signal"
+          pattern: "APPROVED"
+      - signal_has:
+          field: "source.skill"
+          pattern: "homerun:review"
+      - signal_has:
+          field: "payload.verified"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check that reviewer APPROVES this valid implementation:
+
+      1. Outputs APPROVED signal (0-5): Implementation meets all AC, should be approved
+      2. Verifies each AC (0-3): payload.verified lists both AC-001 and AC-002
+      3. Summary explains approval (0-2): Brief explanation of what was verified
+
+      If REJECTED when should approve: Score 0
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

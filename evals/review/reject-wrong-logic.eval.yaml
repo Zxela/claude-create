@@ -1,0 +1,70 @@
+name: review-reject-wrong-logic
+description: "Verify reviewer rejects implementation with incorrect logic"
+workflow: homerun:review
+tags: [review, rejection, logic-error, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Review task 003: Add age validator
+
+    Task spec:
+    {
+      "id": "003",
+      "title": "Add age validator",
+      "acceptance_criteria": [
+        {
+          "id": "AC-005",
+          "criterion": "isAdult returns true for age >= 18",
+          "test_assertion": "expect(isAdult(18)).toBe(true)"
+        }
+      ]
+    }
+
+    Implementation (BUG: uses > instead of >=):
+    ```typescript
+    // src/validators.ts
+    export function isAdult(age: number): boolean {
+      return age > 18;  // BUG: should be >= 18
+    }
+    ```
+
+    Test file (also wrong, doesn't catch edge case):
+    ```typescript
+    // tests/validators.test.ts
+    describe('isAdult', () => {
+      it('returns true for adults', () => {
+        expect(isAdult(21)).toBe(true);  // passes but doesn't test 18
+        expect(isAdult(10)).toBe(false);
+      });
+    });
+    ```
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify rejection signal
+      - signal_has:
+          field: "signal"
+          pattern: "REJECTED"
+      - signal_has:
+          field: "payload.issues"
+      - signal_has:
+          field: "payload.severity"
+          pattern: "high"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check that reviewer REJECTS due to logic error:
+
+      1. Outputs REJECTED signal (0-3): Implementation has bug
+      2. Identifies the bug (0-4): Notes that 18 would return false incorrectly
+      3. Notes test inadequacy (0-2): Test doesn't verify edge case (age=18)
+      4. High severity (0-1): Logic error affecting correctness = high severity
+
+      If APPROVED when should reject: Score 0
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

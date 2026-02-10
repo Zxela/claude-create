@@ -1,0 +1,39 @@
+name: discovery-traceability-init
+description: "Verify discovery initializes traceability structure in state.json"
+workflow: homerun:discovery
+tags: [discovery, traceability, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Build a markdown note-taking app.
+    Features: create notes, organize in folders, search by content.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify signal envelope is present and has required fields
+      - signal_has:
+          field: "signal"
+          pattern: "DISCOVERY_COMPLETE"
+      - signal_has:
+          field: "payload.worktree_path"
+      - signal_has:
+          field: "payload.spec_paths.prd"
+      # Check output mentions traceability initialization
+      - output_contains: "traceability"
+      - output_contains: "state.json"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate if discovery properly initialized traceability:
+
+      1. User stories extracted (0-3): Output shows US-XXX identifiers for user stories
+      2. Acceptance criteria mapped (0-3): Output shows AC-XXX identifiers linked to stories
+      3. State file created (0-2): Output indicates state.json was created with traceability
+      4. Worktree established (0-2): Output shows worktree path was created
+
+      Score 0-10. Pass threshold: 6
+    passing_score: 6

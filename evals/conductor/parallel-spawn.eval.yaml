@@ -1,0 +1,41 @@
+name: conductor-parallel-spawn
+description: "Verify conductor spawns independent tasks in parallel"
+workflow: homerun:conductor
+tags: [conductor, parallel, smoke, homerun]
+timeout_seconds: 600
+
+input:
+  prompt: |
+    Orchestrate implementation with these tasks:
+
+    {
+      "tasks": [
+        {"id": "001", "title": "Setup config", "depends_on": [], "model": "haiku"},
+        {"id": "002", "title": "Add utils", "depends_on": [], "model": "haiku"},
+        {"id": "003", "title": "Add helpers", "depends_on": [], "model": "haiku"},
+        {"id": "004", "title": "Create main", "depends_on": ["001", "002", "003"], "model": "sonnet"}
+      ]
+    }
+
+    Tasks 001, 002, 003 have no dependencies and should be spawned in parallel.
+    Task 004 depends on all three and must wait.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Check output mentions parallel execution
+      - output_contains: "parallel|concurrent"
+      - output_contains: "001|002|003"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate parallel execution behavior:
+
+      1. Identifies ready tasks (0-3): Recognizes 001, 002, 003 are ready (no deps)
+      2. Spawns in parallel (0-4): Spawns multiple Task agents concurrently
+      3. Respects dependencies (0-3): Task 004 not spawned until 001-003 complete
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

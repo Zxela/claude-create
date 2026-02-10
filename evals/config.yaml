@@ -1,5 +1,47 @@
 # Eval configuration for homerun plugin
 name: homerun
 description: Evals for homerun development workflow skills
+version: "1.0.0"
+
 default_tags:
   - homerun
+
+# Eval categories
+categories:
+  discovery:
+    description: Tests for discovery skill (requirements gathering, doc generation)
+    skills: [homerun:discovery]
+
+  planning:
+    description: Tests for planning skill (task decomposition, DAG validation)
+    skills: [homerun:planning]
+
+  implement:
+    description: Tests for implementer skill (TDD, code generation)
+    skills: [homerun:implement]
+
+  review:
+    description: Tests for reviewer skill (approval/rejection logic)
+    skills: [homerun:review]
+
+  conductor:
+    description: Tests for conductor skill (orchestration, parallel execution)
+    skills: [homerun:conductor]
+
+  integration:
+    description: End-to-end tests (SWE-bench style)
+    skills: [homerun:create]
+
+# Tag meanings
+tag_definitions:
+  smoke: Quick sanity checks (~2 min each)
+  signals: Tests for signal envelope correctness
+  tdd: Tests for TDD methodology
+  swe-bench-style: Issue-to-fix workflows
+  full-workflow: Complete discovery-planning-implementation cycle
+
+# Cost control for LLM judge evaluations
+cost_control:
+  llm_judge:
+    default_model: haiku
+    max_tokens_per_call: 500

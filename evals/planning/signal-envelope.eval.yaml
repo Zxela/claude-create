@@ -1,0 +1,44 @@
+name: planning-signal-envelope
+description: "Verify planning emits valid PLANNING_COMPLETE signal"
+workflow: homerun:planning
+tags: [planning, signals, smoke, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Plan implementation for a todo list with 3 user stories and 6 acceptance criteria.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Core signal validation
+      - signal_has:
+          field: "signal"
+          pattern: "PLANNING_COMPLETE"
+      - signal_has:
+          field: "timestamp"
+      - signal_has:
+          field: "source.skill"
+          pattern: "homerun:planning"
+      # Payload validation
+      - signal_has:
+          field: "payload.tasks_count"
+      - signal_has:
+          field: "payload.tasks_file"
+      - signal_has:
+          field: "payload.dependency_graph_valid"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check for valid PLANNING_COMPLETE signal:
+
+      1. Has "signal": "PLANNING_COMPLETE" (0-3)
+      2. Has timestamp in ISO8601 format (0-1)
+      3. Payload includes tasks_count (0-2)
+      4. Payload includes dependency_graph_valid: true (0-2)
+      5. Payload includes coverage stats (user_stories, acceptance_criteria) (0-2)
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

@@ -1,0 +1,40 @@
+name: planning-dag-validation
+description: "Verify planning produces valid DAG with no circular dependencies"
+workflow: homerun:planning
+tags: [planning, dag, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Plan a simple CRUD API with these stories:
+    - US-001: Create items
+    - US-002: Read items
+    - US-003: Update items
+    - US-004: Delete items
+
+    All operations require a database model first.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify signal and DAG validation
+      - signal_has:
+          field: "signal"
+          pattern: "PLANNING_COMPLETE"
+      - signal_has:
+          field: "payload.dependency_graph_valid"
+          pattern: "true"
+      - output_contains: "depends_on"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Analyze the task dependency graph:
+
+      1. Valid DAG (0-4): No circular dependencies exist
+      2. Topological ordering (0-3): Tasks can be executed in listed order respecting deps
+      3. Foundation tasks first (0-3): Setup/model tasks have empty depends_on, features depend on them
+
+      Score 0-10. Pass threshold: 8 (DAG validity is critical)
+    passing_score: 8

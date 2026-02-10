@@ -1,0 +1,78 @@
+name: review-reject-missing-test
+description: "Verify reviewer rejects implementation with missing test coverage"
+workflow: homerun:review
+tags: [review, rejection, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Review task 002: Add string formatter
+
+    Task spec:
+    {
+      "id": "002",
+      "title": "Add string formatter",
+      "acceptance_criteria": [
+        {
+          "id": "AC-003",
+          "criterion": "capitalize() uppercases first letter",
+          "test_assertion": "expect(capitalize('hello')).toBe('Hello')"
+        },
+        {
+          "id": "AC-004",
+          "criterion": "capitalize() handles empty strings",
+          "test_assertion": "expect(capitalize('')).toBe('')"
+        }
+      ]
+    }
+
+    Implementation:
+    ```typescript
+    // src/formatter.ts
+    export function capitalize(s: string): string {
+      if (!s) return s;
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    ```
+
+    Test file (INCOMPLETE - missing AC-004 test):
+    ```typescript
+    // tests/formatter.test.ts
+    import { capitalize } from '../src/formatter';
+
+    describe('capitalize', () => {
+      it('uppercases first letter', () => {
+        expect(capitalize('hello')).toBe('Hello');
+      });
+      // Note: No test for empty string handling!
+    });
+    ```
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify rejection signal
+      - signal_has:
+          field: "signal"
+          pattern: "REJECTED"
+      - signal_has:
+          field: "source.skill"
+          pattern: "homerun:review"
+      - signal_has:
+          field: "payload.issues"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check that reviewer REJECTS due to missing test:
+
+      1. Outputs REJECTED signal (0-4): Missing test for AC-004
+      2. Identifies AC-004 gap (0-3): Issues mention missing empty string test
+      3. Provides required_fixes (0-2): Tells what test to add
+      4. Appropriate severity (0-1): medium severity (missing test, not wrong logic)
+
+      If APPROVED when should reject: Score 0
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

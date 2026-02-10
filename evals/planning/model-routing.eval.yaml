@@ -1,0 +1,39 @@
+name: planning-model-routing
+description: "Verify planning assigns correct models (haiku/sonnet) to task types"
+workflow: homerun:planning
+tags: [planning, model-routing, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Plan implementation with mixed complexity:
+    - Simple: Add config file, rename variable, add single test
+    - Complex: Create service with business logic, implement authentication middleware
+    - Integration: End-to-end API tests
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify signal contains model information
+      - signal_has:
+          field: "signal"
+          pattern: "PLANNING_COMPLETE"
+      - output_contains: "model"
+      - output_contains: "haiku|sonnet"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate model routing accuracy:
+
+      1. Haiku for mechanical tasks (0-3): Config, simple additions, renames use haiku
+      2. Sonnet for complex tasks (0-4): Services, middleware, multi-file changes use sonnet
+      3. Consistency (0-3): Similar task types get same model assignment
+
+      Model routing reference:
+      - Haiku: add_field, add_method, add_config, rename_refactor, add_test
+      - Sonnet: create_model, create_service, add_middleware, bug_fix, integration_test
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

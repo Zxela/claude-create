@@ -1,0 +1,54 @@
+name: implement-blocked-signal
+description: "Verify implementer emits IMPLEMENTATION_BLOCKED when dependencies missing"
+workflow: homerun:implement
+tags: [implement, signals, blocked, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Implement task 003: Add user service methods (SHOULD FAIL - missing User model)
+
+    Task spec:
+    {
+      "id": "003",
+      "title": "Add user service methods",
+      "objective": "Create UserService with findById and save methods",
+      "task_type": "create_service",
+      "depends_on": ["001"],
+      "acceptance_criteria": [
+        {
+          "id": "AC-003",
+          "criterion": "UserService.findById returns User instance"
+        }
+      ],
+      "technical_notes": "Requires User model from task 001"
+    }
+
+    Note: Task 001 (User model) has NOT been completed. The implementer should detect this.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Check for blocked signal
+      - signal_has:
+          field: "signal"
+          pattern: "IMPLEMENTATION_BLOCKED"
+      - signal_has:
+          field: "payload.reason"
+      - output_contains: "blocked|dependency|missing"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check for IMPLEMENTATION_BLOCKED signal (expected when dependency missing):
+
+      1. Has "signal": "IMPLEMENTATION_BLOCKED" (0-4)
+      2. payload.reason explains the missing dependency (0-3)
+      3. payload.blocker_type is "missing_dependency" or similar (0-2)
+      4. payload.suggested_resolution provided (0-1)
+
+      If implementation proceeded without blocking: Score 0
+
+      Score 0-10. Pass threshold: 6
+    passing_score: 6

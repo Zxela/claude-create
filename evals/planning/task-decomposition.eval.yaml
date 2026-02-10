@@ -1,0 +1,49 @@
+name: planning-task-decomposition
+description: "Verify planning creates properly decomposed, commit-sized tasks"
+workflow: homerun:planning
+tags: [planning, decomposition, homerun]
+timeout_seconds: 600
+
+input:
+  prompt: |
+    Plan implementation for a user authentication feature.
+
+    PRD Summary:
+    - US-001: User registration with email/password
+    - US-002: User login with session management
+    - US-003: Password reset via email
+
+    Acceptance Criteria:
+    - AC-001: Register validates email format
+    - AC-002: Register hashes passwords with bcrypt
+    - AC-003: Login creates secure session token
+    - AC-004: Password reset sends email within 30s
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify signal envelope
+      - signal_has:
+          field: "signal"
+          pattern: "PLANNING_COMPLETE"
+      - signal_has:
+          field: "payload.tasks_count"
+      - signal_has:
+          field: "payload.tasks_file"
+      # Check output mentions task creation
+      - output_contains: "tasks"
+      - output_contains: "depends_on"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 500
+    rubric: |
+      Evaluate task decomposition quality:
+
+      1. Commit-sized tasks (0-3): Each task is single-focus, completable in one commit
+      2. Clear dependencies (0-2): Tasks have explicit depends_on that form valid ordering
+      3. AC coverage (0-3): Every acceptance criterion maps to at least one task
+      4. Appropriate granularity (0-2): Not too coarse (multi-day) or too fine (trivial)
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

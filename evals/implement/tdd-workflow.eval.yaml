@@ -1,0 +1,56 @@
+name: implement-tdd-workflow
+description: "Verify implementer follows TDD methodology: red-green-refactor"
+workflow: homerun:implement
+tags: [implement, tdd, homerun]
+timeout_seconds: 600
+
+input:
+  prompt: |
+    Implement task 001: Create User model with email validation
+
+    Task spec:
+    {
+      "id": "001",
+      "title": "Create User model with email validation",
+      "objective": "Implement User class that validates email format",
+      "task_type": "create_model",
+      "methodology": "tdd",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "criterion": "User model validates email format correctly",
+          "test_assertion": "expect(User.isValidEmail('bad')).toBe(false)"
+        }
+      ],
+      "test_file": "tests/models/user.test.ts"
+    }
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify signal envelope for completion
+      - signal_has:
+          field: "signal"
+          pattern: "IMPLEMENTATION_COMPLETE"
+      - signal_has:
+          field: "source.task_id"
+          pattern: "001"
+      - signal_has:
+          field: "payload.files_changed"
+      # Check output mentions TDD steps
+      - output_contains: "test"
+      - output_contains: "user"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate TDD methodology adherence:
+
+      1. Test written first (0-3): Test file exists with meaningful assertions
+      2. Test covers AC (0-3): Acceptance criteria is tested, not just smoke test
+      3. Implementation matches test (0-2): Code satisfies what the test requires
+      4. Clean commit (0-2): Commit message follows convention, atomic change
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

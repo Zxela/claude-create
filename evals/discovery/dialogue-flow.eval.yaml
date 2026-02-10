@@ -1,0 +1,26 @@
+name: discovery-dialogue-flow
+description: "Verify discovery skill asks structured questions across all 5 categories"
+workflow: homerun:discovery
+tags: [discovery, dialogue, smoke, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    I want to build a simple task management CLI tool.
+    Users should be able to add, list, and complete tasks.
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate the discovery dialogue for structured requirements gathering:
+
+      1. PURPOSE category addressed (0-2): Asked about goals, problem being solved
+      2. USERS category addressed (0-2): Asked about target users, personas
+      3. SCOPE category addressed (0-2): Asked about features, boundaries, non-goals
+      4. CONSTRAINTS category addressed (0-2): Asked about technical/time/resource limits
+      5. EDGE CASES category addressed (0-2): Asked about error handling, unusual scenarios
+
+      Score 0-10. Pass threshold: 6 (covers at least 3 categories well)
+    passing_score: 6

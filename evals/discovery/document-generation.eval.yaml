@@ -1,0 +1,51 @@
+name: discovery-document-generation
+description: "Verify discovery generates all required specification documents"
+workflow: homerun:discovery
+tags: [discovery, documents, homerun]
+timeout_seconds: 600
+
+input:
+  prompt: |
+    Build a REST API for a bookmark manager.
+    Features: save URLs with tags, search bookmarks, import/export.
+    Tech: Node.js with Express, SQLite database.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify signal envelope contains spec paths
+      - signal_has:
+          field: "signal"
+          pattern: "DISCOVERY_COMPLETE"
+      - signal_has:
+          field: "payload.spec_paths.prd"
+      - signal_has:
+          field: "payload.spec_paths.adr"
+      - signal_has:
+          field: "payload.spec_paths.technical_design"
+      # Check output mentions document creation
+      - output_contains: "PRD"
+      - output_contains: "ADR"
+      - output_contains: "TECHNICAL_DESIGN"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 500
+    rubric: |
+      Evaluate the generated specification documents:
+
+      PRD Quality (0-4):
+      - Has clear user stories with acceptance criteria
+      - Success metrics are measurable (contain numbers/percentages)
+      - Non-goals section is explicit
+
+      ADR Quality (0-3):
+      - Documents key decisions with options considered
+      - Provides rationale for chosen options
+
+      Technical Design Quality (0-3):
+      - Defines data models/schemas
+      - Specifies API contracts or interfaces
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

@@ -1,0 +1,58 @@
+name: full-workflow-mini
+description: "Test full discovery-planning-implementation cycle on minimal feature"
+workflow: homerun:create
+tags: [integration, full-workflow, homerun]
+timeout_seconds: 1200
+
+input:
+  prompt: |
+    Build a simple string utility module with these features:
+    - reverse(str): reverses a string
+    - isPalindrome(str): checks if string is palindrome
+    - truncate(str, maxLen): truncates with "..." if too long
+
+    Keep it minimal - just these three functions with tests.
+
+fixtures:
+  - source: sample-repo/
+    target: ${TEMP_DIR}/repo/
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Verify workflow phases completed
+      - signal_has:
+          field: "signal"
+          pattern: "WORKFLOW_COMPLETE"
+      # Check output mentions all phases
+      - output_contains: "discovery|PRD"
+      - output_contains: "planning|tasks"
+      - output_contains: "implement|complete"
+
+  - type: llm_judge
+    model: sonnet
+    max_tokens: 600
+    rubric: |
+      Evaluate full workflow execution:
+
+      DISCOVERY PHASE (0-3):
+      - Generated PRD with user stories
+      - Defined acceptance criteria for each function
+      - Created technical design
+
+      PLANNING PHASE (0-3):
+      - Created tasks.json with logical decomposition
+      - Tasks have proper dependencies
+      - Model routing appropriate
+
+      IMPLEMENTATION PHASE (0-3):
+      - All three functions implemented
+      - Tests cover the acceptance criteria
+      - Code follows TDD methodology
+
+      COMPLETION (0-1):
+      - All tests pass
+      - Clean commits
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

@@ -1,0 +1,48 @@
+name: conductor-high-severity-block
+description: "Verify conductor blocks on high severity failures"
+workflow: homerun:conductor
+tags: [conductor, failures, blocking, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Handle this HIGH SEVERITY failure:
+
+    Task 001 was REJECTED with:
+    {
+      "signal": "REJECTED",
+      "source": {"skill": "homerun:review", "task_id": "001"},
+      "payload": {
+        "summary": "Implementation violates security requirements from ADR",
+        "severity": "high",
+        "issues": [
+          {"criterion": "AC-001", "severity": "high", "description": "Passwords stored in plaintext"}
+        ]
+      }
+    }
+
+    This is a critical security issue that requires user intervention.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Check output mentions blocking/escalation
+      - output_contains: "block|stop|halt|pause"
+      - output_contains: "high|severity|critical"
+      - output_contains: "user|intervention|escalat"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate high-severity handling:
+
+      1. Blocks new spawns (0-4): Does not spawn new tasks
+      2. Escalates to user (0-3): Presents options for user intervention
+      3. Explains severity (0-2): Communicates why this is blocking
+      4. Offers recovery options (0-1): Retry with guidance, skip, replan
+
+      If continues spawning tasks despite high severity: Score 0
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

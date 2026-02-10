@@ -1,0 +1,60 @@
+name: implement-signal-complete
+description: "Verify implementer emits valid IMPLEMENTATION_COMPLETE signal"
+workflow: homerun:implement
+tags: [implement, signals, smoke, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Implement task 002: Add greeting function
+
+    Task spec:
+    {
+      "id": "002",
+      "title": "Add greeting function",
+      "objective": "Create function that returns personalized greeting",
+      "task_type": "add_method",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "AC-002",
+          "criterion": "greet('Alice') returns 'Hello, Alice!'"
+        }
+      ]
+    }
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Core signal validation
+      - signal_has:
+          field: "signal"
+          pattern: "IMPLEMENTATION_COMPLETE"
+      - signal_has:
+          field: "timestamp"
+      - signal_has:
+          field: "source.skill"
+          pattern: "homerun:implement"
+      - signal_has:
+          field: "source.task_id"
+          pattern: "002"
+      # Payload validation
+      - signal_has:
+          field: "payload.files_changed"
+      - signal_has:
+          field: "payload.acceptance_criteria_met"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check for valid IMPLEMENTATION_COMPLETE signal:
+
+      1. Has "signal": "IMPLEMENTATION_COMPLETE" (0-3)
+      2. source.skill = "homerun:implement" (0-2)
+      3. source.task_id matches the task (0-2)
+      4. payload.files_changed is array of modified files (0-2)
+      5. payload.acceptance_criteria_met lists verified AC (0-1)
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

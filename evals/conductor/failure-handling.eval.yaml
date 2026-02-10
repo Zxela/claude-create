@@ -1,0 +1,47 @@
+name: conductor-failure-handling
+description: "Verify conductor handles task failures with appropriate severity"
+workflow: homerun:conductor
+tags: [conductor, failures, homerun]
+timeout_seconds: 600
+
+input:
+  prompt: |
+    Handle this task failure:
+
+    Task 002 was REJECTED with:
+    {
+      "signal": "REJECTED",
+      "source": {"skill": "homerun:review", "task_id": "002"},
+      "payload": {
+        "summary": "Missing error handling test",
+        "severity": "medium",
+        "issues": [{"criterion": "AC-003", "description": "No test for error case"}],
+        "required_fixes": ["Add test for null input"]
+      }
+    }
+
+    Current state:
+    - Task 001: completed
+    - Task 002: rejected (attempt 1)
+    - Task 003: pending (depends on 002)
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Check output mentions retry handling
+      - output_contains: "retry|attempt|queue"
+      - output_contains: "medium|severity"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate failure handling:
+
+      1. Adds to retry queue (0-3): Medium severity -> add to retry, not block
+      2. Includes feedback (0-3): Retry request includes previous rejection feedback
+      3. Continues other work (0-2): Doesn't block on medium severity
+      4. Updates state (0-2): Tracks attempt number, retry status
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7
