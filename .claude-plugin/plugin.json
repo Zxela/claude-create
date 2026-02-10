@@ -1,7 +1,7 @@
 {
   "name": "homerun",
   "description": "Orchestrated development workflow from idea to implementation with isolated agent contexts",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "author": {
     "name": "zxela"
   },
