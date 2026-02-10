@@ -8,6 +8,12 @@ input:
   prompt: |
     Create a simple counter web component.
     It should display a number and have increment/decrement buttons.
+  responses:
+    - "The goal is to let users increment and decrement a displayed number. It solves the need for a reusable UI counter widget."
+    - "Target users are frontend developers who need a drop-in counter component for dashboards or forms."
+    - "Core features: display current count, increment button, decrement button, optional min/max bounds. Non-goals: persistence, API integration, animations."
+    - "Must be a web component (custom element), vanilla JS, no frameworks. No specific time constraints."
+    - "Handle min/max bounds if set, handle rapid clicking gracefully, start from 0 by default, display should never show NaN."
 
 evaluations:
   - type: behavioral

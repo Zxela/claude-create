@@ -8,6 +8,12 @@ input:
   prompt: |
     I want to build a simple task management CLI tool.
     Users should be able to add, list, and complete tasks.
+  responses:
+    - "The purpose is a personal productivity tool to track daily to-do items from the terminal. It solves the problem of needing a quick, lightweight task tracker without leaving the command line."
+    - "Target users are developers and terminal power users who prefer CLI workflows over GUI apps."
+    - "Core features: add task with description, list all tasks with status, mark task as complete, delete a task. Non-goals: team collaboration, cloud sync, recurring tasks."
+    - "Must be a Node.js CLI, store tasks in a local JSON file, no external dependencies beyond the standard library. Should work on macOS and Linux. No time constraints."
+    - "Handle duplicate task names gracefully, handle empty task list display, handle invalid task IDs when completing or deleting, limit task description length to 500 characters."
 
 evaluations:
   - type: llm_judge
