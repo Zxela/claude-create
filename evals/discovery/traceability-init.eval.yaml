@@ -8,6 +8,12 @@ input:
   prompt: |
     Build a markdown note-taking app.
     Features: create notes, organize in folders, search by content.
+  responses:
+    - "The goal is a local-first note-taking app where users write notes in markdown and organize them into folders. It solves the need for a simple, file-based knowledge base without cloud dependencies."
+    - "Target users are developers and writers who are comfortable with markdown and want a lightweight alternative to Notion or Obsidian."
+    - "Core features: create/edit/delete markdown notes, organize notes into nested folders, full-text search across all notes. Non-goals: real-time collaboration, cloud sync, WYSIWYG editing."
+    - "Must be a desktop app using Electron or Tauri, store notes as .md files on the local filesystem. Should work on macOS, Linux, and Windows. No time constraints."
+    - "Handle special characters in note titles, handle very large notes (10MB+), handle folder name conflicts, handle concurrent file access if multiple windows are open."
 
 evaluations:
   - type: behavioral

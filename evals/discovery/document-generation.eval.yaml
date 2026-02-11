@@ -9,6 +9,12 @@ input:
     Build a REST API for a bookmark manager.
     Features: save URLs with tags, search bookmarks, import/export.
     Tech: Node.js with Express, SQLite database.
+  responses:
+    - "The purpose is a personal bookmark management API that lets users save, categorize, and retrieve web links. It solves the problem of scattered bookmarks across browsers and devices."
+    - "Target users are developers who want a self-hosted bookmark API they can integrate with browser extensions, CLI tools, or mobile apps."
+    - "Core features: CRUD for bookmarks with URL/title/description, tag-based organization, full-text search, bulk import from browser HTML export, export as JSON. Non-goals: user authentication (single-user), social sharing, screenshot previews."
+    - "Must use Node.js with Express and SQLite. RESTful API design with JSON responses. Should handle 10k+ bookmarks. No specific time constraints. Must include proper error responses with HTTP status codes."
+    - "Handle duplicate URLs gracefully (update existing), handle malformed URLs, handle very long tag lists, handle concurrent import requests, handle SQLite locking under load, validate URL reachability optionally."
 
 evaluations:
   - type: behavioral
