@@ -1,0 +1,61 @@
+name: conductor-deadlock-detection
+description: "Verify conductor detects deadlock when all pending tasks have unresolvable dependencies"
+workflow: homerun:conductor
+tags: [conductor, negative, deadlock, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    You are the conductor orchestrating task execution. Here is the current state:
+
+    tasks.json:
+    {
+      "tasks": [
+        {
+          "id": "001",
+          "title": "Create API endpoints",
+          "status": "pending",
+          "depends_on": ["002"],
+          "model": "haiku"
+        },
+        {
+          "id": "002",
+          "title": "Add authentication middleware",
+          "status": "pending",
+          "depends_on": ["003"],
+          "model": "haiku"
+        },
+        {
+          "id": "003",
+          "title": "Setup database connection",
+          "status": "pending",
+          "depends_on": ["001"],
+          "model": "haiku"
+        }
+      ]
+    }
+
+    All three tasks are pending. Task 001 depends on 002, 002 depends on 003, and 003 depends on 001.
+    No task can start because each is waiting on another.
+
+    Identify the situation and respond appropriately.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Must detect the deadlock/blocked state
+      - output_contains: "deadlock|[Bb]locked|no.*progress|cannot.*proceed|circular|cycle|unresolvable"
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate deadlock detection:
+
+      1. Deadlock recognition (0-4): Identifies that no tasks can proceed due to mutual dependencies
+      2. Blocked task identification (0-3): Names which tasks are involved (001, 002, 003)
+      3. Recovery action (0-3): Suggests resolution (escalate to user, return to planning, break the cycle)
+
+      If conductor attempts to spawn tasks despite the deadlock: Score 0
+
+      Score 0-10. Pass threshold: 6
+    passing_score: 6

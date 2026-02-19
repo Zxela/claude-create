@@ -3,6 +3,22 @@ description: "Verify implementer follows TDD methodology: red-green-refactor"
 workflow: homerun:implement
 tags: [implement, tdd, homerun]
 timeout_seconds: 600
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": { "test": "node --test" }
+      }
+  - path: src/user.ts
+    content: |
+      // User model stub - implement email validation
+      export class User {
+        constructor(public email: string) {}
+      }
 
 input:
   prompt: |
@@ -45,12 +61,12 @@ evaluations:
     model: haiku
     max_tokens: 400
     rubric: |
-      Evaluate TDD methodology adherence:
+      Evaluate TDD methodology adherence (signal structure already checked by behavioral):
 
-      1. Test written first (0-3): Test file exists with meaningful assertions
-      2. Test covers AC (0-3): Acceptance criteria is tested, not just smoke test
-      3. Implementation matches test (0-2): Code satisfies what the test requires
-      4. Clean commit (0-2): Commit message follows convention, atomic change
+      1. Red-green-refactor order (0-3): Evidence that test was written before implementation (red phase before green)
+      2. Test quality (0-3): Test assertions are meaningful and specific to AC-001, not trivial/tautological
+      3. Implementation correctness (0-2): Code actually satisfies the email validation requirement
+      4. Separation of concerns (0-2): Test and implementation are in separate files with clear boundaries
 
       Score 0-10. Pass threshold: 7
     passing_score: 7

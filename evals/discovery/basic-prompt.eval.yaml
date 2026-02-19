@@ -1,15 +1,36 @@
 name: discovery-basic-prompt
-description: "Test basic discovery skill invocation with a simple prompt"
+description: "Test basic discovery skill invocation — skill loads and asks questions"
 workflow: homerun:discovery
 tags: [smoke, discovery, homerun]
-timeout_seconds: 120
+timeout_seconds: 300
+isolation: tempdir
 
 input:
   prompt: |
     I want to build a simple TODO list application.
     It should allow users to add, remove, and mark items as complete.
+    This is a brand new project — no existing code. Technology: Node.js.
+  responses:
+    - "The main goal is to manage personal tasks. Target users are individual developers who want a CLI-based todo tracker."
 
 evaluations:
   - type: behavioral
     checks:
-      - command_succeeds: "echo 'Basic sanity check'"
+      # Discovery must mention the topic
+      - output_contains: "[Tt]odo|[Tt]ask|TODO"
+      # Discovery must ask a question (core behavior)
+      - output_contains: "\\?"
+      # Discovery must use question words
+      - output_contains: "[Ww]hat|[Hh]ow|[Ww]hich|[Tt]ell|[Dd]escribe|[Ww]ould"
+  - type: llm_judge
+    model: haiku
+    max_tokens: 300
+    rubric: |
+      Evaluate the quality of the discovery skill's engagement:
+
+      1. Contextual understanding (0-3): Shows comprehension of the TODO app idea and its domain
+      2. Question quality (0-4): Asks focused, specific questions that would elicit useful requirements (not generic/vague)
+      3. Systematic approach (0-3): Evidence of structured requirements gathering across categories (purpose, users, scope, constraints)
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

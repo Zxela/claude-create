@@ -30,11 +30,11 @@ evaluations:
     model: haiku
     max_tokens: 400
     rubric: |
-      Analyze the task dependency graph:
+      Evaluate dependency graph quality (DAG validity already checked by behavioral):
 
-      1. Valid DAG (0-4): No circular dependencies exist
-      2. Topological ordering (0-3): Tasks can be executed in listed order respecting deps
-      3. Foundation tasks first (0-3): Setup/model tasks have empty depends_on, features depend on them
+      1. Dependency reasoning (0-4): Each dependency makes logical sense (model before service, schema before model)
+      2. Parallelism opportunities (0-3): Independent tasks are not unnecessarily serialized
+      3. Foundation-first ordering (0-3): Setup/infrastructure tasks are correctly placed before feature tasks
 
-      Score 0-10. Pass threshold: 8 (DAG validity is critical)
-    passing_score: 8
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

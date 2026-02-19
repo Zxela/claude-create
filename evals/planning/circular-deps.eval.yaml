@@ -1,0 +1,47 @@
+name: planning-circular-deps
+description: "Verify planning detects circular task dependencies and reports them"
+workflow: homerun:planning
+tags: [planning, negative, dag, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Plan implementation for a notification system with these components:
+
+    Technical Design:
+    - NotificationService sends notifications and depends on UserPreferences
+    - UserPreferences loads user settings and depends on NotificationHistory
+    - NotificationHistory records past notifications and depends on NotificationService
+
+    This creates a circular dependency: NotificationService → UserPreferences → NotificationHistory → NotificationService
+
+    PRD Summary:
+    - US-001: Send notifications to users based on preferences
+    - US-002: Track notification history
+
+    Acceptance Criteria:
+    - AC-001: NotificationService sends correct notification type per user preference
+    - AC-002: NotificationHistory records every sent notification
+
+    IMPORTANT: The dependency cycle above MUST be detected and reported.
+    Do NOT proceed with task creation if dependencies form a cycle.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Must detect the circular dependency
+      - output_contains: "cycl|circular|invalid.*depend|dependency.*error|cannot.*resolve"
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate circular dependency detection:
+
+      1. Cycle identification (0-5): Identifies the circular dependency between the three components
+      2. Specific cycle path (0-3): Names which components form the cycle (NotificationService, UserPreferences, NotificationHistory)
+      3. Resolution suggestion (0-2): Suggests how to break the cycle (e.g., interface extraction, event-driven, dependency inversion)
+
+      If planning proceeds without detecting the cycle: Score 0
+
+      Score 0-10. Pass threshold: 6
+    passing_score: 6

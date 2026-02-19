@@ -1,0 +1,64 @@
+name: conductor-model-escalation
+description: "Verify conductor escalates from haiku to sonnet after high-severity rejection"
+workflow: homerun:conductor
+tags: [conductor, negative, escalation, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    You are the conductor orchestrating task execution. Here is the current state:
+
+    Task 002 was assigned to haiku and has been REJECTED with HIGH severity:
+
+    {
+      "signal": "REJECTED",
+      "source": { "skill": "homerun:review", "task_id": "002" },
+      "payload": {
+        "summary": "Security vulnerability: passwords stored in plaintext",
+        "issues": [
+          {
+            "criterion": "AC-002",
+            "severity": "high",
+            "description": "Password hashing not implemented. Passwords are stored as plaintext strings in the database.",
+            "file": "src/auth.ts",
+            "line": 23
+          }
+        ],
+        "required_fixes": ["Implement bcrypt password hashing before storing"]
+      }
+    }
+
+    Task 002 details:
+    {
+      "id": "002",
+      "title": "Implement password storage",
+      "model": "haiku",
+      "status": "failed",
+      "attempt": 1
+    }
+
+    Per homerun retry patterns, a high-severity rejection on a haiku task should trigger model escalation to sonnet for the retry.
+
+    What is your next action for task 002?
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Must mention escalation to a stronger model
+      - output_contains: "escalat|sonnet|upgrade.*model|stronger.*model"
+      # Must acknowledge the severity
+      - output_contains: "high|severity|security|critical"
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate model escalation behavior:
+
+      1. Severity recognition (0-3): Identifies the rejection as high-severity due to security issue
+      2. Model escalation decision (0-4): Explicitly decides to retry with sonnet instead of haiku
+      3. Feedback preservation (0-3): Includes the rejection feedback (password hashing requirement) in the retry context
+
+      If conductor retries with haiku again (no escalation): Score 2 max
+
+      Score 0-10. Pass threshold: 6
+    passing_score: 6

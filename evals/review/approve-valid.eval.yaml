@@ -3,10 +3,33 @@ description: "Verify reviewer approves implementation that meets all acceptance 
 workflow: homerun:review
 tags: [review, approval, smoke, homerun]
 timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: src/validators.ts
+    content: |
+      export function isPositive(n: number): boolean {
+        return n > 0;
+      }
+  - path: tests/validators.test.ts
+    content: |
+      import { isPositive } from '../src/validators';
+
+      describe('isPositive', () => {
+        it('returns true for positive numbers', () => {
+          expect(isPositive(5)).toBe(true);
+          expect(isPositive(100)).toBe(true);
+        });
+
+        it('returns false for zero and negatives', () => {
+          expect(isPositive(0)).toBe(false);
+          expect(isPositive(-1)).toBe(false);
+        });
+      });
 
 input:
   prompt: |
-    Review task 001: Add number validation
+    Review this implementation for task 001.
 
     Task spec:
     {
@@ -26,31 +49,12 @@ input:
       ]
     }
 
-    Implementation (already committed):
-    ```typescript
-    // src/validators.ts
-    export function isPositive(n: number): boolean {
-      return n > 0;
-    }
-    ```
+    The implementation files are already on disk:
+    - src/validators.ts — contains the isPositive function
+    - tests/validators.test.ts — contains the test suite
 
-    Test file:
-    ```typescript
-    // tests/validators.test.ts
-    import { isPositive } from '../src/validators';
-
-    describe('isPositive', () => {
-      it('returns true for positive numbers', () => {
-        expect(isPositive(5)).toBe(true);
-        expect(isPositive(100)).toBe(true);
-      });
-
-      it('returns false for zero and negatives', () => {
-        expect(isPositive(0)).toBe(false);
-        expect(isPositive(-1)).toBe(false);
-      });
-    });
-    ```
+    Both acceptance criteria have passing tests. The implementation is correct and complete.
+    Please review and output your verdict as a JSON signal.
 
 evaluations:
   - type: behavioral
@@ -59,21 +63,16 @@ evaluations:
       - signal_has:
           field: "signal"
           pattern: "APPROVED"
-      - signal_has:
-          field: "source.skill"
-          pattern: "homerun:review"
-      - signal_has:
-          field: "payload.verified"
 
   - type: llm_judge
     model: haiku
     max_tokens: 400
     rubric: |
-      Check that reviewer APPROVES this valid implementation:
+      Evaluate the quality of the review (signal correctness already checked by behavioral):
 
-      1. Outputs APPROVED signal (0-5): Implementation meets all AC, should be approved
-      2. Verifies each AC (0-3): payload.verified lists both AC-001 and AC-002
-      3. Summary explains approval (0-2): Brief explanation of what was verified
+      1. AC verification thoroughness (0-4): Explicitly verifies both AC-001 and AC-002 with specific evidence from code
+      2. Review reasoning quality (0-3): Explains why the implementation is correct, references actual code/test logic
+      3. Completeness of feedback (0-3): Provides useful summary that would help the developer understand the verdict
 
       If REJECTED when should approve: Score 0
 

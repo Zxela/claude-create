@@ -3,6 +3,28 @@ description: "Verify implementer emits IMPLEMENTATION_BLOCKED when dependencies 
 workflow: homerun:implement
 tags: [implement, signals, blocked, homerun]
 timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": { "test": "node --test" }
+      }
+  - path: src/service.ts
+    content: |
+      // UserService that depends on User model from task 001
+      // Note: User model does NOT exist yet - task 001 not completed
+      import { User } from './models/user';
+
+      export class UserService {
+        async findById(id: string): Promise<User | null> {
+          // Requires User model
+          return null;
+        }
+      }
 
 input:
   prompt: |
@@ -41,12 +63,11 @@ evaluations:
     model: haiku
     max_tokens: 400
     rubric: |
-      Check for IMPLEMENTATION_BLOCKED signal (expected when dependency missing):
+      Evaluate blocking behavior quality (signal structure already checked by behavioral):
 
-      1. Has "signal": "IMPLEMENTATION_BLOCKED" (0-4)
-      2. payload.reason explains the missing dependency (0-3)
-      3. payload.blocker_type is "missing_dependency" or similar (0-2)
-      4. payload.suggested_resolution provided (0-1)
+      1. Dependency analysis (0-4): Correctly identifies that task 001 (User model) is missing and needed
+      2. Explanation quality (0-3): Reason is specific about what's missing and why it blocks progress
+      3. Recovery guidance (0-3): Provides actionable suggested resolution (e.g., "complete task 001 first")
 
       If implementation proceeded without blocking: Score 0
 

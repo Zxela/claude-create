@@ -38,12 +38,12 @@ evaluations:
     model: haiku
     max_tokens: 500
     rubric: |
-      Evaluate task decomposition quality:
+      Evaluate task decomposition quality (signal structure already checked by behavioral):
 
       1. Commit-sized tasks (0-3): Each task is single-focus, completable in one commit
-      2. Clear dependencies (0-2): Tasks have explicit depends_on that form valid ordering
-      3. AC coverage (0-3): Every acceptance criterion maps to at least one task
-      4. Appropriate granularity (0-2): Not too coarse (multi-day) or too fine (trivial)
+      2. AC coverage completeness (0-3): Every acceptance criterion (AC-001 through AC-004) maps to at least one task
+      3. Appropriate granularity (0-2): Not too coarse (multi-day) or too fine (trivial)
+      4. Task clarity (0-2): Each task has clear objective and acceptance criteria that a separate agent could implement
 
       Score 0-10. Pass threshold: 7
     passing_score: 7
