@@ -33,6 +33,21 @@ Start an orchestrated development workflow that takes you from idea to implement
 
 ## Workflow
 
+### Architecture: Flat State Machine
+
+**Every phase runs at depth 1** — spawned directly by this command, never chained. This guarantees all agents have full tool access (including Task for spawning subagents). After each phase returns, read `state.json` and spawn the next phase.
+
+```
+/create (main session — loop controller)
+  ├─ spawn discovery-agent      (depth 1) → returns
+  ├─ spawn spec-reviewer        (depth 1) → returns
+  ├─ spawn planner              (depth 1) → returns
+  ├─ spawn team-lead            (depth 1) → returns
+  └─ invoke finishing skill     (depth 0) → done
+```
+
+**Agents do NOT chain to the next phase.** Each agent updates `state.json` with the next phase and returns. This command reads the phase and spawns the next agent.
+
 ### Resume Mode (--resume flag)
 
 When resuming an interrupted session:
@@ -42,20 +57,11 @@ When resuming an interrupted session:
    git worktree list | grep create/
    ```
 
-2. Read the session state from `state.json` in the worktree root
+2. Read `state.json` from the worktree root
 
-3. Determine current phase from `state.json` and spawn the appropriate agent:
-   - If `phase` is "discovery" or discovery incomplete: spawn `discovery-agent`
-   - If `phase` is "spec_review": spawn `spec-reviewer`
-   - If `phase` is "planning" or planning incomplete: spawn `planner`
-   - If `phase` is "execution" or execution incomplete: spawn `team-lead` (falls back to conductor if Agent Teams unavailable)
-   - If `phase` is "completing": invoke `homerun:finishing-a-development-branch`
-
-4. Pass the stored configuration and any accumulated context to the skill
+3. Jump into the **Phase Loop** below at the current phase
 
 ### New Session (no --resume)
-
-When starting a new workflow:
 
 1. **Announce the workflow:**
    ```
@@ -75,18 +81,95 @@ When starting a new workflow:
    - Set `auto_mode: true` if `--auto` flag is present
    - Parse `--retries N,M` to override default retry values
 
-3. **Invoke the discovery phase:**
-   ```javascript
-   Task({
-     description: "Gather requirements",
-     subagent_type: "discovery-agent",
-     prompt: `Start discovery for: ${userPrompt}
+3. **Start the Phase Loop** beginning at "discovery"
 
-     Configuration: ${JSON.stringify(config)}
-     Project root: ${projectRoot}`
-   });
-   ```
-   The discovery agent will gather requirements, generate specs, then hand off to the spec-reviewer agent.
+### Phase Loop
+
+Read the current phase from `state.json` (or start at "discovery" for new sessions). Spawn the appropriate agent, wait for it to return, then read `state.json` again and continue to the next phase. Repeat until complete.
+
+```bash
+PHASE=$(jq -r '.phase // "discovery"' "$WORKTREE_PATH/state.json" 2>/dev/null || echo "discovery")
+```
+
+#### Phase: discovery
+
+```javascript
+Task({
+  description: "Gather requirements",
+  subagent_type: "discovery-agent",
+  prompt: `Start discovery for: ${userPrompt}
+
+  Configuration: ${JSON.stringify(config)}
+  Project root: ${projectRoot}`
+});
+```
+
+After discovery returns, re-read `state.json`. Discovery sets `phase: "spec_review"`.
+
+#### Phase: spec_review
+
+```javascript
+Task({
+  description: "Review specification documents",
+  subagent_type: "spec-reviewer",
+  prompt: `Review specs for consistency, completeness, and testability.
+
+  Worktree: ${worktree}
+  Spec paths: ${JSON.stringify(state.spec_paths)}
+  Auto mode: ${state.config.auto_mode}
+
+  Emit SPEC_REVIEW_COMPLETE signal with verdict.`
+});
+```
+
+**After spec-review returns**, check the verdict:
+- If `verdict: "approved"`: update `state.json` phase to `"planning"` and continue
+- If `verdict: "needs_revision"`: report issues to user and **stop** (user fixes specs, then runs `/create --resume`)
+
+**Note:** The spec-reviewer is read-only (no Write tool), so this command handles the phase transition.
+
+#### Phase: planning
+
+```javascript
+Task({
+  description: "Plan implementation tasks",
+  subagent_type: "planner",
+  prompt: `Decompose specs into implementation tasks.
+
+  Worktree: ${worktree}
+  State file: ${worktree}/state.json
+
+  Read state.json and spec documents, then create tasks.json with DAG.`
+});
+```
+
+After planning returns, re-read `state.json`. Planning sets `phase: "implementing"`.
+
+#### Phase: implementing
+
+```javascript
+Task({
+  description: "Execute implementation loop",
+  subagent_type: "team-lead",
+  prompt: `Orchestrate parallel implementation for this feature.
+
+  Worktree: ${worktree}
+  State file: ${worktree}/state.json
+
+  Read state.json and tasks.json, then coordinate implementation.
+  If Agent Teams is unavailable, fall back to conductor.`
+});
+```
+
+After team-lead returns, re-read `state.json`. Team-lead sets `phase: "completing"`.
+
+#### Phase: completing
+
+```javascript
+Skill({ skill: "homerun:finishing-a-development-branch" });
+```
+
+Invoke the finishing skill in the current context to present merge/PR/continue options.
 
 ## Examples
 

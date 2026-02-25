@@ -93,6 +93,8 @@ Task({
 // EXIT HERE. Do not continue. The conductor handles everything from this point.
 ```
 
+**Note:** The `/create` and `/build` commands spawn the team-lead at depth 1 (direct child of the main session), guaranteeing Task tool availability for the conductor fallback.
+
 **Prohibited fallback behaviors (NEVER do any of these):**
 - Implementing tasks yourself directly
 - Telling yourself "Agent Teams are not available, so I'll do it myself"

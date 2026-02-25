@@ -79,7 +79,7 @@ If Agent Teams is unavailable (env var missing OR TaskCreate tool not loadable):
 
 1. Log `orchestration_mode: "conductor_fallback"` to state.json
 2. Emit `CONDUCTOR_FALLBACK` signal
-3. Spawn conductor via:
+3. Spawn conductor via Task:
    ```
    Task({
      description: "Execute implementation loop (conductor fallback)",
@@ -90,7 +90,9 @@ If Agent Teams is unavailable (env var missing OR TaskCreate tool not loadable):
    ```
 4. Exit immediately — the conductor takes over from here
 
-**CRITICAL: The fallback is ALWAYS to spawn the conductor. There is no scenario where the team-lead implements tasks itself. If you cannot spawn a conductor either, report the error to the user and stop — do not attempt to implement.**
+**CRITICAL: The fallback is ALWAYS to spawn the conductor. There is no scenario where the team-lead implements tasks itself. If you cannot spawn a conductor, report the error to the user and stop — do not attempt to implement.**
+
+**Note:** The `/create` command spawns the team-lead at depth 1 (direct child of the main session), guaranteeing Task tool availability. The `/build` command also spawns at depth 1.
 
 ## Key Responsibilities
 
