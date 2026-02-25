@@ -1,0 +1,104 @@
+name: review-re-review-fixed-issue
+description: "Verify reviewer correctly handles re-review when previous issues are fixed"
+workflow: homerun:review
+tags: [review, re-review, retry, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Re-review task 004: Add email validator (attempt 2).
+
+    Task spec:
+    {
+      "id": "004",
+      "title": "Add email validator",
+      "acceptance_criteria": [
+        {
+          "id": "AC-006",
+          "criterion": "validateEmail returns true for valid emails",
+          "test_assertion": "expect(validateEmail('user@example.com')).toBe(true)"
+        },
+        {
+          "id": "AC-007",
+          "criterion": "validateEmail returns false for empty string",
+          "test_assertion": "expect(validateEmail('')).toBe(false)"
+        }
+      ]
+    }
+
+    Previous rejection (attempt 1):
+    {
+      "previous_rejections": [
+        {
+          "attempt": 1,
+          "issues": [
+            {
+              "criterion": "AC-007",
+              "description": "Empty string not validated - validateEmail('') returns true instead of false",
+              "severity": "high"
+            }
+          ],
+          "required_fixes": [
+            "Add empty string check at the start of validateEmail in src/validators/email.ts"
+          ]
+        }
+      ]
+    }
+
+    Updated implementation (fix applied):
+    ```typescript
+    // src/validators/email.ts
+    export function validateEmail(email: string): boolean {
+      if (!email) return false;  // FIX: added empty string check
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    ```
+
+    Updated test file (now covers both criteria):
+    ```typescript
+    // tests/validators/email.test.ts
+    import { validateEmail } from '../src/validators/email';
+
+    describe('validateEmail', () => {
+      it('returns true for valid emails', () => {
+        expect(validateEmail('user@example.com')).toBe(true);
+        expect(validateEmail('test@domain.org')).toBe(true);
+      });
+
+      it('returns false for empty string', () => {
+        expect(validateEmail('')).toBe(false);
+      });
+
+      it('returns false for invalid emails', () => {
+        expect(validateEmail('notanemail')).toBe(false);
+        expect(validateEmail('@missing.com')).toBe(false);
+      });
+    });
+    ```
+
+    The previous high-severity issue (empty string validation) has been fixed.
+    Both acceptance criteria now have passing tests. Review and output your verdict.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Should approve since the fix was applied correctly
+      - signal_has:
+          field: "signal"
+          pattern: "APPROVED"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check that reviewer handles re-review correctly:
+
+      1. Verifies previous issue fixed (0-4): Explicitly checks that the empty string validation was added and the previous high-severity issue is resolved
+      2. Approves correctly (0-3): Outputs APPROVED since all issues resolved and both ACs met
+      3. References both ACs (0-2): Verified list includes both AC-006 and AC-007 with file locations
+      4. Acknowledges re-review context (0-1): Mentions this is a re-review or references the previous rejection
+
+      If REJECTED when should approve: Score 0
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

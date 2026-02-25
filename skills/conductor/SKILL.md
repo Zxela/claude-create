@@ -1182,6 +1182,7 @@ function buildReviewerInput(state, task, implementerOutput) {
       technical_design: state.spec_paths.technical_design,
       adr: state.spec_paths.adr
     },
+    previous_rejections: task.feedback || [],
     worktree_path: state.worktree
   };
 }

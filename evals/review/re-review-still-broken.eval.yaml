@@ -1,0 +1,105 @@
+name: review-re-review-still-broken
+description: "Verify reviewer rejects re-review when previous issue persists unfixed"
+workflow: homerun:review
+tags: [review, re-review, retry, rejection, homerun]
+timeout_seconds: 300
+
+input:
+  prompt: |
+    Re-review task 005: Add password strength validator (attempt 2).
+
+    Task spec:
+    {
+      "id": "005",
+      "title": "Add password strength validator",
+      "acceptance_criteria": [
+        {
+          "id": "AC-008",
+          "criterion": "validatePassword returns false for passwords shorter than 8 characters",
+          "test_assertion": "expect(validatePassword('short')).toBe(false)"
+        },
+        {
+          "id": "AC-009",
+          "criterion": "validatePassword returns true for passwords 8+ characters with mixed case",
+          "test_assertion": "expect(validatePassword('StrongPass1')).toBe(true)"
+        }
+      ]
+    }
+
+    Previous rejection (attempt 1):
+    {
+      "previous_rejections": [
+        {
+          "attempt": 1,
+          "issues": [
+            {
+              "criterion": "AC-008",
+              "description": "Length check uses > instead of >= making 8-char passwords incorrectly fail",
+              "severity": "high"
+            }
+          ],
+          "required_fixes": [
+            "Change `password.length > 8` to `password.length >= 8` in src/validators/password.ts:5"
+          ]
+        }
+      ]
+    }
+
+    Updated implementation (BUG STILL PRESENT - not actually fixed):
+    ```typescript
+    // src/validators/password.ts
+    export function validatePassword(password: string): boolean {
+      if (password.length > 8) return false;  // BUG: still > instead of >=, and logic is inverted
+      const hasUpper = /[A-Z]/.test(password);
+      const hasLower = /[a-z]/.test(password);
+      return hasUpper && hasLower;
+    }
+    ```
+
+    Test file (unchanged from attempt 1, still doesn't catch edge case):
+    ```typescript
+    // tests/validators/password.test.ts
+    import { validatePassword } from '../src/validators/password';
+
+    describe('validatePassword', () => {
+      it('rejects short passwords', () => {
+        expect(validatePassword('abc')).toBe(false);
+      });
+
+      it('accepts strong passwords', () => {
+        expect(validatePassword('MyStrongPassword')).toBe(true);
+      });
+    });
+    ```
+
+    The implementer claimed to fix the length check but the bug persists.
+    Review and output your verdict as a JSON signal.
+
+evaluations:
+  - type: behavioral
+    checks:
+      # Must reject since the previous issue was not fixed
+      - signal_has:
+          field: "signal"
+          pattern: "REJECTED"
+      - signal_has:
+          field: "payload.issues"
+      - signal_has:
+          field: "payload.issues.severity"
+          pattern: "high"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Check that reviewer correctly rejects a re-review when the previous issue persists:
+
+      1. Identifies unfixed bug (0-4): Notes that the length check still uses > instead of >= and the logic is wrong
+      2. Flags as recurring (0-3): References the previous rejection or notes this is a repeated/unfixed issue from attempt 1
+      3. Maintains high severity (0-2): Keeps severity high since the core logic bug persists
+      4. Notes test inadequacy (0-1): Test still doesn't verify the 8-character boundary
+
+      If APPROVED when should reject: Score 0
+
+      Score 0-10. Pass threshold: 7
+    passing_score: 7

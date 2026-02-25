@@ -62,6 +62,28 @@ The conductor provides input as a JSON object. **Validate input before proceedin
         "adr": { "type": "string" }
       }
     },
+    "previous_rejections": {
+      "type": "array",
+      "description": "Feedback from previous review attempts (present on re-reviews)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "attempt": { "type": "integer" },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "criterion": { "type": "string" },
+                "description": { "type": "string" },
+                "severity": { "enum": ["high", "medium", "low"] }
+              }
+            }
+          },
+          "required_fixes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
     "worktree_path": { "type": "string" }
   }
 }
@@ -88,6 +110,7 @@ The conductor provides input as a JSON object. **Validate input before proceedin
     "technical_design": "/home/user/.claude/homerun/a1b2c3d4/user-auth-e5f6g7h8/TECHNICAL_DESIGN.md",
     "adr": "/home/user/.claude/homerun/a1b2c3d4/user-auth-e5f6g7h8/ADR.md"
   },
+  "previous_rejections": [],
   "worktree_path": "/path/to/worktree"
 }
 ```
@@ -129,6 +152,23 @@ For EACH acceptance criterion in the task file:
 - Follows security decisions documented in `spec_paths.adr` (centralized in `$HOME/.claude/homerun/`)
 - No obvious vulnerabilities introduced
 - Sensitive data handled appropriately
+
+## Severity Classification Rubric
+
+When rejecting, assign severity to each issue using this rubric:
+
+| Severity | Criteria | Examples |
+|----------|----------|----------|
+| **high** | Fails acceptance criterion, security flaw, or violates architectural decision from ADR | Wrong logic (off-by-one), missing auth check, SQL injection, diverges from TECHNICAL_DESIGN without reason |
+| **medium** | Missing test coverage, unhandled edge case, or non-critical spec deviation | No test for an AC, missing null/empty check, inconsistent error format |
+| **low** | Style, naming, or non-functional suggestion that doesn't affect correctness | Variable naming, missing JSDoc on internal function, minor formatting |
+
+**Severity determines conductor retry behavior:**
+- **high** → Blocks all new task spawning, escalates to user
+- **medium** → Task retried with feedback, other tasks continue
+- **low** → Task retried with feedback, other tasks continue
+
+**When multiple issues exist:** The overall rejection severity is the **highest** severity among all issues. A single high-severity issue makes the entire rejection high-severity.
 
 ## Output Schema (JSON)
 
@@ -290,6 +330,53 @@ Return this if input validation fails:
   ]
 }
 ```
+
+## Re-Review Process (Retries)
+
+When `previous_rejections` is non-empty, this is a re-review after the implementer attempted fixes. Follow this modified process:
+
+### 1. Verify Previous Issues First
+
+Before running the full review checklist, check each issue from the most recent rejection:
+
+- **For each `required_fixes` item:** Verify the fix was applied. Check the specific file and line referenced.
+- **If a previous issue persists:** Re-raise it with the same severity. Note it is a **recurring issue** in the description — this signals the conductor to consider model escalation.
+- **If a previous issue is fixed:** Do not re-raise it. Move on.
+
+### 2. Then Run Full Checklist
+
+After verifying previous fixes, run the standard review checklist. New issues can emerge from the fix attempt (regressions).
+
+### 3. Approval on Re-Review
+
+Only approve if:
+- **All** previously raised issues are resolved
+- **No new issues** of high or medium severity introduced
+- Standard review checklist still passes
+
+### 4. Example Re-Review Input
+
+```json
+{
+  "task": { "id": "002", "title": "Auth service", "acceptance_criteria": [...] },
+  "implementation": { "commit_hash": "def5678", "files_changed": [...], "test_file": "..." },
+  "spec_paths": { "technical_design": "...", "adr": "..." },
+  "previous_rejections": [
+    {
+      "attempt": 1,
+      "issues": [
+        { "criterion": "AC-002", "description": "Empty input not validated", "severity": "high" }
+      ],
+      "required_fixes": ["Add validation for empty email in src/validators/user.ts:23"]
+    }
+  ],
+  "worktree_path": "/path/to/worktree"
+}
+```
+
+In this case, first verify that `src/validators/user.ts:23` now validates empty email, then proceed with the full checklist.
+
+---
 
 ## Review Principles
 
