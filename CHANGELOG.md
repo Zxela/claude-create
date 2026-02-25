@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.3] - 2026-02-25
+
+### Fixed
+- Added ToolSearch to team-lead tools — required to load deferred Agent Teams tools (TaskCreate, TaskUpdate, TeamCreate, etc.)
+
 ## [3.1.2] - 2026-02-25
 
 ### Fixed
