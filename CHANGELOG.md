@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.1.4] - 2026-02-25
+
+### Fixed
+- Self-claim protocol checks git log before claiming — prevents race condition where two teammates implement the same task
+- Claim function uses `committedTaskIds` as source of truth for both task availability and dependency resolution
+
 ## [3.1.3] - 2026-02-25
 
 ### Fixed

@@ -284,19 +284,23 @@ for (let i = 0; i < implementerCount; i++) {
        - status is "pending"
        - all depends_on tasks have status "completed"
        - no other teammate has claimed it (check state.json parallel_state.running_tasks)
-    3. Update the task status to "in_progress" in both tasks.json and state.json
-    4. Implement the task using TDD
-    5. Update task status to "review_pending" in tasks.json BEFORE committing
-    6. Commit implementation AND the tasks.json update together
-    7. Claim the next available task and repeat
-    8. If no tasks available, report idle and exit
+    3. BEFORE claiming, run: git log --oneline | grep "[task-NNN]"
+       If commits already exist for this task, SKIP it — another teammate finished it.
+       Find the next eligible task instead.
+    4. Update the task status to "in_progress" in both tasks.json and state.json
+    5. Implement the task using TDD
+    6. Update task status to "review_pending" in tasks.json BEFORE committing
+    7. Commit implementation AND the tasks.json update together
+    8. Claim the next available task and repeat
+    9. If no tasks available, report idle and exit
 
-    CRITICAL: Steps 5-6 must happen in that order. Update tasks.json FIRST, then commit
+    CRITICAL: Steps 6-7 must happen in that order. Update tasks.json FIRST, then commit
     both the code and the updated tasks.json in the same commit. This ensures tasks.json
     is never out of sync with the git history. Use commit message format: [task-NNN].
 
-    IMPORTANT: Before claiming a task, re-read tasks.json to avoid conflicts with other teammates.
-    Use file locking pattern: write your teammate ID to state.json before claiming.`
+    IMPORTANT: Before claiming a task, re-read tasks.json AND check git log to avoid
+    conflicts with other teammates. The git log check (step 3) is the definitive source
+    of truth — if a commit exists, the task is done regardless of what tasks.json says.`
   });
 }
 
@@ -529,43 +533,53 @@ git commit -m "chore: all tasks complete, transitioning to completion phase";
 To avoid race conditions when multiple teammates try to claim the same task:
 
 ```javascript
-// Claim protocol with optimistic locking
-function claimTask(teammateId, tasksFile) {
+// Claim protocol with git-aware optimistic locking
+function claimTask(teammateId, tasksFile, worktreePath) {
   // 1. Read current state
   const tasks = JSON.parse(readFile(tasksFile));
 
-  // 2. Find first ready task
+  // 2. Check git log for already-committed tasks (definitive source of truth)
+  const gitLog = exec(`git -C ${worktreePath} log --oneline --format="%s"`);
+  const committedTaskIds = new Set();
+  for (const line of gitLog.split('\n')) {
+    const match = line.match(/\[task-(\d+)\]/);
+    if (match) committedTaskIds.add(match[1]);
+  }
+
+  // 3. Find first ready task that has NO existing commits
   const ready = tasks.tasks.find(t =>
     t.status === "pending" &&
+    !committedTaskIds.has(t.id) &&
     (!t.depends_on || t.depends_on.every(dep =>
-      tasks.tasks.find(d => d.id === dep)?.status === "completed"
+      tasks.tasks.find(d => d.id === dep)?.status === "completed" ||
+      committedTaskIds.has(dep)
     ))
   );
 
   if (!ready) return null;
 
-  // 3. Claim by writing immediately
+  // 4. Claim by writing immediately
   ready.status = "in_progress";
   ready.claimed_by = teammateId;
   ready.started_at = new Date().toISOString();
   writeFile(tasksFile, JSON.stringify(tasks, null, 2));
 
-  // 4. Re-read and verify claim (optimistic locking)
+  // 5. Re-read and verify claim (optimistic locking)
   const verify = JSON.parse(readFile(tasksFile));
   const verifiedTask = verify.tasks.find(t => t.id === ready.id);
   if (verifiedTask.claimed_by !== teammateId) {
     // Another teammate claimed it first — try again
-    return claimTask(teammateId, tasksFile);
+    return claimTask(teammateId, tasksFile, worktreePath);
   }
 
-  // 5. Also update native task
+  // 6. Also update native task
   TaskUpdate({ id: nativeTaskIdMap[ready.id], status: "in_progress" });
 
   return ready;
 }
 ```
 
-**Note:** File-based locking has race condition windows. In practice, the DAG structure and task count make conflicts rare — most teammates work on different tasks. If conflicts become an issue, add a `.lock` file protocol.
+**Git log is the source of truth.** The `committedTaskIds` check (step 3) prevents two teammates from working on the same task even if tasks.json hasn't been updated yet. The dependency check (step 3) also considers committed tasks as satisfied, so stale tasks.json statuses don't block the DAG.
 
 ---
 
