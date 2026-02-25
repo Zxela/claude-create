@@ -286,9 +286,14 @@ for (let i = 0; i < implementerCount; i++) {
        - no other teammate has claimed it (check state.json parallel_state.running_tasks)
     3. Update the task status to "in_progress" in both tasks.json and state.json
     4. Implement the task using TDD
-    5. When done, update task status to "review_pending"
-    6. Claim the next available task and repeat
-    7. If no tasks available, report idle and exit
+    5. Update task status to "review_pending" in tasks.json BEFORE committing
+    6. Commit implementation AND the tasks.json update together
+    7. Claim the next available task and repeat
+    8. If no tasks available, report idle and exit
+
+    CRITICAL: Steps 5-6 must happen in that order. Update tasks.json FIRST, then commit
+    both the code and the updated tasks.json in the same commit. This ensures tasks.json
+    is never out of sync with the git history. Use commit message format: [task-NNN].
 
     IMPORTANT: Before claiming a task, re-read tasks.json to avoid conflicts with other teammates.
     Use file locking pattern: write your teammate ID to state.json before claiming.`
@@ -345,6 +350,9 @@ while (true) {
     handleEscalations(escalated);
   }
 
+  // Reconcile: detect tasks with git commits but stale status in tasks.json
+  reconcileGitVsTasks(state.worktree, tasksJson);
+
   // Check for deadlock: no running tasks and no pending tasks with resolved deps
   const running = tasksJson.tasks.filter(t => t.status === "in_progress");
   const ready = tasksJson.tasks.filter(t =>
@@ -364,6 +372,45 @@ while (true) {
   // (In practice, check TaskOutput for teammate completion signals)
 }
 ```
+
+### 6a. Reconcile Git vs Tasks (Drift Detection)
+
+If a teammate commits code for a task but stalls before updating tasks.json, the monitoring loop
+will see a "pending" task that actually has completed work. This causes false deadlocks and
+duplicate implementation attempts.
+
+**Run this every monitoring iteration, before the deadlock check:**
+
+```javascript
+function reconcileGitVsTasks(worktreePath, tasksJson) {
+  // Get task IDs referenced in commit messages (convention: [task-NNN])
+  const gitLog = exec(`git -C ${worktreePath} log --oneline --format="%s"`);
+  const committedTaskIds = new Set();
+  for (const line of gitLog.split('\n')) {
+    const match = line.match(/\[task-(\d+)\]/);
+    if (match) committedTaskIds.add(match[1]);
+  }
+
+  let reconciled = false;
+  for (const task of tasksJson.tasks) {
+    if ((task.status === "pending" || task.status === "in_progress") &&
+        committedTaskIds.has(task.id)) {
+      console.log(`RECONCILE: Task ${task.id} has commits but status="${task.status}" — updating to "review_pending"`);
+      task.status = "review_pending";
+      task.reconciled_at = new Date().toISOString();
+      reconciled = true;
+    }
+  }
+
+  if (reconciled) {
+    writeFile(`${worktreePath}/${state.tasks_file}`, JSON.stringify(tasksJson, null, 2));
+  }
+}
+```
+
+**Why `review_pending` and not `completed`?** The commit exists but hasn't been reviewed yet.
+The reviewer teammate will validate quality before marking it `completed`. This preserves the
+review gate even for reconciled tasks.
 
 ### 7. Handle Escalations
 

@@ -48,6 +48,7 @@ You intentionally do NOT have Grep or Glob — you have no way to search codebas
   2. No input/output data dependency (one task's output is not another's input)
   3. No build order requirement (neither task must compile before the other)
   If any condition fails, run the tasks sequentially. Maximum 3 concurrent teammates.
+- **Reconcile git vs tasks.json every monitoring iteration** — check `git log` for `[task-NNN]` commits against task statuses. If a task has commits but is still `pending`/`in_progress`, update it to `review_pending`. This prevents false deadlocks when teammates commit but stall before updating status.
 - Monitor for deadlocks: no running tasks + no claimable tasks + incomplete work
 - Escalate to opus after 3 failed attempts on a task
 - Skip tasks after max attempts (default: 5) — don't block the entire workflow
