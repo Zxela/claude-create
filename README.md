@@ -171,66 +171,46 @@ Homerun uses **11 native Claude Code subagents** defined in `agents/*.md`. Each 
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                          MAIN SESSION                                     │
 │                         /create "idea"                                    │
-└───────────────────────────────┬──────────────────────────────────────────┘
-                                │
-                                │ Task(discovery-agent)
-                                ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│  discovery-agent          Model: inherit    Color: yellow                 │
-│  Tools: Read, Grep, Glob, Bash, Write, Edit                             │
-│  Skills: discovery                                                        │
-└───────────────────────────────┬──────────────────────────────────────────┘
-                                │ Task(spec-reviewer)
-                                ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│  spec-reviewer             Model: sonnet    Color: orange                 │
-│  Tools: Read, Grep, Glob  (read-only)                                    │
-│  Skills: spec-review                                                      │
-└───────────────────────────────┬──────────────────────────────────────────┘
-                                │ Task(planner)
-                                ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│  planner                   Model: opus      Color: purple                 │
-│  Tools: Read, Grep, Glob, Bash, Write, Edit                             │
-│  Skills: planning                                                         │
-└───────────────────────────────┬──────────────────────────────────────────┘
-                                │ Task(team-lead)
-                                ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│  team-lead                 Model: sonnet    Color: cyan                   │
-│  Tools: Read, Grep, Glob, Bash, Write, Edit, Task                       │
-│  Skills: team-lead                                                        │
-│                                                                           │
-│  Spawns teammates:                                                        │
-│     ┌────────────────────┐   ┌────────────────────┐                      │
-│     │  Task(implementer) │   │  Task(implementer) │  × 1-5 (DAG width)  │
-│     ▼                    │   ▼                    │                      │
-│  ┌──────────────────┐    │ ┌──────────────────┐   │                      │
-│  │ implementer      │    │ │ implementer      │   │                      │
-│  │ Model: sonnet    │◄───┘ │ Model: sonnet    │◄──┘                      │
-│  │ Color: yellow    │      │ Color: yellow    │                           │
-│  │ Skills: implement│      │ Skills: implement│                           │
-│  │   + TDD          │      │   + TDD          │                           │
-│  └──────────────────┘      └──────────────────┘                           │
-│                                                                           │
-│     ┌────────────────────┐                                                │
-│     │  Task(reviewer)    │                                                │
-│     ▼                    │                                                │
-│  ┌──────────────────┐    │                                                │
-│  │ reviewer          │◄──┘  × 1                                          │
-│  │ Model: sonnet     │                                                    │
-│  │ Color: blue       │                                                    │
-│  │ Tools: Read-only  │                                                    │
-│  └──────────────────┘                                                     │
-│                                                                           │
-│  After all tasks ──► Task(quality-checker)                                │
-│  ┌──────────────────┐                                                     │
-│  │ quality-checker   │                                                    │
-│  │ Model: sonnet     │                                                    │
-│  │ Color: teal       │                                                    │
-│  └──────────────────┘                                                     │
-└──────────────────────────────────────────────────────────────────────────┘
+│                     (flat state machine loop)                             │
+└──┬────────────┬────────────┬────────────┬────────────────────────────────┘
+   │            │            │            │
+   │ Task()     │ Task()     │ Task()     │ Task()
+   ▼            ▼            ▼            ▼
+┌────────┐  ┌────────┐  ┌────────┐  ┌──────────────────────────────────────┐
+│discover│  │spec-   │  │planner │  │  team-lead          Model: sonnet     │
+│y-agent │  │reviewer│  │        │  │  Tools: Read, Bash, Write, Edit,     │
+│        │  │        │  │        │  │         Task, ToolSearch              │
+│Model:  │  │Model:  │  │Model:  │  │  Skills: team-lead                    │
+│inherit │  │sonnet  │  │opus    │  │                                       │
+│Color:  │  │Color:  │  │Color:  │  │  Spawns teammates:                    │
+│yellow  │  │orange  │  │purple  │  │     ┌────────────────────┐            │
+│        │  │        │  │        │  │     │  Task(implementer) │ × 1-5      │
+│Skills: │  │Skills: │  │Skills: │  │     ▼                    │            │
+│discover│  │spec-   │  │planning│  │  ┌──────────────────┐    │            │
+│y       │  │review  │  │        │  │  │ implementer      │◄───┘            │
+│        │  │        │  │        │  │  │ Model: sonnet    │                 │
+│ returns│  │ returns│  │ returns│  │  │ Skills: implement │                 │
+│ ▲      │  │ ▲      │  │ ▲      │  │  └──────────────────┘                 │
+└─┼──────┘  └─┼──────┘  └─┼──────┘  │                                       │
+  │           │           │          │     ┌────────────────────┐            │
+  │           │           │          │     │  Task(reviewer)    │ × 1       │
+  │           │           │          │     ▼                    │            │
+  │           │           │          │  ┌──────────────────┐    │            │
+  │           │           │          │  │ reviewer          │◄──┘            │
+  │           │           │          │  │ Model: sonnet     │                │
+  │           │           │          │  └──────────────────┘                 │
+  │           │           │          │                                       │
+  │           │           │          │  After all tasks ──► Task(quality)   │
+  │           │           │          │  ┌──────────────────┐                 │
+  │           │           │          │  │ quality-checker   │                │
+  │           │           │          │  │ Model: sonnet     │                │
+  │           │           │          │  └──────────────────┘                 │
+  │           │           │          │   returns ▲                           │
+  └───────────┴───────────┴──────────┴───────────┘
+        All agents return to Main Session (depth 1)
 ```
+
+**Key architectural property:** Every phase agent runs at **depth 1** (direct child of main session). Agents do NOT chain to the next phase — they update `state.json` and return. The `/create` loop reads `state.json` and spawns the next phase. This guarantees all agents have full tool access including `Task` for spawning subagents.
 
 ### Standalone Agents
 

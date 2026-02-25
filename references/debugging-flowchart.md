@@ -65,7 +65,7 @@ parallel_state analysis:
 |---------|--------------|-----------|
 | No tasks running, many pending | Dependency cycle | `jq '.tasks[] \| select(.blocked_by \| length > 0)' tasks.json` |
 | Same rejection 3x | Circuit breaker tripped | Review feedback, fix root cause manually |
-| Conductor keeps refreshing | Token budget or state bloat | Check `tasks_since_refresh`, reduce task complexity |
+| Team lead/conductor keeps refreshing | Token budget or state bloat | Check `tasks_since_refresh`, reduce task complexity |
 | Implementer timeout | Task too large | Decompose into subtasks |
 | "VALIDATION_ERROR" signal | Input contract violation | Check task schema matches implement skill input |
 | Git conflicts in worktree | Concurrent modifications | `git status` in worktree, resolve manually |
