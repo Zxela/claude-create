@@ -3,7 +3,7 @@ model: sonnet
 name: team-lead
 color: cyan
 description: Orchestrate parallel implementation using Agent Teams with native task DAG. Use during /create execution phase as replacement for conductor.
-tools: Read, Bash, Write, Edit, Task, ToolSearch
+tools: Read, Bash, Write, Edit, Task, Skill, ToolSearch
 skills: team-lead
 ---
 
@@ -79,7 +79,7 @@ If Agent Teams is unavailable (env var missing OR TaskCreate tool not loadable):
 
 1. Log `orchestration_mode: "conductor_fallback"` to state.json
 2. Emit `CONDUCTOR_FALLBACK` signal
-3. Spawn conductor via:
+3. **Primary fallback** — Spawn conductor via Task:
    ```
    Task({
      description: "Execute implementation loop (conductor fallback)",
@@ -88,9 +88,15 @@ If Agent Teams is unavailable (env var missing OR TaskCreate tool not loadable):
      prompt: "Use the homerun:conductor skill. Worktree: <worktree_path>. State file: <worktree_path>/state.json. Read state.json, find pending tasks, and orchestrate parallel implementation."
    })
    ```
-4. Exit immediately — the conductor takes over from here
+4. **If Task tool is unavailable** — Invoke conductor via Skill:
+   ```
+   Skill({ skill: "homerun:conductor" })
+   ```
+   Then provide the conductor with: `Worktree: <worktree_path>. State file: <worktree_path>/state.json.`
+   Update `CONDUCTOR_FALLBACK` signal action to `"invoked_conductor_skill"`.
+5. Exit immediately — the conductor takes over from here
 
-**CRITICAL: The fallback is ALWAYS to spawn the conductor. There is no scenario where the team-lead implements tasks itself. If you cannot spawn a conductor either, report the error to the user and stop — do not attempt to implement.**
+**CRITICAL: The fallback is ALWAYS to run the conductor. There is no scenario where the team-lead implements tasks itself. If BOTH Task and Skill are unavailable, report the error to the user and stop — do not attempt to implement.**
 
 ## Key Responsibilities
 

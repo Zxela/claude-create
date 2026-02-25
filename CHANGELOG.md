@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.5] - 2026-02-25
+
+### Fixed
+- Conductor fallback no longer dead-ends when Task tool is unavailable — adds secondary fallback via Skill tool (`homerun:conductor`)
+- Added `Skill` to team-lead agent tools for secondary fallback path
+- Fallback chain: Task (spawn subagent) → Skill (invoke in current context) → report error and stop
+- New `CONDUCTOR_FALLBACK` signal action: `invoked_conductor_skill` for Skill-based fallback
+
 ## [3.1.4] - 2026-02-25
 
 ### Fixed
