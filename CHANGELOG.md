@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.1.1] - 2026-02-24
+
+### Fixed
+- Team-lead agent no longer self-implements when Agent Teams is unavailable — falls back to conductor instead
+- Removed Grep and Glob from team-lead tools (structural enforcement against codebase investigation)
+- Added two-step Agent Teams detection: env var check AND ToolSearch for TaskCreate
+- Added Tool Constraints section restricting Bash to coordination-only commands
+- Strengthened Fallback Protocol with mandatory conductor spawn and prohibited behavior list
+
 ## [3.1.0] - 2026-02-24
 
 ### Added
