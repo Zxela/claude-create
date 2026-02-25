@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.1.0] - 2026-02-24
+
+### Added
+- **13 behavioral patterns** adopted from claude-code-config analysis:
+  - **Discovery/Spec phase:** EARS acceptance criteria, scale-based flow determination, document segregation, non-scope declaration with Change Impact Map, failure scenario coverage
+  - **Planning phase:** Inline context embedding (interfaces, patterns, constraints pre-extracted into each task)
+  - **Implementation phase:** Metacognitive questions, 3-stage impact analysis, Rule of Three duplication check, verification levels (L1/L2/L3)
+  - **Orchestration phase:** Orchestrator prohibition list, parallel independence gate, scope saturation check
+- `references/scale-determination.md` — Scale matrix, ADR triggers, document segregation rules, non-scope requirements
+- `embedded_context` field in task schema (planning + implement skills)
+- Verification level hierarchy (L1=functional, L2=tests, L3=build) in implement skill output signal
+
+### Changed
+- Discovery skill: EARS format replaces generic testable patterns; Step 2.5 scale estimation added; scope questions now include non-scope
+- Implement skill: Step 0 expanded from similar function discovery to full pre-implementation analysis (0a metacognitive, 0b impact analysis, 0c duplication check)
+- Team-lead agent: prohibited actions section; parallel independence gate (3 conditions before concurrent execution)
+- Reviewer agent: verification level validation; failure scenario coverage dimension
+- Spec-reviewer agent: EARS testability check; document segregation validation; failure scenario coverage
+- Planner agent: embeds context in tasks; includes non-scope in constraints
+- Discovery, reverse-engineer, diagnostician agents: scope saturation check (3 sources with no new info → stop)
+
 ## [3.0.0] - 2026-02-24
 
 ### Added
