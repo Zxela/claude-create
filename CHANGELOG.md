@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.1.0] - 2026-02-24
+
+### Added
+- **Native subagent definitions** (`agents/` directory) — 10 named agents wrapping existing skills with enforced tool restrictions, model selection, and color identifiers:
+  - `discovery-agent` (inherit, yellow) — Requirements gathering dialogue
+  - `spec-reviewer` (sonnet, orange) — Read-only spec validation
+  - `planner` (opus, purple) — Task decomposition with DAG
+  - `implementer` (sonnet, yellow) — TDD implementation with similar function discovery
+  - `reviewer` (sonnet, blue) — Read-only implementation verification
+  - `quality-checker` (sonnet, teal) — 5-phase quality pipeline with auto-fix
+  - `diagnostician` (sonnet, red) — 3-phase evidence pipeline for bug investigation
+  - `reverse-engineer` (opus, violet) — Generate specs from existing code
+  - `test-skeleton-generator` (sonnet, lime) — ROI-prioritized test scaffolding
+  - `walkthrough-generator` (sonnet, magenta) — Playwright/curl demo scripts
+
+### Changed
+- All commands now reference named subagents via `Task({ subagent_type: "agent-name" })` instead of generic `Task({ subagent_type: "general-purpose", model: "...", prompt: "Use the homerun:skill-name skill..." })`
+- Commands updated with `Task` in `allowed-tools` for subagent spawning
+- Conductor skill spawns `implementer` and `reviewer` agents by name
+- Discovery skill spawns `spec-reviewer` agent by name
+- Planning skill documents conductor → team-lead migration path (Level 2)
+- Conductor self-refresh still uses `general-purpose` (pending Level 2 team-lead replacement)
+
 ## [2.0.0] - 2026-02-24
 
 ### Added

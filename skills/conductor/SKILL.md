@@ -270,13 +270,12 @@ function spawnReadyTasks(state, readyTasks, slots) {
     state.parallel_state.running_tasks.push(task.id);
     updateTaskStatus(state, task.id, 'in_progress');
 
-    // Spawn in background and capture agent ID
+    // Spawn implementer agent in background
     const result = Task({
       description: `Implement: ${task.title}`,
-      subagent_type: "general-purpose",
-      model: task.model || "sonnet",
+      subagent_type: "implementer",
       run_in_background: true,
-      prompt: `Use the homerun:implement skill.
+      prompt: `Implement the following task:
 
 Input:
 \`\`\`json
@@ -452,12 +451,11 @@ function processReviewQueue(state) {
   // Log invocation
   logSkillInvocation(state, "homerun:review", review.task_id);
 
-  // Spawn reviewer (blocking - wait for result)
+  // Spawn reviewer agent (blocking - wait for result)
   const result = Task({
     description: `Review: ${task.title}`,
-    subagent_type: "general-purpose",
-    model: "sonnet",  // Always sonnet for reviews
-    prompt: `Use the homerun:review skill.
+    subagent_type: "reviewer",
+    prompt: `Review the following implementation:
 
 Input:
 \`\`\`json
@@ -770,7 +768,7 @@ function spawnFreshConductor(state) {
   state.parallel_state.tasks_since_refresh = 0;
   saveState(state);
 
-  // Spawn fresh conductor with configured model (default haiku)
+  // Spawn fresh conductor (self-refresh with clean context)
   Task({
     description: "Continue conductor loop",
     subagent_type: "general-purpose",
@@ -782,6 +780,8 @@ Worktree: ${state.worktree}
 Continue the implementation loop. A fresh conductor is starting with clean context.
 Read state.json to resume from current progress.`
   });
+  // Note: conductor self-refreshes as general-purpose since it's not yet a named agent.
+  // This will change in Level 2 when conductor is replaced by team-lead agent.
 
   // Current conductor exits after spawning replacement
   return { action: 'refresh_exit' };
@@ -1102,11 +1102,11 @@ logSkillInvocation(state, "homerun:implement", task.id);
 // Determine model: use task.model (default: sonnet), or escalated_model if set
 const implementerModel = task.escalated_model || task.model || "sonnet";
 
-// Spawn implementer agent with appropriate model
+// Spawn implementer agent (model defined in agent frontmatter, defaults to sonnet)
 Task({
   description: `Implement task: ${task.title}`,
-  prompt: `Use the homerun:implement skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(implementerInput, null, 2)}\n\`\`\``,
-  model: implementerModel  // haiku for simple tasks, sonnet for complex or escalated
+  subagent_type: "implementer",
+  prompt: `Implement the following task:\n\nInput:\n\`\`\`json\n${JSON.stringify(implementerInput, null, 2)}\n\`\`\``
 });
 ```
 
@@ -1238,12 +1238,11 @@ const reviewerInput = buildReviewerInput(state, task, implementerResult);
 // Log skill invocation
 logSkillInvocation(state, "homerun:review", task.id);
 
-// Spawn reviewer agent - ALWAYS use sonnet for reviews
-// Sonnet provides better judgment for acceptance criteria verification
+// Spawn reviewer agent (model defined in agent frontmatter as sonnet)
 Task({
   description: `Review implementation: ${task.title}`,
-  prompt: `Use the homerun:review skill.\n\nInput:\n\`\`\`json\n${JSON.stringify(reviewerInput, null, 2)}\n\`\`\``,
-  model: "sonnet"  // Reviews always use sonnet for quality assurance
+  subagent_type: "reviewer",
+  prompt: `Review the following implementation:\n\nInput:\n\`\`\`json\n${JSON.stringify(reviewerInput, null, 2)}\n\`\`\``
 });
 ```
 

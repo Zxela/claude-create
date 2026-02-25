@@ -574,23 +574,18 @@ After validation is complete:
 
 3. **Spawn Spec Review Agent (Fresh Context)**
 
-   Use the Task tool to spawn spec review in a fresh agent context:
+   Use the Task tool to spawn the `spec-reviewer` native subagent:
 
    ```javascript
    Task({
      description: "Review specification documents",
-     subagent_type: "general-purpose",
-     model: "sonnet",  // Review requires judgment but not deep architecture
-     prompt: `Use the homerun:spec-review skill.
+     subagent_type: "spec-reviewer",
+     prompt: `Review specs for consistency, completeness, and testability.
 
-     Input:
-     {
-       "worktree_path": "${state.worktree}",
-       "spec_paths": ${JSON.stringify(state.spec_paths)},
-       "config": { "auto_mode": ${state.config.auto_mode} }
-     }
+     Worktree: ${state.worktree}
+     Spec paths: ${JSON.stringify(state.spec_paths)}
+     Auto mode: ${state.config.auto_mode}
 
-     Review specs for consistency, completeness, and testability.
      If approved, transition to planning phase.
      If needs_revision, report issues for the user to fix.`
    });
@@ -617,14 +612,13 @@ After validation is complete:
    ```javascript
    Task({
      description: "Plan implementation tasks",
-     subagent_type: "general-purpose",
-     model: "opus",
-     prompt: `Use the homerun:planning skill.
+     subagent_type: "planner",
+     prompt: `Decompose specs into implementation tasks.
 
      Worktree: ${state.worktree}
      State file: ${state.worktree}/state.json
 
-     Read state.json and spec documents, then decompose into tasks.`
+     Read state.json and spec documents, then create tasks.json with DAG.`
    });
    ```
 

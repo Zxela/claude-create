@@ -3,7 +3,7 @@ name: review
 description: "Run spec review and quality checks on a feature branch. Use to validate specs before planning or code quality after implementation."
 argument-hint: "<worktree-path> [--specs] [--quality] [--all]"
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 ---
 
 # /review Command
@@ -33,28 +33,22 @@ If no mode flag is provided, default to `--all`.
 
 ### Spec Review (--specs or --all)
 
-Invokes `homerun:spec-review` skill:
+Spawns the `spec-reviewer` agent:
 
 ```javascript
 Task({
   description: "Review specification documents",
-  subagent_type: "general-purpose",
-  model: "sonnet",
-  prompt: `Use the homerun:spec-review skill.
+  subagent_type: "spec-reviewer",
+  prompt: `Review specs for consistency, completeness, and testability.
 
-  Input:
-  ${JSON.stringify({
-    worktree_path: worktreePath,
-    spec_paths: state.spec_paths,
-    config: { auto_mode: false }
-  })}
-  `
+  Worktree: ${worktreePath}
+  Spec paths: ${JSON.stringify(state.spec_paths)}`
 });
 ```
 
 ### Quality Check (--quality or --all)
 
-Detects changed files and invokes `homerun:quality-check` skill:
+Detects changed files and spawns the `quality-checker` agent:
 
 ```bash
 # Get files changed on this branch vs base
@@ -65,17 +59,12 @@ FILES=$(git diff --name-only "$BASE"..HEAD)
 ```javascript
 Task({
   description: "Run quality checks",
-  subagent_type: "general-purpose",
-  model: "sonnet",
-  prompt: `Use the homerun:quality-check skill.
+  subagent_type: "quality-checker",
+  prompt: `Run 5-phase quality pipeline on changed files.
 
-  Input:
-  ${JSON.stringify({
-    worktree_path: worktreePath,
-    files_changed: changedFiles,
-    fix_mode: "report_only"
-  })}
-  `
+  Worktree: ${worktreePath}
+  Files changed: ${JSON.stringify(changedFiles)}
+  Fix mode: report_only`
 });
 ```
 

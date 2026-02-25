@@ -885,6 +885,8 @@ After creating tasks.json:
    Use the Task tool to spawn conductor in a fresh agent context:
 
    ```javascript
+   // Conductor remains a general-purpose agent with homerun:conductor skill.
+   // This will be replaced by team-lead agent in Level 2 (Agent Teams).
    Task({
      description: "Execute implementation loop",
      subagent_type: "general-purpose",
@@ -894,7 +896,8 @@ After creating tasks.json:
      Worktree: ${state.worktree}
      State file: ${state.worktree}/state.json
 
-     Read state.json, find pending tasks, and orchestrate parallel implementation.`
+     Read state.json, find pending tasks, and orchestrate parallel implementation.
+     Use subagent_type: "implementer" for implementation and "reviewer" for reviews.`
    });
    ```
 

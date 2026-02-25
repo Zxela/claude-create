@@ -3,7 +3,7 @@ name: reverse-engineer
 description: "Generate specification documents (PRD, ADR, TECHNICAL_DESIGN) from an existing codebase. Use when inheriting a project or documenting undocumented code."
 argument-hint: "[<project-path>] [--scope full|module|feature] [--target <name>]"
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 ---
 
 # /reverse-engineer Command
@@ -42,17 +42,12 @@ git status 2>/dev/null || echo "Warning: Not a git repository"
 ```javascript
 Task({
   description: "Reverse-engineer codebase specs",
-  subagent_type: "general-purpose",
-  model: "opus",
-  prompt: `Use the homerun:reverse-engineer skill.
+  subagent_type: "reverse-engineer",
+  prompt: `Generate specs from this codebase.
 
-  Input:
-  ${JSON.stringify({
-    project_root: projectPath,
-    scope: scope || "full",
-    target: target
-  })}
-  `
+  Project root: ${projectPath}
+  Scope: ${scope || "full"}
+  Target: ${target || "entire project"}`
 });
 ```
 

@@ -3,7 +3,7 @@ name: diagnose
 description: "Investigate a bug or unexpected behavior through the 3-phase evidence pipeline. Use when you need structured diagnosis, not quick fixes."
 argument-hint: "\"<problem description>\" [--file <path>] [--error <message>]"
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 ---
 
 # /diagnose Command
@@ -44,11 +44,9 @@ git diff HEAD~3..HEAD --stat
 ```javascript
 Task({
   description: "Diagnose bug",
-  subagent_type: "general-purpose",
-  model: "sonnet",
-  prompt: `Use the homerun:diagnose skill.
+  subagent_type: "diagnostician",
+  prompt: `Investigate the following problem:
 
-  Input:
   ${JSON.stringify({
     problem: {
       description: problemDescription,

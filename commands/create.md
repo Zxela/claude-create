@@ -3,7 +3,7 @@ name: create
 description: "Start orchestrated development workflow from idea to implementation. Use when building new features, adding functionality, or implementing complete development tasks from scratch."
 argument-hint: "<prompt> [--auto] [--resume] [--retries N,M]"
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 ---
 
 # /create Command
@@ -44,11 +44,11 @@ When resuming an interrupted session:
 
 2. Read the session state from `state.json` in the worktree root
 
-3. Determine current phase from `state.json`:
-   - If `phase` is "discovery" or discovery incomplete: invoke `homerun:discovery`
-   - If `phase` is "spec_review": invoke `homerun:spec-review`
-   - If `phase` is "planning" or planning incomplete: invoke `homerun:planning`
-   - If `phase` is "execution" or execution incomplete: invoke `homerun:conductor`
+3. Determine current phase from `state.json` and spawn the appropriate agent:
+   - If `phase` is "discovery" or discovery incomplete: spawn `discovery-agent`
+   - If `phase` is "spec_review": spawn `spec-reviewer`
+   - If `phase` is "planning" or planning incomplete: spawn `planner`
+   - If `phase` is "execution" or execution incomplete: spawn conductor (invoke `homerun:conductor`)
    - If `phase` is "completing": invoke `homerun:finishing-a-development-branch`
 
 4. Pass the stored configuration and any accumulated context to the skill
@@ -76,9 +76,17 @@ When starting a new workflow:
    - Parse `--retries N,M` to override default retry values
 
 3. **Invoke the discovery phase:**
-   - Call `homerun:discovery` skill
-   - Pass the user's prompt and configuration object
-   - The discovery skill will gather requirements and context before proceeding
+   ```javascript
+   Task({
+     description: "Gather requirements",
+     subagent_type: "discovery-agent",
+     prompt: `Start discovery for: ${userPrompt}
+
+     Configuration: ${JSON.stringify(config)}
+     Project root: ${projectRoot}`
+   });
+   ```
+   The discovery agent will gather requirements, generate specs, then hand off to the spec-reviewer agent.
 
 ## Examples
 

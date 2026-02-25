@@ -3,7 +3,7 @@ name: plan
 description: "Jump directly into the planning phase with existing specification documents. Use when you already have PRD/ADR/TECHNICAL_DESIGN and want to decompose into tasks."
 argument-hint: "<worktree-path> [--auto]"
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 ---
 
 # /plan Command
@@ -53,19 +53,18 @@ for spec in prd adr technical_design; do
 done
 ```
 
-### 3. Invoke Planning
+### 3. Invoke Planning Agent
 
 ```javascript
 Task({
   description: "Plan implementation tasks",
-  subagent_type: "general-purpose",
-  model: "opus",
-  prompt: `Use the homerun:planning skill.
+  subagent_type: "planner",
+  prompt: `Decompose specs into implementation tasks.
 
   Worktree: ${worktree_path}
   State file: ${worktree_path}/state.json
 
-  Read state.json and spec documents, then decompose into tasks.`
+  Read state.json and spec documents, then create tasks.json with DAG.`
 });
 ```
 

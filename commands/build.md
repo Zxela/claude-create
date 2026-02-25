@@ -3,7 +3,7 @@ name: build
 description: "Jump directly into the execution phase with existing tasks. Use when you have a tasks.json and want to start or resume implementation."
 argument-hint: "<worktree-path> [--auto]"
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 ---
 
 # /build Command
