@@ -18,6 +18,8 @@ Follow the `homerun:planning` skill to decompose approved specifications into a 
 - Validate the DAG with topological sort (Kahn's algorithm) — reject cycles
 - Map every task back to user stories and acceptance criteria (traceability)
 - Estimate task type for model routing: `mechanical` (haiku) vs `judgment` (sonnet)
+- **Embed context** in each task — extract relevant interfaces, existing patterns, and constraints from specs so implementers don't need to re-read full documents
+- Include **non-scope** and **change impact map** from TECHNICAL_DESIGN in task constraints — implementers must know what NOT to touch
 
 ## Workflow Position
 

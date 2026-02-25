@@ -56,7 +56,16 @@ The conductor provides input as a JSON object. **Validate input before proceedin
             }
           }
         },
-        "test_file": { "type": ["string", "null"] }
+        "test_file": { "type": ["string", "null"] },
+        "embedded_context": {
+          "type": "object",
+          "description": "Pre-extracted spec context from planner — use this instead of re-reading full spec files",
+          "properties": {
+            "relevant_interfaces": { "type": "string" },
+            "existing_patterns": { "type": "string" },
+            "constraints": { "type": "string" }
+          }
+        }
       }
     },
     "spec_paths": {
@@ -229,12 +238,16 @@ Before writing any code:
 - Identify what to build from `task.objective` and `task.acceptance_criteria`
 - Identify test file from `task.test_file`
 - Check `task.traces_to` for spec references
+- **Use `task.embedded_context` first** — if the planner embedded interfaces, patterns, and constraints, use those instead of re-reading spec files. Only read specs if embedded_context is missing or insufficient.
 
 **File Reading Strategy:**
 
 | Need | Approach |
 |------|----------|
-| Understand existing code | Read function signatures only: `grep -A 5 "function\|class\|export"` |
+| Understand interfaces/types | Check `task.embedded_context.relevant_interfaces` first |
+| Find code patterns | Check `task.embedded_context.existing_patterns` first |
+| Know constraints/non-scope | Check `task.embedded_context.constraints` first |
+| Understand existing code (not in context) | Read function signatures only: `grep -A 5 "function\|class\|export"` |
 | Find import patterns | `head -30 src/similar-file.ts` |
 | Check test patterns | `head -50 tests/existing.test.ts` |
 | Full file context | Only when modifying that specific file |
@@ -242,6 +255,7 @@ Before writing any code:
 **Avoid:**
 - Reading entire directories
 - Reading files you won't modify
+- Re-reading spec files when embedded_context already has what you need
 - Re-reading files already in context
 
 ### 2. Read Reference Docs (Targeted Extraction)

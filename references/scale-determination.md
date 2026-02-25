@@ -151,6 +151,11 @@ Each document has a strict content boundary. Mixing content across boundaries cr
 - API contracts (endpoints, request/response schemas)
 - Integration points with existing code
 - Existing codebase analysis (what already exists, what to reuse)
+- **Non-Scope declaration** — explicit list of what is NOT being changed
+- **Change Impact Map:**
+  - *Direct Impact* — files/modules being modified
+  - *Indirect Impact* — files that import/use changed code (verify no breakage)
+  - *No Ripple Effect* — features explicitly confirmed unaffected
 - Security considerations
 - Testing strategy
 
@@ -159,7 +164,7 @@ Each document has a strict content boundary. Mixing content across boundaries cr
 - Decision rationale or alternatives considered (that's ADR)
 - User stories or success metrics (that's PRD)
 
-**Test:** Can a developer implement from this without needing to ask "but why?" If they need "why," it should cross-reference the ADR.
+**Test:** Can a developer implement from this without needing to ask "but why?" If they need "why," it should cross-reference the ADR. Can a developer know what NOT to touch? If unclear, add it to Non-Scope.
 
 ### WIREFRAMES — User Interface Only
 

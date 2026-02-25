@@ -544,6 +544,34 @@ Map out which components depend on others. Visualize as ASCII:
 
 ---
 
+### 2.5. Embed Context in Tasks
+
+**For each task, extract and embed the relevant spec content directly.** Implementers should NOT need to re-read full spec documents — all context they need should be in the task.
+
+For each task, populate `embedded_context` with:
+
+| Field | What to Extract | Where From |
+|-------|----------------|------------|
+| `relevant_interfaces` | Type definitions, interfaces, data models the task touches | TECHNICAL_DESIGN.md "Data Models" section |
+| `existing_patterns` | How similar things are already done in this codebase | `grep` for similar functions/patterns in `src/` |
+| `constraints` | Key decisions or constraints affecting this task | ADR.md decisions, TECHNICAL_DESIGN.md "Non-Scope" and "Change Impact Map" |
+
+```json
+{
+  "id": "003",
+  "title": "Create auth service with login method",
+  "embedded_context": {
+    "relevant_interfaces": "interface User { id: string; email: string; password_hash: string; }\ninterface AuthResult { token: string; user: User; }",
+    "existing_patterns": "// Existing service pattern from src/services/base.ts:\nexport class BaseService {\n  constructor(private db: Database) {}\n}",
+    "constraints": "ADR-001: Use bcrypt for password hashing (cost factor 12). Non-scope: Do not modify existing User model fields."
+  }
+}
+```
+
+**Trade-off:** This costs ~1-2K extra tokens at planning time per task, but saves ~3-5K per implementer invocation (no spec re-reads, no codebase searching for patterns). Since implementers run more often than the planner, this is a net win.
+
+---
+
 ### 3. Write tasks.json
 
 Create a single `tasks.json` file containing all tasks:
@@ -617,6 +645,15 @@ docs/
           }
         },
         "technical_notes": { "type": "string" },
+        "embedded_context": {
+          "type": "object",
+          "description": "Relevant spec excerpts embedded directly so implementers don't re-read full docs",
+          "properties": {
+            "relevant_interfaces": { "type": "string", "description": "Type definitions and interfaces the task touches" },
+            "existing_patterns": { "type": "string", "description": "Code snippets showing how similar things are done in this codebase" },
+            "constraints": { "type": "string", "description": "Key constraints from ADR/TECHNICAL_DESIGN affecting this task" }
+          }
+        },
         "model": { "enum": ["opus", "sonnet", "haiku"], "default": "sonnet" },
         "subtasks": { "type": "array", "items": { "$ref": "#/definitions/task" } }
       }
@@ -657,6 +694,11 @@ docs/
         "adr_decisions": ["ADR-001"]
       },
       "technical_notes": "Use UUID for primary key. Password hash using bcrypt (ADR-001). Soft delete via deleted_at.",
+      "embedded_context": {
+        "relevant_interfaces": "// From TECHNICAL_DESIGN: Users table\n// id: UUID PRIMARY KEY\n// email: VARCHAR(255) UNIQUE NOT NULL\n// password_hash: VARCHAR(255) NOT NULL\n// created_at: TIMESTAMP DEFAULT NOW()\n// updated_at: TIMESTAMP DEFAULT NOW()\n// deleted_at: TIMESTAMP NULL",
+        "existing_patterns": "// No existing schema migrations found",
+        "constraints": "ADR-001: Use bcrypt with cost factor 12. Non-scope: Do not add roles or permissions in this task."
+      },
       "model": "haiku"
     },
     {
@@ -706,6 +748,7 @@ docs/
 | depends_on | array | Yes | Task IDs that must complete first |
 | traces_to | object | Yes | Links to user stories, acceptance criteria, ADR decisions |
 | technical_notes | string | No | Implementation hints from specs |
+| embedded_context | object | No | Relevant spec excerpts (interfaces, patterns, constraints) embedded for implementer |
 | model | enum | No | Which model executes: opus, sonnet (default), haiku |
 | subtasks | array | No | Decomposed subtasks for Haiku execution |
 

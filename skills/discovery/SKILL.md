@@ -146,7 +146,7 @@ Engage the user with **ONE question at a time**. Prefer multiple-choice options 
 **Categories to cover:**
 1. **Purpose & Goals** - What problem, who benefits, success criteria
 2. **Users & Personas** - Who uses it, technical level, frequency
-3. **Scope & Boundaries** - What's in/out of scope for v1
+3. **Scope & Boundaries** - What's in/out of scope for v1 (include explicit **non-scope declaration**: what are you NOT changing?)
 4. **Technical Constraints** - Performance, security, integrations
 5. **Edge Cases & Error Handling** - Failure modes, validation
 
@@ -415,6 +415,11 @@ Use templates from `templates/` as starting points:
    - API contracts if applicable
    - Integration points with existing code
    - Dependencies (internal and external)
+   - **Non-Scope declaration** — explicitly list what is NOT being changed
+   - **Change Impact Map** — classify affected areas as:
+     - *Direct Impact*: files/modules being modified
+     - *Indirect Impact*: files that import/use changed code (verify no breakage)
+     - *No Ripple Effect*: explicitly list features confirmed unaffected
    - Security considerations
    - Testing strategy outline
 
