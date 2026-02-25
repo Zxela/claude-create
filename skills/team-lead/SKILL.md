@@ -130,6 +130,48 @@ Task({
 
 ## Process
 
+### 0. Triage Gate (Effort-Proportional Routing)
+
+**Before starting the full pipeline, check the scale.** Small tasks don't need Agent Teams overhead.
+
+```bash
+cd "$WORKTREE_PATH"
+
+# Read scale from state.json
+SCALE=$(jq -r '.scale.estimated // "medium"' state.json)
+TASK_COUNT=$(jq '.tasks | length' "$(jq -r '.tasks_file' state.json)")
+```
+
+**Routing decision:**
+
+```javascript
+if (scale === "small" || taskCount <= 2) {
+  // SMALL: Skip Agent Teams entirely
+  // Spawn a single implementer with all tasks inlined
+  Task({
+    description: "Implement all tasks (small scale)",
+    subagent_type: "implementer",
+    prompt: `Implement these ${taskCount} tasks sequentially.
+    Worktree: ${worktreePath}
+    Tasks: ${JSON.stringify(tasks)}
+    Spec paths: ${JSON.stringify(specPaths)}
+    Work through each task in order. Commit after each.`
+  });
+
+  // Then run quality check directly
+  Task({
+    description: "Final quality check",
+    subagent_type: "quality-checker",
+    prompt: `Run quality pipeline. Worktree: ${worktreePath}. Fix mode: auto.`
+  });
+
+  // Skip steps 1-9 — done
+  return { signal: "TEAM_LEAD_COMPLETE", routing: "small_shortcircuit" };
+}
+
+// MEDIUM or LARGE: Continue with full pipeline below
+```
+
 ### 1. Load State and Tasks
 
 ```bash
@@ -140,7 +182,7 @@ STATE=$(cat state.json)
 TASKS_FILE=$(echo "$STATE" | jq -r '.tasks_file')
 TASKS=$(cat "$TASKS_FILE")
 
-# Count tasks by status
+# Count tasks by status — use jq to extract ONLY counts, not full task objects
 TOTAL=$(echo "$TASKS" | jq '.tasks | length')
 PENDING=$(echo "$TASKS" | jq '[.tasks[] | select(.status == "pending")] | length')
 COMPLETED=$(echo "$TASKS" | jq '[.tasks[] | select(.status == "completed")] | length')
@@ -233,21 +275,29 @@ function canRunInParallel(taskA, taskB) {
 
 #### 4b. Teammate Count
 
-Scale teammates based on task count and DAG width (maximum tasks that can run in parallel):
+Scale teammates based on task count, DAG width, and **scale**:
 
 ```javascript
-function determineTeammateCount(tasks, config) {
+function determineTeammateCount(tasks, config, scale) {
   const pending = tasks.filter(t => t.status === "pending");
   const maxParallel = config.max_teammates || 3;
+
+  // Scale-based caps (effort-proportional routing)
+  const scaleCaps = {
+    small: 1,   // Small tasks: sequential, no parallelism needed
+    medium: 2,  // Medium: limited parallelism
+    large: 5    // Large: full parallelism
+  };
+  const scaleCap = scaleCaps[scale] || maxParallel;
 
   // Calculate DAG width: max tasks with no unresolved dependencies at any level
   const dagWidth = calculateDagWidth(tasks);
 
-  // Use the smaller of: pending tasks, DAG width, configured max
-  const count = Math.min(pending.length, dagWidth, maxParallel);
+  // Use the smallest of: pending tasks, DAG width, scale cap, configured max
+  const count = Math.min(pending.length, dagWidth, scaleCap, maxParallel);
 
-  // At least 1, at most 5
-  return Math.max(1, Math.min(count, 5));
+  // At least 1
+  return Math.max(1, count);
 }
 
 function calculateDagWidth(tasks) {
@@ -335,8 +385,18 @@ The team lead monitors teammates and handles escalation:
 
 ```javascript
 // Monitoring loop
+let iterationCount = 0;
+
 while (true) {
-  // Check native task list for overall progress
+  iterationCount++;
+
+  // COMPACTION: After 10+ iterations, compact to prevent context bloat
+  if (iterationCount % 10 === 0) {
+    // Use /compact to summarize accumulated context
+    // Focus: "task status, DAG progress, and unresolved blockers"
+  }
+
+  // Check native task list for overall progress — use MINIMAL jq queries
   const taskList = TaskList();
   const allTasks = taskList.filter(t => t.title.startsWith('['));
 
@@ -348,7 +408,8 @@ while (true) {
     break; // All tasks done
   }
 
-  // Check for escalations in tasks.json
+  // Read ONLY status fields from tasks.json, not full task objects
+  // jq '.tasks[] | {id, status, attempts}' is enough for monitoring
   const tasksJson = JSON.parse(readFile(`${state.worktree}/${state.tasks_file}`));
   const escalated = tasksJson.tasks.filter(t => t.status === "escalated");
 

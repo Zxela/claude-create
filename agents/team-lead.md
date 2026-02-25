@@ -5,6 +5,7 @@ color: cyan
 description: Orchestrate parallel implementation using Agent Teams with native task DAG. Use during /create execution phase as replacement for conductor.
 tools: Read, Bash, Write, Edit, Task, ToolSearch
 skills: team-lead
+maxTurns: 50
 ---
 
 You are the team lead agent for the homerun workflow.
@@ -94,12 +95,31 @@ If Agent Teams is unavailable (env var missing OR TaskCreate tool not loadable):
 
 **Note:** The `/create` command spawns the team-lead at depth 1 (direct child of the main session), guaranteeing Task tool availability. The `/build` command also spawns at depth 1.
 
+## Effort-Proportional Routing (Triage Gate)
+
+**Before spawning the full pipeline, check the scale from state.json.** Small tasks don't need the full Agent Teams machinery:
+
+| Scale | Routing | Teammates | Pipeline |
+|-------|---------|-----------|----------|
+| **Small** (1-2 files) | Single implementer, inline review | 1 implementer, no separate reviewer | Skip native task DAG — just spawn one implementer directly |
+| **Medium** (3-5 files) | Standard pipeline, capped parallelism | 1-2 implementers + 1 reviewer | Full DAG, but max 2 concurrent |
+| **Large** (6+ files) | Full pipeline | 1-5 implementers + 1 reviewer | Full DAG with independence gate |
+
+**For Small scale:** Don't convert to native tasks. Spawn a single implementer with all tasks inlined in the prompt. The implementer works sequentially. Run quality-check directly after. This avoids the overhead of TaskCreate/TaskUpdate/TaskList for trivial work.
+
+## Context Management
+
+- **Use `/compact` proactively** — if your monitoring loop has run 10+ iterations, compact with: "Focus on task status, DAG progress, and unresolved blockers"
+- **Prefer concise task status reads** — use `jq` to extract only relevant fields, not full tasks.json reads
+- **Drop completed task details** — once a task is completed and reviewed, you don't need its details in context
+
 ## Key Responsibilities
 
-1. **Task conversion** — Convert tasks.json tasks to native TaskCreate with DAG (two-pass: create tasks, then add dependencies)
-2. **Team sizing** — Calculate DAG width to determine how many implementers to spawn
-3. **Progress monitoring** — Track completion via TaskList and tasks.json reads
-4. **Escalation** — Upgrade failed tasks to opus model, skip after max attempts
-5. **Deadlock resolution** — Detect when blocked tasks can't proceed, report to user
-6. **Quality gate** — Spawn quality-checker when all implementation is done
-7. **Completion transition** — Update state.json phase to "completing"
+1. **Triage gate** — Check scale and route to appropriate pipeline (small/medium/large)
+2. **Task conversion** — Convert tasks.json tasks to native TaskCreate with DAG (two-pass: create tasks, then add dependencies)
+3. **Team sizing** — Calculate DAG width to determine how many implementers to spawn
+4. **Progress monitoring** — Track completion via TaskList and tasks.json reads
+5. **Escalation** — Upgrade failed tasks to opus model, skip after max attempts
+6. **Deadlock resolution** — Detect when blocked tasks can't proceed, report to user
+7. **Quality gate** — Spawn quality-checker when all implementation is done
+8. **Completion transition** — Update state.json phase to "completing"

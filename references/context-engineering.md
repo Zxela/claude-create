@@ -96,27 +96,30 @@ Skills load minimal context, with references to detailed docs:
 Key steps: poll → review → handle failures → spawn
 ```
 
-### 5. Compaction Triggers
+### 5. Compaction and Auto-Compaction
 
-Monitor context usage and trigger refresh:
+**Team-lead and conductor agents should proactively compact** to prevent context degradation during long monitoring loops.
 
 | Trigger | Threshold | Action |
 |---------|-----------|--------|
-| Token usage | > 70% | Spawn fresh conductor |
-| Tasks completed | every 5 | Spawn fresh conductor |
+| Monitoring iterations | every 10 | `/compact Focus on task status, DAG progress, unresolved blockers` |
+| Auto-compaction | 50% capacity | Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` for orchestrator agents |
 | Stalled iterations | 3 without progress | Escalate to user |
 | High-severity failure | any | Block and escalate |
+
+**Native auto-compaction (recommended over manual refresh):**
+Claude Code supports `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` — set to `50` for team-lead/conductor agents to trigger compaction at 50% capacity instead of the default 95%. This is cheaper than spawning a fresh conductor and preserves more context.
 
 **Tracked in state.json:**
 ```json
 {
   "token_tracking": {
     "config": {
-      "refresh_threshold_percent": 40,
-      "warning_threshold_percent": 60
+      "autocompact_pct": 50,
+      "compact_focus": "task status, DAG progress, unresolved blockers"
     },
     "refresh_log": [
-      {"reason": "task_count", "at": "...", "tasks_completed": 5}
+      {"reason": "auto_compaction", "at": "...", "pre_tokens": 80000}
     ]
   }
 }
@@ -161,6 +164,50 @@ haiku task fails 3x → retry with sonnet
 sonnet task fails 3x → escalate to user
 ```
 
+### 7. JIT Context Loading (v4.0)
+
+Instead of embedding full spec excerpts in tasks at planning time, provide lightweight references:
+
+```
+BEFORE (embedded — stale, bloated):
+  task.embedded_context.relevant_interfaces = "interface User { ... }" // 500 tokens
+
+AFTER (JIT references — current, lightweight):
+  task.context_refs.interface_locations = ["src/models/user.ts:User interface"] // 20 tokens
+```
+
+**Benefits:** Implementers read current code (not stale planner snapshots), tasks.json is smaller, and the team-lead monitoring loop is cheaper.
+
+### 8. Effort-Proportional Routing (v4.0)
+
+Scale the pipeline complexity to the task size:
+
+| Scale | Pipeline |
+|-------|----------|
+| Small (1-2 files) | Single implementer, no DAG, no reviewer agent |
+| Medium (3-5 files) | Standard pipeline, max 2 concurrent |
+| Large (6+ files) | Full pipeline with independence gate |
+
+### 9. Deterministic Gates (v4.0)
+
+Use deterministic CLI checks (exit codes) instead of LLM judgment for:
+- Lint/format (Phase 1) → run linter, check exit code
+- Type checking (Phase 2) → run tsc, check exit code
+- Tests (Phase 4) → run test suite, check exit code
+
+Reserve LLM for structural review (Phase 3) where judgment is genuinely needed.
+
+### 10. Fresh-Context-First Retries (v4.0)
+
+Invert naive retry order. First retry = fresh agent with structured failure summary:
+
+```
+BEFORE: same_agent(2x) → fresh_agent(1x) → escalate
+AFTER:  fresh_agent(1x) → same_agent(1x) → escalate
+```
+
+Accumulated context from failed attempts degrades performance. A clean context with a concise failure summary succeeds more often.
+
 ## Anti-Patterns to Avoid
 
 ### 1. Telephone Game
@@ -177,7 +224,19 @@ sonnet task fails 3x → escalate to user
 
 ### 4. Ignoring Token Budgets
 ❌ Keep growing context until errors
-✅ Monitor usage, compact at 70%, refresh at 80%
+✅ Auto-compact at 50% for orchestrators, monitor usage
+
+### 5. Embedded Context Snapshots (NEW)
+❌ Embed full interface definitions and code patterns in tasks.json at planning time
+✅ Provide JIT references (file paths, section names, grep patterns) — implementers load current code
+
+### 6. LLM Judgment for Deterministic Checks (NEW)
+❌ Use Sonnet to decide if lint/type/test checks pass
+✅ Run CLI tools, check exit codes — zero-cost, deterministic, reproducible
+
+### 7. Retrying with Accumulated Context (NEW)
+❌ Retry failed implementation with all previous attempt context accumulated
+✅ Fresh agent with structured failure summary — higher success rate, lower token cost
 
 ## Measuring Effectiveness
 

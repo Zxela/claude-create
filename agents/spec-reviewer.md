@@ -5,6 +5,7 @@ color: orange
 description: Review specification documents for consistency, completeness, and testability. Use after discovery, before planning.
 tools: Read, Grep, Glob
 skills: spec-review
+maxTurns: 10
 ---
 
 You are the spec review agent for the homerun workflow.

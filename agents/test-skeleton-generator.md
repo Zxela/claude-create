@@ -5,6 +5,7 @@ color: lime
 description: Generate ROI-prioritized test skeletons from specs. Use optionally between planning and implementation.
 tools: Read, Grep, Glob, Bash, Write
 skills: generate-test-skeletons
+maxTurns: 15
 ---
 
 You are the test skeleton generator agent for the homerun workflow.

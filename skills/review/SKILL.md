@@ -126,28 +126,65 @@ The conductor provides input as a JSON object. **Validate input before proceedin
 
 If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
-## Review Checklist
+## Two-Tier Evaluation Process
 
-### Acceptance Criteria (Required)
+### Tier 1: Hard Gate (Deterministic — run FIRST)
+
+Run these checks before any LLM analysis. These are pass/fail with no judgment needed:
+
+```bash
+cd "$WORKTREE_PATH"
+
+# 1. Tests pass
+npm test 2>&1 | tail -5
+TEST_EXIT=$?
+
+# 2. Types check
+npx tsc --noEmit 2>&1 | tail -5
+TYPE_EXIT=$?
+
+# 3. Lint clean
+npx eslint --quiet "${FILES[@]}" 2>&1 | tail -5
+LINT_EXIT=$?
+
+# Report
+if [ $TEST_EXIT -ne 0 ] || [ $TYPE_EXIT -ne 0 ] || [ $LINT_EXIT -ne 0 ]; then
+  echo "HARD_GATE_FAILED: tests=$TEST_EXIT types=$TYPE_EXIT lint=$LINT_EXIT"
+  # Reject immediately — no LLM judgment needed
+fi
+```
+
+**If any hard gate fails:** Reject immediately with the specific error output. Do not proceed to Tier 2. This saves the cost of LLM analysis on obviously broken implementations.
+
+### Tier 2: Soft Review (LLM Judgment — score-based)
+
+Only reached if all hard gates pass. Score 0.0-1.0:
+
+| Score | Meaning | Action |
+|-------|---------|--------|
+| 0.9-1.0 | All criteria met, clean implementation | APPROVE |
+| 0.7-0.89 | All criteria met, minor style/naming issues | APPROVE (not worth a retry cycle) |
+| 0.5-0.69 | Most criteria met, missing edge case or coverage gap | REJECT |
+| 0.0-0.49 | Core criteria unmet, bugs, security issues | REJECT |
+
+**Approval threshold: >= 0.7**
+
+### Review Checklist (Tier 2)
+
+#### Acceptance Criteria (Required)
 
 For EACH acceptance criterion in the task file:
 1. Is it implemented?
 2. Is there a corresponding test?
 3. Does the test actually test this criterion (not just exist)?
 
-### Test Quality (Required)
-
-- Test file exists at the specified location
-- Tests are meaningful (not trivial or tautological)
-- Tests would fail if the implementation were wrong or missing
-
-### Technical Alignment (Required)
+#### Technical Alignment (Required)
 
 - Implementation matches patterns in `spec_paths.technical_design` (centralized in `$HOME/.claude/homerun/`)
 - Data models match those defined in the design
 - API contracts match the specification
 
-### Security (If Applicable)
+#### Security (If Applicable)
 
 - Follows security decisions documented in `spec_paths.adr` (centralized in `$HOME/.claude/homerun/`)
 - No obvious vulnerabilities introduced
@@ -180,10 +217,19 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "summary", "verified"],
+  "required": ["signal", "summary", "score", "hard_gates", "verified"],
   "properties": {
     "signal": { "const": "APPROVED" },
     "summary": { "type": "string" },
+    "score": { "type": "number", "minimum": 0.7, "maximum": 1.0, "description": "Tier 2 quality score (0.0-1.0). Must be >= 0.7 for approval." },
+    "hard_gates": {
+      "type": "object",
+      "properties": {
+        "tests": { "enum": ["pass", "fail", "skipped"] },
+        "types": { "enum": ["pass", "fail", "skipped"] },
+        "lint": { "enum": ["pass", "fail", "skipped"] }
+      }
+    },
     "verified": {
       "type": "array",
       "items": {
@@ -207,6 +253,8 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 {
   "signal": "APPROVED",
   "summary": "User authentication service implemented with password hashing and session management",
+  "score": 0.92,
+  "hard_gates": { "tests": "pass", "types": "pass", "lint": "pass" },
   "verified": [
     {
       "criterion": "AC-001",
@@ -230,10 +278,19 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "summary", "issues", "required_fixes"],
+  "required": ["signal", "summary", "score", "hard_gates", "issues", "required_fixes"],
   "properties": {
     "signal": { "const": "REJECTED" },
     "summary": { "type": "string" },
+    "score": { "type": "number", "minimum": 0.0, "maximum": 0.69, "description": "Tier 2 quality score. < 0.7 triggers rejection. Omit if hard gate failed." },
+    "hard_gates": {
+      "type": "object",
+      "properties": {
+        "tests": { "enum": ["pass", "fail", "skipped"] },
+        "types": { "enum": ["pass", "fail", "skipped"] },
+        "lint": { "enum": ["pass", "fail", "skipped"] }
+      }
+    },
     "issues": {
       "type": "array",
       "items": {
@@ -262,6 +319,8 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 {
   "signal": "REJECTED",
   "summary": "Implementation missing error handling and test coverage for edge cases",
+  "score": 0.55,
+  "hard_gates": { "tests": "pass", "types": "pass", "lint": "pass" },
   "issues": [
     {
       "criterion": "AC-002",

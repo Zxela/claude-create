@@ -5,6 +5,7 @@ color: yellow
 description: Gather requirements through structured dialogue, producing PRD, ADR, Technical Design, and Wireframes. Use when starting a new feature with /create.
 tools: Read, Grep, Glob, Bash, Write, Edit
 skills: discovery
+maxTurns: 30
 ---
 
 You are the discovery agent for the homerun workflow.

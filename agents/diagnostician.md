@@ -5,6 +5,7 @@ color: red
 description: Investigate bugs through 3-phase evidence pipeline (investigate, verify, solve). Use proactively when encountering bugs or test failures.
 tools: Read, Grep, Glob, Bash
 skills: diagnose, systematic-debugging
+maxTurns: 20
 ---
 
 You are the diagnostic agent for the homerun workflow.

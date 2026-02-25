@@ -1,5 +1,33 @@
 # Changelog
 
+## [4.0.0] - 2026-02-25
+
+### Added
+- **maxTurns limits** on all 11 agents — prevents runaway token consumption (discovery:30, spec-review:10, planner:20, implementer:25, reviewer:15, quality-checker:15, team-lead:50, diagnostician:20, reverse-engineer:30, test-skeleton:15, walkthrough:15)
+- **Effort-proportional routing** (triage gate) in team-lead — small tasks (1-2 files) skip Agent Teams, spec-review, and separate reviewer; medium tasks cap at 2 concurrent; large uses full pipeline
+- **Two-tier review evaluation** — Tier 1: deterministic hard gates (tests/types/lint exit codes), Tier 2: LLM judgment with 0.0-1.0 scoring. Approval threshold >= 0.7. Reduces false rejections.
+- **JIT context references** (`context_refs`) replace `embedded_context` — planner provides file paths, section names, and grep patterns instead of stale embedded excerpts. Implementers load current code at runtime.
+- **Fresh-context-first retries** — first retry uses fresh agent with structured failure summary (not accumulated context). Order: fresh_agent → same_agent → escalate.
+- **Deterministic quality gate hooks** — PostToolUse auto-lint hook, SubagentStop type-check+test hook. Phases 1/2/4 of quality pipeline are now zero-cost deterministic checks.
+- **Auto-compaction for orchestrators** — team-lead compacts every 10 monitoring iterations, recommends CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50
+- **Scale-based pipeline routing** in `references/scale-determination.md` and `references/model-routing.json`
+- **Planner determinism rules** — instructions to produce identical decompositions given identical inputs
+- `skip_step_0` flag in model-routing.json for haiku tasks — pre-implementation analysis skipped for mechanical tasks
+- `scale_routing` and `agent_limits` sections in model-routing.json
+- `score` and `hard_gates` fields in review APPROVED/REJECTED signals
+- New anti-patterns documented in context-engineering.md (embedded snapshots, LLM for deterministic checks, retrying with accumulated context)
+
+### Changed
+- **Reviewer agent** now has `background: true` — runs concurrently with implementers, reducing wall-clock time
+- **Quality-checker agent** restructured — phases 1/2/4 explicitly marked DETERMINISTIC (no LLM judgment), phase 3 is the only LLM phase
+- **Implementer agent** — Step 0 pre-implementation analysis now gated by task type (skipped for haiku-level tasks)
+- **Retry order inverted** — fresh_agent(1x) → same_agent(1x) → escalate (was: same_agent(2x) → fresh_agent(1x))
+- **model-routing.json** bumped to v2.0.0 with retry_strategy, agent_limits, and scale_routing sections
+- **Planner** uses JIT context references instead of embedded excerpts
+
+### Removed
+- `embedded_context` field from task schema (replaced by `context_refs`)
+
 ## [3.1.5] - 2026-02-25
 
 ### Fixed

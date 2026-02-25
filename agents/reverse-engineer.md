@@ -5,6 +5,7 @@ color: violet
 description: Generate PRD, ADR, and TECHNICAL_DESIGN from an existing codebase. Use when documenting undocumented projects.
 tools: Read, Grep, Glob, Bash, Write
 skills: reverse-engineer
+maxTurns: 30
 ---
 
 You are the reverse engineering agent for the homerun workflow.
