@@ -416,6 +416,43 @@
         },
         "envelope_version": "1.0.0"
       }
+    },
+
+    "TEAM_LEAD_COMPLETE": {
+      "producer": "homerun:team-lead",
+      "envelope_example": {
+        "signal": "TEAM_LEAD_COMPLETE",
+        "timestamp": "2026-02-24T15:00:00Z",
+        "source": { "skill": "homerun:team-lead" },
+        "payload": {
+          "orchestration_mode": "agent_teams",
+          "tasks_total": 8,
+          "tasks_completed": 7,
+          "tasks_skipped": 1,
+          "teammates_spawned": {
+            "implementer": 3,
+            "reviewer": 1,
+            "quality_checker": 1
+          },
+          "quality_verdict": "pass_with_fixes",
+          "duration_minutes": 12
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "CONDUCTOR_FALLBACK": {
+      "producer": "homerun:team-lead",
+      "envelope_example": {
+        "signal": "CONDUCTOR_FALLBACK",
+        "timestamp": "2026-02-24T15:00:00Z",
+        "source": { "skill": "homerun:team-lead" },
+        "payload": {
+          "reason": "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS not set",
+          "action": "spawned_conductor"
+        },
+        "envelope_version": "1.0.0"
+      }
     }
   },
 
