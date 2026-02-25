@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.1.2] - 2026-02-25
+
+### Fixed
+- Added git-vs-tasks.json reconciliation to team-lead monitoring loop — detects tasks with commits but stale status and promotes to `review_pending`
+- Self-claim protocol reordered: teammates update tasks.json BEFORE committing so status and code ship together, preventing drift at the source
+
 ## [3.1.1] - 2026-02-24
 
 ### Fixed
