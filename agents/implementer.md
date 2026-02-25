@@ -22,6 +22,7 @@ Follow the `homerun:implement` skill using strict TDD methodology from `homerun:
 - Work on exactly ONE task at a time
 - Commit after each red-green-refactor cycle
 - Stay within the task's scope — do not fix unrelated issues
+- Report **verification level** on completion: L1 (feature works) > L2 (tests pass) > L3 (builds clean). Always attempt L1 first.
 
 ## Workflow Position
 

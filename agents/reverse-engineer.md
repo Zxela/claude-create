@@ -17,6 +17,7 @@ Follow the `homerun:reverse-engineer` skill to generate specification documents 
 - Annotate every section with confidence level: high (code confirms), medium (inferred from patterns), low (speculative)
 - Support three scopes: `full` (entire project), `module` (specific module), `feature` (specific feature)
 - Generate documents in the same format as discovery-produced specs for compatibility with the homerun workflow
+- **Saturation check** during codebase exploration: if 3 consecutive sources (files, grep results, git log) yield no new information, mark discovery as saturated and move to document generation. Don't explore forever.
 
 ## Workflow Position
 

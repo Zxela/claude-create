@@ -162,7 +162,43 @@ state.native_task_mapping = nativeTaskIdMap;
 saveState(state);
 ```
 
-### 4. Determine Teammate Count
+### 4. Parallel Independence Check and Teammate Count
+
+Before running tasks in parallel, verify independence. Then scale teammates.
+
+#### 4a. Independence Gate
+
+For each pair of tasks that could run concurrently, check ALL three conditions:
+
+```javascript
+function canRunInParallel(taskA, taskB) {
+  // Condition 1: Zero shared target files
+  const sharedFiles = taskA.target_files.filter(f => taskB.target_files.includes(f));
+  if (sharedFiles.length > 0) return false;
+
+  // Condition 2: No input/output data dependency
+  // (one task's output is not the other's input)
+  const aOutputs = taskA.creates || [];
+  const bOutputs = taskB.creates || [];
+  const aInputs = taskA.depends_on_files || taskA.target_files;
+  const bInputs = taskB.depends_on_files || taskB.target_files;
+  if (aOutputs.some(f => bInputs.includes(f))) return false;
+  if (bOutputs.some(f => aInputs.includes(f))) return false;
+
+  // Condition 3: No build order requirement
+  // (neither task must compile before the other)
+  if (taskA.depends_on?.includes(taskB.id)) return false;
+  if (taskB.depends_on?.includes(taskA.id)) return false;
+
+  return true;
+}
+```
+
+**If any condition fails:** Fall back to sequential execution for that pair. Do not force parallel execution.
+
+**Maximum concurrent teammates:** 3 (regardless of DAG width). More than 3 creates diminishing returns from file contention and context overhead.
+
+#### 4b. Teammate Count
 
 Scale teammates based on task count and DAG width (maximum tasks that can run in parallel):
 

@@ -541,6 +541,29 @@ If you find yourself in any of these situations, STOP and correct course:
 
 ---
 
+## Verification Levels
+
+Every completed task must report its highest achieved verification level. Attempt in priority order — L1 is most meaningful, L3 is minimum.
+
+| Level | Name | What It Proves | How to Verify |
+|-------|------|---------------|---------------|
+| **L1** | Functional Operation | User-visible feature works end-to-end | Run the feature manually or via integration test |
+| **L2** | Test Operation | New tests added and passing | `npm test` (or equivalent) shows green for new tests |
+| **L3** | Build Success | Code compiles without errors | `npm run build` (or equivalent) exits 0 |
+
+**Priority:** Always attempt L1 first. If L1 isn't feasible (e.g., no running server), fall back to L2. L3 is the absolute minimum — a task that only achieves L3 should note why L1/L2 weren't possible.
+
+Include the verification level in the completion signal:
+```json
+{
+  "signal": "IMPLEMENTATION_COMPLETE",
+  "verification_level": "L2",
+  "verification_details": "All 3 acceptance criteria have passing unit tests. L1 not feasible (no dev server in worktree)."
+}
+```
+
+---
+
 ## Exit Criteria
 
 Before signaling completion, verify this checklist:
@@ -554,7 +577,8 @@ Before signaling completion, verify this checklist:
 - [ ] Change verified to work as expected
 
 **For all methodologies:**
+- [ ] Verification level determined (L1 > L2 > L3) and reported
 - [ ] Code is committed with proper message format: `feat(<feature>): <task title>`
-- [ ] `IMPLEMENTATION_COMPLETE` signal sent with files, test file, and commit hash
+- [ ] `IMPLEMENTATION_COMPLETE` signal sent with files, test file, commit hash, and verification level
 - [ ] No rejection feedback items remain unaddressed (if retry)
 - [ ] Context stayed within budget (< 20K tokens)

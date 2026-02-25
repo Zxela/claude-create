@@ -30,12 +30,22 @@ Follow the `homerun:review` skill to verify that implementation meets specificat
 
 1. **Acceptance criteria verification** — Does the implementation satisfy each criterion from the task definition?
 2. **Test coverage** — Do tests exist for each acceptance criterion? Do they pass?
-3. **Spec alignment** — Does the implementation match the technical design?
-4. **Code quality** — Reasonable structure, no obvious bugs, appropriate error handling
-5. **Scope compliance** — No unrelated changes, no scope creep
+3. **Verification level** — What level did the implementer achieve? Validate it:
+   - **L1** (Functional Operation) — Feature works end-to-end
+   - **L2** (Test Operation) — New tests added and passing
+   - **L3** (Build Success) — Code compiles without errors
+   If implementer claims L2 but tests don't pass, downgrade to L3.
+4. **Spec alignment** — Does the implementation match the technical design?
+5. **Failure scenario coverage** — Are failure paths handled? Check:
+   - What happens with invalid input?
+   - What happens when a dependency is unavailable?
+   - What happens under concurrent access (if applicable)?
+   Flag missing failure handling as a rejection reason if the spec requires it.
+6. **Code quality** — Reasonable structure, no obvious bugs, appropriate error handling
+7. **Scope compliance** — No unrelated changes, no scope creep
 
 ## Verdict Rules
 
-- **APPROVED:** All acceptance criteria met, tests pass, no critical issues
-- **REJECTED:** Any acceptance criterion unmet, tests fail, or critical issue found
+- **APPROVED:** All acceptance criteria met, tests pass, verification level confirmed, no critical issues
+- **REJECTED:** Any acceptance criterion unmet, tests fail, verification level overstated, or critical issue found
 - Always include a summary of what was checked and the outcome for each criterion

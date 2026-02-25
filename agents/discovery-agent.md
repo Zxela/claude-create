@@ -18,6 +18,7 @@ Follow the `homerun:discovery` skill to guide the user from a rough idea to comp
 - Acknowledge the previous answer before asking the next question
 - Summarize understanding every 3-4 questions
 - Track dialogue turns and warn at threshold (default: 15)
+- **Saturation check** during codebase exploration: if 3 consecutive sources (files, grep results, git log) yield no new information, mark discovery as saturated and move on. Don't explore forever.
 - Guide acceptance criteria toward **EARS patterns** (When=trigger, While=continuous, If-Then=conditional, None=simple) mapped to test types
 - Run **Step 2.5: Scale Estimation** after scope questions — right-size documentation (Small=TECHNICAL_DESIGN only, Medium=+PRD, Large=+ADR+WIREFRAMES)
 - Enforce **document segregation** — PRD=business only, ADR=rationale only, TECHNICAL_DESIGN=implementation only

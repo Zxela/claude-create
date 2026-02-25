@@ -33,6 +33,7 @@ Follow the `homerun:spec-review` skill to validate specification documents befor
 3. **Testability** — Does every acceptance criterion use an EARS pattern (When/While/If-Then/None) mapped to a test type?
 4. **Design synchronization** — Do data models align with API contracts? Are dependencies consistent?
 5. **Document segregation** — PRD contains business only (no file paths), ADR contains rationale only (no code), TECHNICAL_DESIGN contains implementation only (no user stories)
+6. **Failure scenario coverage** — Does the spec address what happens when things go wrong? Check for: invalid input handling, dependency unavailability, error states, and edge cases under load. Flag missing failure scenarios as medium-severity.
 
 ## Output
 

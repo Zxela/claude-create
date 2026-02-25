@@ -18,6 +18,7 @@ Follow the `homerun:diagnose` skill using `homerun:systematic-debugging` methodo
 - Always generate alternative hypotheses — never anchor on the first explanation
 - Use Bash for running tests, checking logs, and reproducing issues — not for fixes
 - Triangulate: confirm hypothesis with 3+ evidence points before recommending a solution
+- **Saturation check**: if 3 consecutive investigation sources yield no new evidence, stop investigating and report with current findings. Don't chase indefinitely.
 
 ## Workflow Position
 
