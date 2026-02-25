@@ -46,8 +46,10 @@ When resuming an interrupted session:
 
 3. Determine current phase from `state.json`:
    - If `phase` is "discovery" or discovery incomplete: invoke `homerun:discovery`
+   - If `phase` is "spec_review": invoke `homerun:spec-review`
    - If `phase` is "planning" or planning incomplete: invoke `homerun:planning`
    - If `phase` is "execution" or execution incomplete: invoke `homerun:conductor`
+   - If `phase` is "completing": invoke `homerun:finishing-a-development-branch`
 
 4. Pass the stored configuration and any accumulated context to the skill
 
@@ -112,8 +114,18 @@ When starting a new workflow:
      │
      ▼
 ┌─────────────┐
+│ Spec Review │  ← Validate specs for consistency, completeness, testability
+└─────────────┘
+     │
+     ▼
+┌─────────────┐
 │  Planning   │  ← Create implementation plan
 └─────────────┘
+     │
+     ▼
+┌──────────────────┐
+│ Test Skeletons   │  ← (optional) Generate ROI-prioritized test scaffolding
+└──────────────────┘
      │
      ▼
 ┌─────────────┐
@@ -121,7 +133,24 @@ When starting a new workflow:
 └─────────────┘
      │
      ▼
-   Complete
+┌───────────────┐
+│ Quality Check │  ← Lint, types, structure, tests, recheck
+└───────────────┘
+     │
+     ▼
+┌─────────────┐
+│  Complete   │  ← Merge, PR, keep, or discard
+└─────────────┘
 ```
 
 Each phase can be retried on failure according to the retry configuration. The workflow state is persisted to `state.json` in the worktree, allowing recovery from interruptions.
+
+## Related Commands
+
+These commands allow jumping directly into specific phases:
+
+- `/plan` — Skip to planning with existing specs
+- `/build` — Skip to execution with existing tasks
+- `/review` — Run spec review and/or quality checks
+- `/diagnose` — Investigate a bug with the 3-phase evidence pipeline
+- `/reverse-engineer` — Generate specs from an existing codebase

@@ -126,6 +126,52 @@ If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
 ## Process
 
+### 0. Similar Function Discovery
+
+**BEFORE writing any code, search for existing similar functionality.**
+
+This step prevents duplication and leverages existing patterns. Skipping it risks reinventing code that already exists.
+
+```bash
+cd "$WORKTREE_PATH"
+
+# Search for functions/classes related to the task objective
+# Use keywords from the task title and objective
+grep -rn "function.*${KEYWORD}\|class.*${KEYWORD}\|const.*${KEYWORD}" src/ --include="*.ts" --include="*.js" | head -20
+
+# Search for similar patterns in test files
+grep -rn "${KEYWORD}" tests/ --include="*.test.*" | head -10
+
+# Check for existing utility functions that might already do what's needed
+grep -rn "export.*function\|export.*const" src/utils/ src/helpers/ src/lib/ 2>/dev/null | head -20
+```
+
+**Duplication Evaluation:**
+
+| Level | Indicators | Action |
+|-------|-----------|--------|
+| **High** (3+ matches) | Same function name, same parameters, same return type | STOP — reuse existing code, don't reimplement |
+| **Medium** (2 matches) | Similar name, overlapping parameters | Extend existing function or extract shared logic |
+| **Low** (0-1 matches) | No similar code found | Proceed with implementation |
+
+**If High duplication detected:**
+```json
+{
+  "signal": "IMPLEMENTATION_BLOCKED",
+  "reason": "Similar function already exists",
+  "blocker_type": "duplication_detected",
+  "details": [
+    "Existing: src/utils/hash.ts:23 - hashPassword()",
+    "Task asks to implement password hashing in auth service"
+  ],
+  "suggested_resolution": "Import and reuse existing hashPassword() from src/utils/hash.ts"
+}
+```
+
+**Context budget for this step: ~1K tokens** (grep output only, no full file reads)
+
+---
+
 ### 1. Understand the Task
 
 Before writing any code:
@@ -429,13 +475,14 @@ If you find yourself in any of these situations, STOP and correct course:
 
 | Component | Budget | Strategy |
 |-----------|--------|----------|
+| Similar function discovery | ~1K | Grep output only, no full reads |
 | Task input | ~1K | Already minimal |
 | Spec extraction | ~2K | Targeted grep, not full reads |
 | Existing code reads | ~3K | Signatures only, expand as needed |
 | Test output (per run) | ~0.5K | Masked: summary + first failure |
-| Implementation | ~5K | The actual work |
+| Implementation | ~4.5K | The actual work |
 | Commit/output | ~0.5K | Minimal |
-| **Buffer** | ~8K | For iterations and edge cases |
+| **Buffer** | ~7.5K | For iterations and edge cases |
 
 **If approaching 20K:**
 1. Stop reading new files

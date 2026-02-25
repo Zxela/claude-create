@@ -47,9 +47,15 @@
 
   "phase_models": {
     "discovery": "inherit",
+    "spec_review": "sonnet",
     "planning": "opus",
+    "test_skeletons": "sonnet",
     "conductor": "haiku",
-    "reviewer": "sonnet"
+    "reviewer": "sonnet",
+    "quality_check": "sonnet",
+    "diagnose": "sonnet",
+    "reverse_engineer": "opus",
+    "walkthrough": "sonnet"
   },
 
   "escalation": {

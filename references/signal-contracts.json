@@ -225,6 +225,197 @@
         },
         "envelope_version": "1.0.0"
       }
+    },
+
+    "SPEC_REVIEW_COMPLETE": {
+      "producer": "homerun:spec-review",
+      "envelope_example": {
+        "signal": "SPEC_REVIEW_COMPLETE",
+        "timestamp": "2026-01-25T10:35:00Z",
+        "source": { "skill": "homerun:spec-review" },
+        "payload": {
+          "verdict": "approved",
+          "issues": { "high": 0, "medium": 1, "low": 2 },
+          "details": [
+            {
+              "severity": "medium",
+              "category": "incomplete",
+              "description": "TECHNICAL_DESIGN missing error handling for /register endpoint",
+              "file": "TECHNICAL_DESIGN.md",
+              "fix": "Add error responses table"
+            }
+          ]
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "DIAGNOSIS_COMPLETE": {
+      "producer": "homerun:diagnose",
+      "envelope_example": {
+        "signal": "DIAGNOSIS_COMPLETE",
+        "timestamp": "2026-01-25T11:30:00Z",
+        "source": { "skill": "homerun:diagnose" },
+        "payload": {
+          "root_cause": {
+            "hypothesis": "Validation middleware strips password field before auth service",
+            "evidence": [
+              {
+                "description": "validation.ts:23 deletes req.body.password",
+                "source": "src/middleware/validation.ts:23",
+                "supports": "Password field removed before hash"
+              }
+            ],
+            "alternatives_considered": [
+              {
+                "hypothesis": "Client not sending password field",
+                "rejected_because": "Request logging shows password in raw body"
+              }
+            ],
+            "verified": true
+          },
+          "confidence": "high",
+          "solutions": [
+            {
+              "title": "Remove password from stripped fields list",
+              "type": "direct",
+              "files": ["src/middleware/validation.ts"],
+              "risk": "low"
+            }
+          ],
+          "recommendation": {
+            "solution_index": 0,
+            "rationale": "Direct fix at root cause, minimal change"
+          }
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "DIAGNOSIS_INCONCLUSIVE": {
+      "producer": "homerun:diagnose",
+      "envelope_example": {
+        "signal": "DIAGNOSIS_INCONCLUSIVE",
+        "timestamp": "2026-01-25T11:30:00Z",
+        "source": { "skill": "homerun:diagnose" },
+        "payload": {
+          "investigated": {
+            "hypotheses_tested": 3,
+            "evidence_collected": 5,
+            "best_guess": "Timing issue in async password hashing"
+          },
+          "next_steps": [
+            "Add logging at auth.ts:40-50",
+            "Run under load to reproduce"
+          ],
+          "confidence": "low"
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "QUALITY_CHECK_COMPLETE": {
+      "producer": "homerun:quality-check",
+      "envelope_example": {
+        "signal": "QUALITY_CHECK_COMPLETE",
+        "timestamp": "2026-01-25T11:20:00Z",
+        "source": { "skill": "homerun:quality-check", "task_id": "002" },
+        "payload": {
+          "verdict": "pass_with_fixes",
+          "phases": {
+            "lint": { "status": "fixed", "issues_found": 3, "issues_fixed": 3 },
+            "types": { "status": "pass", "issues_found": 0, "issues_fixed": 0 },
+            "structure": { "status": "pass", "issues_found": 0, "issues_fixed": 0 },
+            "tests": { "status": "pass", "issues_found": 0, "issues_fixed": 0 },
+            "recheck": { "status": "pass", "issues_found": 0, "issues_fixed": 0 }
+          },
+          "fixes_applied": [
+            { "phase": "lint", "description": "Fixed formatting", "file": "src/services/auth.ts" }
+          ],
+          "unresolved": []
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "REVERSE_ENGINEER_COMPLETE": {
+      "producer": "homerun:reverse-engineer",
+      "envelope_example": {
+        "signal": "REVERSE_ENGINEER_COMPLETE",
+        "timestamp": "2026-01-25T12:00:00Z",
+        "source": { "skill": "homerun:reverse-engineer" },
+        "payload": {
+          "output_dir": "/home/user/.claude/homerun/a1b2c3d4/myapp-reverse-engineered",
+          "documents": {
+            "prd": "/home/user/.claude/homerun/a1b2c3d4/myapp-reverse-engineered/PRD.md",
+            "adr": "/home/user/.claude/homerun/a1b2c3d4/myapp-reverse-engineered/ADR.md",
+            "technical_design": "/home/user/.claude/homerun/a1b2c3d4/myapp-reverse-engineered/TECHNICAL_DESIGN.md"
+          },
+          "coverage": {
+            "files_analyzed": 45,
+            "components_identified": 8,
+            "models_extracted": 5,
+            "endpoints_found": 12,
+            "tests_found": 23
+          },
+          "confidence": {
+            "architecture": "high",
+            "data_models": "high",
+            "api_contracts": "medium",
+            "business_logic": "medium"
+          }
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "TEST_SKELETONS_COMPLETE": {
+      "producer": "homerun:generate-test-skeletons",
+      "envelope_example": {
+        "signal": "TEST_SKELETONS_COMPLETE",
+        "timestamp": "2026-01-25T10:50:00Z",
+        "source": { "skill": "homerun:generate-test-skeletons" },
+        "payload": {
+          "skeletons_generated": 15,
+          "test_files_created": [
+            "tests/models/user.test.ts",
+            "tests/services/auth.test.ts"
+          ],
+          "coverage": {
+            "acceptance_criteria_total": 12,
+            "criteria_with_skeletons": 10,
+            "criteria_skipped": 2
+          },
+          "roi_distribution": {
+            "must_test": 8,
+            "should_test": 2,
+            "could_test": 2
+          }
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "WALKTHROUGH_COMPLETE": {
+      "producer": "homerun:walkthrough",
+      "envelope_example": {
+        "signal": "WALKTHROUGH_COMPLETE",
+        "timestamp": "2026-01-25T12:30:00Z",
+        "source": { "skill": "homerun:walkthrough" },
+        "payload": {
+          "walkthroughs": [
+            {
+              "user_story": "US-001",
+              "script_path": "walkthroughs/registration-flow.spec.ts",
+              "steps": 6,
+              "type": "playwright"
+            }
+          ],
+          "config_path": "playwright.walkthrough.config.ts",
+          "run_command": "npx playwright test --config=playwright.walkthrough.config.ts"
+        },
+        "envelope_version": "1.0.0"
+      }
     }
   },
 
