@@ -885,27 +885,24 @@ After creating tasks.json:
    Use the Task tool to spawn conductor in a fresh agent context:
 
    ```javascript
-   // Conductor remains a general-purpose agent with homerun:conductor skill.
-   // This will be replaced by team-lead agent in Level 2 (Agent Teams).
    Task({
      description: "Execute implementation loop",
-     subagent_type: "general-purpose",
-     model: "haiku",  // Conductor uses haiku - scheduling is mechanical
-     prompt: `Use the homerun:conductor skill.
+     subagent_type: "team-lead",
+     prompt: `Orchestrate parallel implementation for this feature.
 
      Worktree: ${state.worktree}
      State file: ${state.worktree}/state.json
 
-     Read state.json, find pending tasks, and orchestrate parallel implementation.
-     Use subagent_type: "implementer" for implementation and "reviewer" for reviews.`
+     Read state.json and tasks.json, then coordinate implementation.
+     If Agent Teams is unavailable, fall back to conductor.`
    });
    ```
 
-   **Why haiku for conductor:**
-   - Conductor does mechanical scheduling, not deep reasoning
-   - Reading state, finding ready tasks, spawning agents
-   - Cost-effective for the orchestration loop
-   - Implementers/Reviewers use appropriate models per task complexity
+   **Why team-lead:**
+   - Detects Agent Teams availability and uses native task DAG when possible
+   - Falls back to conductor skill automatically if Agent Teams disabled
+   - Spawns implementer/reviewer/quality-checker teammates by name
+   - Uses sonnet for coordination decisions (teammate scaling, escalation)
 
    **Why Task agent instead of direct invocation:**
    - Planning deliberation no longer consuming tokens

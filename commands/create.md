@@ -48,7 +48,7 @@ When resuming an interrupted session:
    - If `phase` is "discovery" or discovery incomplete: spawn `discovery-agent`
    - If `phase` is "spec_review": spawn `spec-reviewer`
    - If `phase` is "planning" or planning incomplete: spawn `planner`
-   - If `phase` is "execution" or execution incomplete: spawn conductor (invoke `homerun:conductor`)
+   - If `phase` is "execution" or execution incomplete: spawn `team-lead` (falls back to conductor if Agent Teams unavailable)
    - If `phase` is "completing": invoke `homerun:finishing-a-development-branch`
 
 4. Pass the stored configuration and any accumulated context to the skill
@@ -137,7 +137,7 @@ When starting a new workflow:
      │
      ▼
 ┌─────────────┐
-│  Execution  │  ← Implement the plan in isolated worktree
+│  Execution  │  ← Team lead orchestrates parallel implementation (Agent Teams)
 └─────────────┘
      │
      ▼

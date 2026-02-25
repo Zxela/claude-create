@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.0.0] - 2026-02-24
+
+### Added
+- **Team lead skill** (`homerun:team-lead`) — Agent Teams orchestrator that replaces the conductor for parallel implementation. Uses native TaskCreate/TaskUpdate with DAG dependencies, self-claiming implementer teammates, and automatic quality gate.
+- **Team lead agent** (`team-lead`, sonnet, cyan) — Named subagent wrapping the team-lead skill with Task tool access for spawning implementer/reviewer/quality-checker teammates.
+- **Tasks bridge** (`scripts/lib/tasks-bridge.js`) — Reference implementation for converting homerun tasks.json to native Claude Code tasks with two-pass DAG dependency wiring.
+- **Hook scripts** — `homerun-worktree-setup.sh` (WorktreeCreate), `homerun-post-implement.sh` (SubagentStop), `homerun-task-completed.sh` (TaskCompleted validation gate)
+- **Hooks configuration reference** (`references/hooks-configuration.md`) — Setup documentation for all homerun hooks
+- **New signals:** `TEAM_LEAD_COMPLETE`, `CONDUCTOR_FALLBACK`
+
+### Changed
+- `/create` execution phase now spawns `team-lead` agent instead of conductor directly
+- `/build` command now invokes `team-lead` agent with automatic conductor fallback
+- Planning skill transitions to `team-lead` agent after task decomposition
+- Phase flow diagram updated: execution phase shows Agent Teams orchestration
+
+### Deprecated
+- **Conductor skill** (`homerun:conductor`) — Retained as fallback when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set. The team-lead agent auto-detects and falls back to conductor when needed.
+
 ## [2.1.0] - 2026-02-24
 
 ### Added

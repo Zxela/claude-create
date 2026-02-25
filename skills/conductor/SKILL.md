@@ -1,11 +1,16 @@
 ---
 name: conductor
-description: "[haiku] Orchestrate the implementation loop - spawning implementer and reviewer agents"
+description: "[haiku] [DEPRECATED — use team-lead agent] Orchestrate the implementation loop - spawning implementer and reviewer agents"
 model: haiku
 color: green
 ---
 
 # Conductor Skill
+
+> **DEPRECATED in v3.0.0** — The conductor has been replaced by the `team-lead` agent which uses
+> Agent Teams for native parallel execution with TaskCreate/TaskUpdate DAG management.
+> This skill is retained as a **fallback** when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set.
+> The team-lead agent automatically falls back to spawning a conductor when Agent Teams is unavailable.
 
 ## Reference Documents
 

@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 
 # /build Command
 
-Jump directly into the execution/implementation phase. Use when you already have a `tasks.json` and want to start or resume the conductor loop.
+Jump directly into the execution/implementation phase. Use when you already have a `tasks.json` and want to start or resume implementation via the team-lead agent (or conductor fallback).
 
 ## Usage
 
@@ -60,22 +60,24 @@ Build status for: user-auth
   Pending: 4
   Failed: 1
 
-Ready to start conductor? [Y/n]
+Ready to start? [Y/n]
 ```
 
-### 4. Invoke Conductor
+### 4. Invoke Team Lead
+
+Spawn the team-lead agent, which handles Agent Teams detection and conductor fallback internally:
 
 ```javascript
 Task({
   description: "Execute implementation loop",
-  subagent_type: "general-purpose",
-  model: "haiku",
-  prompt: `Use the homerun:conductor skill.
+  subagent_type: "team-lead",
+  prompt: `Orchestrate parallel implementation for this feature.
 
   Worktree: ${worktree_path}
   State file: ${worktree_path}/state.json
 
-  Read state.json, find pending tasks, and orchestrate parallel implementation.`
+  Read state.json and tasks.json, then coordinate implementation.
+  If Agent Teams is unavailable, fall back to conductor.`
 });
 ```
 
