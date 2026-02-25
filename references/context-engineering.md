@@ -1,10 +1,13 @@
 # Context Engineering Patterns in Homerun
 
+> **Updated (v3.0.0):** Phases now use named native subagents (e.g., `Task(discovery-agent)` instead of `Task(general-purpose) + skill`).
+> The execution phase uses the `team-lead` agent with Agent Teams for native task DAG management.
+
 ## Core Principles Applied
 
 ### 1. Context Isolation via Agent Spawning
 
-Each phase runs in a **fresh agent context** with explicit model selection:
+Each phase runs in a **fresh agent context** via named subagents with enforced tool restrictions:
 
 ```
 /create (Opus - user's default)

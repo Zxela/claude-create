@@ -1,6 +1,6 @@
 # Homerun Plugin
 
-Orchestrated development workflow from idea to implementation with isolated agent contexts.
+Orchestrated development workflow from idea to implementation with native Claude Code subagents and Agent Teams.
 
 ## Usage
 
@@ -20,7 +20,7 @@ Orchestrated development workflow from idea to implementation with isolated agen
 
 ## Overview
 
-Homerun transforms a rough idea into a fully implemented feature through automated phases. Each phase runs in an isolated agent context for optimal performance.
+Homerun transforms a rough idea into a fully implemented feature through automated phases. Each phase runs as a **named native subagent** with enforced tool restrictions and dedicated context.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -29,7 +29,7 @@ Homerun transforms a rough idea into a fully implemented feature through automat
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 1: DISCOVERY                                                         │
+│  PHASE 1: DISCOVERY                                    [discovery-agent]    │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  User ◄──── One question at a time ────► Discovery Agent           │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
@@ -39,19 +39,20 @@ Homerun transforms a rough idea into a fully implemented feature through automat
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 2: SPEC REVIEW                                                       │
+│  PHASE 2: SPEC REVIEW                                  [spec-reviewer]     │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  Specs ────► Review Agent ────► Verdict (approved / needs_revision) │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │  Checks: cross-document consistency, completeness, testability             │
+│  Tools: Read, Grep, Glob only (read-only — cannot modify specs)            │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 3: PLANNING                                                          │
+│  PHASE 3: PLANNING                                     [planner]           │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  Specs ────► Planning Agent ────► tasks.json                        │   │
+│  │  Specs ────► Planning Agent ────► tasks.json (DAG-validated)        │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │  Outputs: docs/tasks.json with test-bounded, commit-sized tasks            │
@@ -59,43 +60,33 @@ Homerun transforms a rough idea into a fully implemented feature through automat
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 4: IMPLEMENTATION LOOP                                               │
+│  PHASE 4: EXECUTION                                    [team-lead]         │
 │                                                                             │
 │  ┌───────────────────────────────────────────────────────────────────┐     │
-│  │                        CONDUCTOR                                   │     │
-│  │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐           │     │
-│  │  │ Find Task   │───►│   Spawn     │───►│   Spawn     │           │     │
-│  │  │ (pending)   │    │ Implementer │    │  Reviewer   │           │     │
-│  │  └─────────────┘    └──────┬──────┘    └──────┬──────┘           │     │
-│  │         ▲                  │                  │                   │     │
-│  │         │                  ▼                  ▼                   │     │
-│  │         │           ┌─────────────┐    ┌─────────────┐           │     │
-│  │         │           │  0. Similar │    │   Verify    │           │     │
-│  │         │           │  Function   │    │  Criteria   │           │     │
-│  │         │           │  Discovery  │    │             │           │     │
-│  │         │           ├─────────────┤    └──────┬──────┘           │     │
-│  │         │           │  TDD Cycle  │           │                  │     │
-│  │         │           │  RED→GREEN  │    ┌──────┴──────┐           │     │
-│  │         │           │  →REFACTOR  │    │  APPROVED?  │           │     │
-│  │         │           └──────┬──────┘    └──────┬──────┘           │     │
-│  │         │                  │                  │                   │     │
-│  │         │                  ▼           ┌──────┼──────┐           │     │
-│  │         │           ┌─────────────┐   │      │      │           │     │
-│  │         │           │   Commit    │ REJECT  APPROVE BLOCK       │     │
-│  │         │           └─────────────┘   │      │      │           │     │
-│  │         │                             ▼      ▼      ▼           │     │
-│  │         │                          Retry   Mark   Escalate      │     │
-│  │         │                          Logic  Complete to User       │     │
-│  │         │                             │      │                   │     │
-│  │         └─────────────────────────────┴──────┘                   │     │
-│  │                                                                   │     │
-│  │  Loop until: All tasks complete OR escalation required            │     │
+│  │                     TEAM LEAD (Agent Teams)                        │     │
+│  │                                                                    │     │
+│  │  1. Convert tasks.json → native TaskCreate with DAG               │     │
+│  │  2. Scale teammates based on DAG width (1-5 implementers)         │     │
+│  │  3. Monitor progress, handle escalations                          │     │
+│  │                                                                    │     │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐    ┌──────────┐          │     │
+│  │  │Implement-│ │Implement-│ │Implement-│    │ Reviewer │          │     │
+│  │  │er A      │ │er B      │ │er C      │    │          │          │     │
+│  │  │          │ │          │ │          │    │ Reviews  │          │     │
+│  │  │Self-claim│ │Self-claim│ │Self-claim│───►│completed │          │     │
+│  │  │tasks from│ │tasks from│ │tasks from│    │tasks     │          │     │
+│  │  │DAG queue │ │DAG queue │ │DAG queue │    │          │          │     │
+│  │  └──────────┘ └──────────┘ └──────────┘    └──────────┘          │     │
+│  │       │             │            │                │               │     │
+│  │       │      TDD: RED → GREEN → REFACTOR → COMMIT                │     │
+│  │       │                                                           │     │
+│  │  Fallback: conductor skill if Agent Teams unavailable             │     │
 │  └───────────────────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 5: QUALITY CHECK                                                     │
+│  PHASE 5: QUALITY CHECK                                [quality-checker]   │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  Lint ──► Types ──► Structure ──► Tests ──► Recheck                │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
@@ -139,7 +130,7 @@ Skip discovery and plan directly from existing specs.
 
 ### `/build` — Jump to Execution
 
-Start or resume the implementation loop from existing tasks.
+Start or resume implementation via team-lead (or conductor fallback).
 
 ```bash
 /build <worktree-path> [--auto]
@@ -174,7 +165,7 @@ Analyze existing codebase and generate PRD, ADR, TECHNICAL_DESIGN.
 
 ## Agent Architecture
 
-Each phase spawns fresh agents to maintain optimal context window usage:
+Homerun uses **11 native Claude Code subagents** defined in `agents/*.md`. Each agent has enforced tool restrictions, a dedicated model, and references one or more skills.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -182,48 +173,112 @@ Each phase spawns fresh agents to maintain optimal context window usage:
 │                         /create "idea"                                    │
 └───────────────────────────────┬──────────────────────────────────────────┘
                                 │
-                                │ Task()
+                                │ Task(discovery-agent)
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  DISCOVERY AGENT        Model: inherits     Context: ~10-20K tokens      │
-│  homerun:discovery                                                        │
+│  discovery-agent          Model: inherit    Color: yellow                 │
+│  Tools: Read, Grep, Glob, Bash, Write, Edit                             │
+│  Skills: discovery                                                        │
 └───────────────────────────────┬──────────────────────────────────────────┘
-                                │ Task()  ← Fresh context
+                                │ Task(spec-reviewer)
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  SPEC REVIEW AGENT      Model: sonnet       Context: ~15K tokens         │
-│  homerun:spec-review                                                      │
+│  spec-reviewer             Model: sonnet    Color: orange                 │
+│  Tools: Read, Grep, Glob  (read-only)                                    │
+│  Skills: spec-review                                                      │
 └───────────────────────────────┬──────────────────────────────────────────┘
-                                │ Task()  ← Fresh context
+                                │ Task(planner)
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  PLANNING AGENT         Model: opus         Context: ~10K tokens         │
-│  homerun:planning                                                         │
+│  planner                   Model: opus      Color: purple                 │
+│  Tools: Read, Grep, Glob, Bash, Write, Edit                             │
+│  Skills: planning                                                         │
 └───────────────────────────────┬──────────────────────────────────────────┘
-                                │ Task()  ← Fresh context
+                                │ Task(team-lead)
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  CONDUCTOR AGENT        Model: haiku        Context: ~5K tokens          │
-│  homerun:conductor                                                        │
+│  team-lead                 Model: sonnet    Color: cyan                   │
+│  Tools: Read, Grep, Glob, Bash, Write, Edit, Task                       │
+│  Skills: team-lead                                                        │
 │                                                                           │
-│     ┌────────────────────┐         ┌────────────────────┐                │
-│     │  Task()            │         │  Task()            │                │
-│     ▼                    │         ▼                    │                │
-│  ┌──────────────────┐    │      ┌──────────────────┐    │                │
-│  │ IMPLEMENTER      │    │      │ REVIEWER         │    │                │
-│  │ homerun:implement│    │      │ homerun:review   │    │                │
-│  │ Model: haiku/    │◄───┘      │ Model: sonnet    │◄───┘                │
-│  │        sonnet    │           │ (always)         │                     │
-│  └──────────────────┘           └──────────────────┘                     │
+│  Spawns teammates:                                                        │
+│     ┌────────────────────┐   ┌────────────────────┐                      │
+│     │  Task(implementer) │   │  Task(implementer) │  × 1-5 (DAG width)  │
+│     ▼                    │   ▼                    │                      │
+│  ┌──────────────────┐    │ ┌──────────────────┐   │                      │
+│  │ implementer      │    │ │ implementer      │   │                      │
+│  │ Model: sonnet    │◄───┘ │ Model: sonnet    │◄──┘                      │
+│  │ Color: yellow    │      │ Color: yellow    │                           │
+│  │ Skills: implement│      │ Skills: implement│                           │
+│  │   + TDD          │      │   + TDD          │                           │
+│  └──────────────────┘      └──────────────────┘                           │
 │                                                                           │
-│  ┌──────────────────┐                                                    │
-│  │ QUALITY CHECKER  │                                                    │
-│  │ homerun:quality- │  After all tasks complete                          │
-│  │ check            │                                                    │
-│  │ Model: sonnet    │                                                    │
-│  └──────────────────┘                                                    │
+│     ┌────────────────────┐                                                │
+│     │  Task(reviewer)    │                                                │
+│     ▼                    │                                                │
+│  ┌──────────────────┐    │                                                │
+│  │ reviewer          │◄──┘  × 1                                          │
+│  │ Model: sonnet     │                                                    │
+│  │ Color: blue       │                                                    │
+│  │ Tools: Read-only  │                                                    │
+│  └──────────────────┘                                                     │
+│                                                                           │
+│  After all tasks ──► Task(quality-checker)                                │
+│  ┌──────────────────┐                                                     │
+│  │ quality-checker   │                                                    │
+│  │ Model: sonnet     │                                                    │
+│  │ Color: teal       │                                                    │
+│  └──────────────────┘                                                     │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Standalone Agents
+
+These agents can be invoked directly without the full `/create` workflow:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  diagnostician             Model: sonnet    Color: red                    │
+│  Tools: Read, Grep, Glob, Bash  (investigation only)                     │
+│  Skills: diagnose, systematic-debugging                                   │
+├──────────────────────────────────────────────────────────────────────────┤
+│  reverse-engineer          Model: opus      Color: violet                 │
+│  Tools: Read, Grep, Glob, Bash, Write                                    │
+│  Skills: reverse-engineer                                                 │
+├──────────────────────────────────────────────────────────────────────────┤
+│  test-skeleton-generator   Model: sonnet    Color: lime                   │
+│  Tools: Read, Grep, Glob, Bash, Write                                    │
+│  Skills: generate-test-skeletons                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│  walkthrough-generator     Model: sonnet    Color: magenta                │
+│  Tools: Read, Grep, Glob, Bash, Write                                    │
+│  Skills: walkthrough                                                      │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+## Agent Teams & Conductor Fallback
+
+The execution phase uses two orchestration modes:
+
+### Agent Teams Mode (default when available)
+
+When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set:
+
+1. **Team lead** converts `tasks.json` to native Claude Code tasks via `TaskCreate` with DAG dependencies (`addBlockedBy`)
+2. Implementer teammates **self-claim** tasks from the DAG queue — when a task's dependencies are complete, any idle teammate can pick it up
+3. Reviewer teammate processes completed implementations sequentially
+4. Quality-checker runs after all tasks pass review
+5. Native task system provides DAG enforcement and cross-session visibility
+
+### Conductor Fallback Mode
+
+When Agent Teams is unavailable:
+
+1. Team lead detects the missing env var and spawns a **conductor** agent (haiku model)
+2. Conductor uses the legacy `homerun:conductor` skill with manual `Task()` spawning and `TaskOutput` polling
+3. Behavior is identical to v2.x — same retry logic, same escalation
+
+The orchestration mode is logged in `state.json` as `orchestration_mode: "agent_teams"` or `"conductor_fallback"`.
 
 ## Model Routing
 
@@ -239,21 +294,43 @@ Tasks are automatically assigned to the appropriate model based on complexity:
 
 **Phase models:**
 
-| Phase | Model | Rationale |
-|-------|-------|-----------|
-| Discovery | inherit | User-facing dialogue |
-| Spec Review | sonnet | Judgment for consistency checks |
-| Planning | opus | Bad decomposition cascades |
-| Test Skeletons | sonnet | Spec comprehension |
-| Conductor | haiku | Mechanical scheduling |
-| Implementer | haiku/sonnet | Per task complexity |
-| Reviewer | sonnet | Quality judgment |
-| Quality Check | sonnet | Fix reasoning |
-| Diagnose | sonnet | Evidence analysis |
-| Reverse Engineer | opus | Deep codebase understanding |
-| Walkthrough | sonnet | User flow comprehension |
+| Phase | Agent | Model | Rationale |
+|-------|-------|-------|-----------|
+| Discovery | `discovery-agent` | inherit | User-facing dialogue |
+| Spec Review | `spec-reviewer` | sonnet | Judgment for consistency checks |
+| Planning | `planner` | opus | Bad decomposition cascades |
+| Test Skeletons | `test-skeleton-generator` | sonnet | Spec comprehension |
+| Execution | `team-lead` | sonnet | Coordination decisions |
+| Implementation | `implementer` | sonnet | TDD + similar function discovery |
+| Review | `reviewer` | sonnet | Quality judgment |
+| Quality Check | `quality-checker` | sonnet | Fix reasoning |
+| Diagnose | `diagnostician` | sonnet | Evidence analysis |
+| Reverse Engineer | `reverse-engineer` | opus | Deep codebase understanding |
+| Walkthrough | `walkthrough-generator` | sonnet | User flow comprehension |
 
-**Escalation:** haiku task rejected with high severity → sonnet. Sonnet fails 3x → user.
+**Escalation:** Task rejected with high severity → retry with sonnet. Sonnet fails 3x → escalate to user.
+
+## Hooks
+
+Homerun provides hook scripts for Claude Code integration. See `references/hooks-configuration.md` for full setup.
+
+| Hook | Script | Purpose |
+|------|--------|---------|
+| `WorktreeCreate` | `scripts/homerun-worktree-setup.sh` | Initialize implementer worktrees |
+| `SubagentStop` | `scripts/homerun-post-implement.sh` | Log progress after implementation |
+| `TaskCompleted` | `scripts/homerun-task-completed.sh` | Validate tests before task completion |
+
+Add to your `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "WorktreeCreate": [{ "hooks": [{ "type": "command", "command": "./scripts/homerun-worktree-setup.sh" }] }],
+    "SubagentStop": [{ "matcher": "implementer", "hooks": [{ "type": "command", "command": "./scripts/homerun-post-implement.sh" }] }],
+    "TaskCompleted": [{ "hooks": [{ "type": "command", "command": "./scripts/homerun-task-completed.sh" }] }]
+  }
+}
+```
 
 ## State Management
 
@@ -261,32 +338,94 @@ All workflow state is tracked in `state.json` in the worktree root:
 
 ```
 state.json
-├── session_id          # Unique workflow identifier
-├── branch              # Git branch name
-├── worktree            # Path to isolated worktree
-├── phase               # discovery → spec_review → planning → implementing → completing
-├── homerun_docs_dir    # Centralized docs location (absolute path)
-├── spec_paths          # Explicit paths to spec documents (in homerun_docs_dir)
+├── session_id              # Unique workflow identifier
+├── branch                  # Git branch name
+├── worktree                # Path to isolated worktree
+├── phase                   # discovery → spec_review → planning → implementing → completing
+├── orchestration_mode      # "agent_teams" or "conductor_fallback"
+├── native_task_mapping     # Homerun task ID → native Claude Code task ID
+├── homerun_docs_dir        # Centralized docs location (absolute path)
+├── spec_paths              # Explicit paths to spec documents
 │   ├── prd
 │   ├── adr
 │   ├── technical_design
 │   └── wireframes
-├── tasks_file          # Path to tasks.json
-├── traceability        # Links between stories, criteria, and tasks
+├── tasks_file              # Path to tasks.json
+├── traceability            # Links between stories, criteria, and tasks
 │   ├── user_stories
 │   ├── acceptance_criteria
 │   ├── adr_decisions
 │   └── non_goals
-├── current_task        # Task ID currently being worked on
 ├── config
 │   ├── timeout_minutes
 │   ├── max_identical_rejections
 │   ├── max_iterations_without_progress
+│   ├── max_teammates         # Max parallel implementers (default: 3)
 │   └── retries { same_agent, fresh_agent }
-└── skill_log           # Audit trail of skill invocations
+└── skill_log               # Audit trail of skill invocations
 ```
 
 ## File Structure
+
+**Plugin:**
+```
+homerun/
+├── .claude-plugin/
+│   └── plugin.json              # Plugin metadata (v3.0.0)
+├── agents/                       # Native Claude Code subagent definitions
+│   ├── discovery-agent.md
+│   ├── spec-reviewer.md
+│   ├── planner.md
+│   ├── team-lead.md
+│   ├── implementer.md
+│   ├── reviewer.md
+│   ├── quality-checker.md
+│   ├── diagnostician.md
+│   ├── reverse-engineer.md
+│   ├── test-skeleton-generator.md
+│   └── walkthrough-generator.md
+├── skills/                       # Skill definitions (source of truth for agent behavior)
+│   ├── discovery/SKILL.md
+│   ├── spec-review/SKILL.md
+│   ├── planning/SKILL.md
+│   ├── team-lead/SKILL.md
+│   ├── conductor/SKILL.md        # DEPRECATED — fallback only
+│   ├── implement/SKILL.md
+│   ├── review/SKILL.md
+│   ├── quality-check/SKILL.md
+│   ├── diagnose/SKILL.md
+│   ├── reverse-engineer/SKILL.md
+│   ├── generate-test-skeletons/SKILL.md
+│   ├── walkthrough/SKILL.md
+│   ├── finishing-a-development-branch/SKILL.md
+│   ├── test-driven-development/SKILL.md
+│   ├── systematic-debugging/SKILL.md
+│   └── using-git-worktrees/SKILL.md
+├── commands/                     # User-invocable commands
+│   ├── create.md
+│   ├── plan.md
+│   ├── build.md
+│   ├── review.md
+│   ├── diagnose.md
+│   └── reverse-engineer.md
+├── references/                   # Configuration and contracts
+│   ├── signal-contracts.json     # 17 typed signal envelopes
+│   ├── model-routing.json        # Task-to-model assignments
+│   ├── hooks-configuration.md    # Hook setup guide
+│   ├── context-engineering.md
+│   ├── discovery-questions.md
+│   ├── retry-patterns.md
+│   └── state-machine.md
+├── scripts/                      # Hook scripts
+│   ├── homerun-worktree-setup.sh
+│   ├── homerun-post-implement.sh
+│   ├── homerun-task-completed.sh
+│   └── lib/
+│       └── tasks-bridge.js       # tasks.json → native TaskCreate reference
+├── templates/                    # Document templates
+├── evals/                        # Skill evaluation suites
+└── cookbooks/                    # Example dialogues and patterns
+```
 
 **Worktree (project-specific):**
 ```
@@ -305,59 +444,27 @@ $HOME/.claude/homerun/<project-hash>/<feature-slug>/
 └── WIREFRAMES.md              # UI wireframes (if applicable)
 ```
 
-Note: Paths in `state.json` are stored as absolute paths (e.g., `/home/user/.claude/...`).
-
-## Skills Reference
-
-### Workflow Skills
-
-| Skill | Phase | Model | Color | Purpose |
-|-------|-------|-------|-------|---------|
-| `homerun:discovery` | 1 | inherit | yellow | Requirements gathering via structured dialogue |
-| `homerun:spec-review` | 2 | sonnet | orange | Cross-document consistency, completeness, testability validation |
-| `homerun:planning` | 3 | opus | purple | Task decomposition with DAG validation |
-| `homerun:generate-test-skeletons` | 3.5 | sonnet | lime | ROI-prioritized test skeleton generation (optional) |
-| `homerun:conductor` | 4 | haiku | green | Implementation loop orchestration |
-| `homerun:implement` | 4 | haiku/sonnet | yellow | Task execution with similar function discovery + TDD |
-| `homerun:review` | 4 | sonnet | blue | Acceptance criteria verification |
-| `homerun:quality-check` | 5 | sonnet | teal | 5-phase quality pipeline (lint, types, structure, tests, recheck) |
-| `homerun:finishing-a-development-branch` | 6 | — | — | PR/merge handling |
-
-### Standalone Skills
-
-| Skill | Model | Color | Purpose |
-|-------|-------|-------|---------|
-| `homerun:diagnose` | sonnet | red | 3-phase evidence pipeline for bug investigation |
-| `homerun:reverse-engineer` | opus | violet | Generate specs from existing codebase |
-| `homerun:walkthrough` | sonnet | magenta | Playwright/curl demo scripts from user journeys |
-
-### Reference Skills
-
-| Skill | Purpose |
-|-------|---------|
-| `homerun:test-driven-development` | TDD methodology guide |
-| `homerun:using-git-worktrees` | Git worktree operations |
-| `homerun:systematic-debugging` | Debugging methodology |
-
 ## Signal Contracts
 
-All inter-skill communication uses typed JSON signal envelopes. See `references/signal-contracts.json` for full schemas.
+All inter-agent communication uses typed JSON signal envelopes. See `references/signal-contracts.json` for full schemas.
 
 | Signal | Producer | Purpose |
 |--------|----------|---------|
-| `DISCOVERY_COMPLETE` | discovery | Phase 1 done, specs ready |
-| `SPEC_REVIEW_COMPLETE` | spec-review | Specs validated (approved/needs_revision) |
-| `PLANNING_COMPLETE` | planning | Tasks decomposed, ready for implementation |
-| `TEST_SKELETONS_COMPLETE` | generate-test-skeletons | Test scaffolding generated |
-| `IMPLEMENTATION_COMPLETE` | implement | Task done, ready for review |
-| `IMPLEMENTATION_BLOCKED` | implement | Task blocked (missing dep, unclear reqs, duplication) |
-| `APPROVED` | review | Task passed review |
-| `REJECTED` | review | Task failed review with feedback |
-| `QUALITY_CHECK_COMPLETE` | quality-check | Quality pipeline results |
-| `DIAGNOSIS_COMPLETE` | diagnose | Root cause identified with solutions |
-| `DIAGNOSIS_INCONCLUSIVE` | diagnose | Needs more investigation |
+| `DISCOVERY_COMPLETE` | discovery-agent | Phase 1 done, specs ready |
+| `SPEC_REVIEW_COMPLETE` | spec-reviewer | Specs validated (approved/needs_revision) |
+| `PLANNING_COMPLETE` | planner | Tasks decomposed, ready for implementation |
+| `TEST_SKELETONS_COMPLETE` | test-skeleton-generator | Test scaffolding generated |
+| `IMPLEMENTATION_COMPLETE` | implementer | Task done, ready for review |
+| `IMPLEMENTATION_BLOCKED` | implementer | Task blocked (missing dep, unclear reqs, duplication) |
+| `APPROVED` | reviewer | Task passed review |
+| `REJECTED` | reviewer | Task failed review with feedback |
+| `QUALITY_CHECK_COMPLETE` | quality-checker | Quality pipeline results |
+| `TEAM_LEAD_COMPLETE` | team-lead | All tasks orchestrated, quality gate passed |
+| `CONDUCTOR_FALLBACK` | team-lead | Fell back to conductor (Agent Teams unavailable) |
+| `DIAGNOSIS_COMPLETE` | diagnostician | Root cause identified with solutions |
+| `DIAGNOSIS_INCONCLUSIVE` | diagnostician | Needs more investigation |
 | `REVERSE_ENGINEER_COMPLETE` | reverse-engineer | Specs generated from code |
-| `WALKTHROUGH_COMPLETE` | walkthrough | Demo scripts generated |
+| `WALKTHROUGH_COMPLETE` | walkthrough-generator | Demo scripts generated |
 | `COVERAGE_GAPS_DETECTED` | conductor | Acceptance criteria not covered |
 | `VALIDATION_ERROR` | any | Input validation failed |
 
@@ -373,8 +480,7 @@ Task rejected
   attempts < same_agent + fresh_agent_limit (default: 1)
       │ YES → Spawn fresh agent (clean slate)
       │ NO ↓
-  task.model === 'haiku'?
-      │ YES → Escalate to sonnet
+  Escalate model (sonnet → opus)
       │ NO ↓
   Escalate to user
 ```

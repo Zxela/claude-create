@@ -1,5 +1,8 @@
 # Conductor State Machine Reference
 
+> **Note (v3.0.0):** The conductor is deprecated in favor of the `team-lead` agent with Agent Teams.
+> This document remains the reference for conductor fallback mode (when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set).
+
 This document contains detailed algorithms and implementation patterns for the conductor.
 The conductor SKILL.md references this for implementation details.
 
