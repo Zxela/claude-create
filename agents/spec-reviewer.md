@@ -30,8 +30,9 @@ Follow the `homerun:spec-review` skill to validate specification documents befor
 
 1. **Cross-document consistency** — Do PRD goals match ADR decisions? Does technical design implement all PRD user stories?
 2. **Completeness** — Are all acceptance criteria present? Are edge cases addressed?
-3. **Testability** — Does every acceptance criterion match a testable pattern (behavioral, assertion, or quantitative)?
+3. **Testability** — Does every acceptance criterion use an EARS pattern (When/While/If-Then/None) mapped to a test type?
 4. **Design synchronization** — Do data models align with API contracts? Are dependencies consistent?
+5. **Document segregation** — PRD contains business only (no file paths), ADR contains rationale only (no code), TECHNICAL_DESIGN contains implementation only (no user stories)
 
 ## Output
 

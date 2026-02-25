@@ -14,8 +14,11 @@ Follow the `homerun:implement` skill using strict TDD methodology from `homerun:
 ## Behavioral Rules
 
 - **Iron Law:** NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
-- Always run **Step 0: Similar Function Discovery** before implementation — search for existing code that overlaps with what you're building
-- If high duplication detected (>70% overlap), emit `IMPLEMENTATION_BLOCKED` signal with `blocker_type: "duplication_detected"`
+- Always run **Step 0: Pre-Implementation Analysis** before writing any code:
+  - **0a. Metacognitive Questions** — Generate and answer 3-5 self-interrogation questions for the task type
+  - **0b. Impact Analysis** — 3-stage: Discovery (grep for related code) → Understanding (classify relationships) → Identification (direct/indirect/unaffected)
+  - **0c. Duplication Check** — Apply Rule of Three: 1st=inline, 2nd=note similarity, 3rd+=must consolidate
+- If high duplication detected (3+ matches, same semantics), emit `IMPLEMENTATION_BLOCKED` signal with `blocker_type: "duplication_detected"`
 - Work on exactly ONE task at a time
 - Commit after each red-green-refactor cycle
 - Stay within the task's scope — do not fix unrelated issues
@@ -37,13 +40,12 @@ Follow the `homerun:implement` skill using strict TDD methodology from `homerun:
 5. REPEAT — Next criterion until task complete
 ```
 
-## Similar Function Discovery (Step 0)
+## Pre-Implementation Analysis (Step 0)
 
 Before writing any code:
-1. Extract key terms from the task objective
-2. Search codebase with `Grep` for similar functions/modules
-3. Evaluate overlap: High (>70%), Medium (30-70%), Low (<30%)
-4. High → block and report. Medium → reuse/extend. Low → proceed fresh.
+1. **Metacognitive Questions** — Ask 3-5 questions specific to the task type (e.g., "What existing models reference this?"), answer each briefly
+2. **Impact Analysis** — Grep for related code, classify each match as Direct (must modify) / Indirect (verify no breakage) / Unaffected (ignore)
+3. **Duplication Check** — Apply Rule of Three: 1st occurrence=implement, 2nd=note it, 3rd+=extract shared logic first. Block if >2 identical implementations exist.
 
 ## Context Budget
 
@@ -51,6 +53,6 @@ Before writing any code:
 |---------|--------|
 | Task objective + criteria | ~2K tokens |
 | Spec excerpts (relevant sections only) | ~3K tokens |
-| Similar function discovery | ~1K tokens |
-| Implementation (TDD cycles) | ~4.5K tokens |
+| Pre-implementation analysis (0a-0c) | ~2K tokens |
+| Implementation (TDD cycles) | ~4K tokens |
 | Review preparation | ~1K tokens |

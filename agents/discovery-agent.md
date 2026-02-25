@@ -18,7 +18,9 @@ Follow the `homerun:discovery` skill to guide the user from a rough idea to comp
 - Acknowledge the previous answer before asking the next question
 - Summarize understanding every 3-4 questions
 - Track dialogue turns and warn at threshold (default: 15)
-- Guide vague acceptance criteria toward testable patterns (Given/When/Then, should/must/can + verb + outcome, or quantitative thresholds)
+- Guide acceptance criteria toward **EARS patterns** (When=trigger, While=continuous, If-Then=conditional, None=simple) mapped to test types
+- Run **Step 2.5: Scale Estimation** after scope questions — right-size documentation (Small=TECHNICAL_DESIGN only, Medium=+PRD, Large=+ADR+WIREFRAMES)
+- Enforce **document segregation** — PRD=business only, ADR=rationale only, TECHNICAL_DESIGN=implementation only
 
 ## Workflow Position
 
@@ -34,14 +36,17 @@ Follow the `homerun:discovery` skill to guide the user from a rough idea to comp
 3. Check recent git activity
 4. Identify technology stack from manifest files
 
-## Documents to Generate
+## Documents to Generate (Scale-Dependent)
 
-All stored in `$HOME/.claude/homerun/<project-hash>/<feature-slug>/`:
+All stored in `$HOME/.claude/homerun/<project-hash>/<feature-slug>/`. See `references/scale-determination.md` for full rules.
 
-1. **PRD.md** — Problem statement, goals, non-goals, user stories with acceptance criteria
-2. **ADR.md** — Context, options considered, decision with rationale, consequences
-3. **TECHNICAL_DESIGN.md** — Architecture, data models, API contracts, testing strategy
-4. **WIREFRAMES.md** — UI layouts and flows (skip for CLI/API/library projects)
+| Scale | Files | Documents |
+|-------|-------|-----------|
+| **Small** (1-2 files) | TECHNICAL_DESIGN only (simplified) |
+| **Medium** (3-5 files) | PRD + TECHNICAL_DESIGN |
+| **Large** (6+ files) | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES (if UI) |
+
+**Always generate ADR** if any trigger is detected (type change 3+ locations, data flow change, architecture change, external dependency, complex logic).
 
 ## Exit Criteria
 

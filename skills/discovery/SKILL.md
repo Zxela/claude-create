@@ -12,6 +12,7 @@ color: yellow
 - Dialogue examples: `cookbooks/discovery-dialogue-examples.md`
 - Document templates: `templates/*.template.md`
 - Agent handoff patterns: `references/context-engineering.md`
+- Scale determination & doc segregation: `references/scale-determination.md`
 
 ## Overview
 
@@ -248,32 +249,97 @@ When gathering acceptance criteria, guide users toward testable patterns. If a u
 | "Must be fast" | No threshold | "How fast? E.g., 'Response time < 200ms for 95th percentile'" |
 | "Handle errors properly" | Vague handling | "What should happen on error? E.g., 'Display error message and preserve form input'" |
 
-**Valid Testable Patterns:**
+**EARS Format for Acceptance Criteria:**
 
-```
-Behavioral (Given/When/Then):
-"Given a logged-in user, when they click logout, then their session is destroyed"
+Write every acceptance criterion using one of these four EARS patterns. Each maps directly to a test type:
 
-Assertion (should/must/can + verb + outcome):
-"User must see an error message when submitting an empty form"
+| EARS Pattern | Template | Test Type | Example |
+|-------------|----------|-----------|---------|
+| **When** (trigger) | When \<trigger\>, the system shall \<response\> | Event-driven test | "When user clicks login with valid credentials, the system shall create a session and redirect to dashboard" |
+| **While** (continuous) | While \<condition\>, the system shall \<behavior\> | State-based test | "While user is logged in, the system shall maintain the session for 60 minutes" |
+| **If-Then** (conditional) | If \<condition\>, then the system shall \<response\> | Branch coverage test | "If credentials are invalid, then the system shall return 401 with message 'Invalid credentials'" |
+| **None** (simple) | The system shall \<behavior\> | Basic functional test | "The system shall hash passwords using bcrypt with cost factor 12" |
 
-Quantitative (comparison + threshold):
-"API response time must be < 500ms for 99% of requests"
-```
+**Guide vague criteria toward EARS:**
+
+| User Says | Problem | Rewrite As |
+|-----------|---------|------------|
+| "Should be user-friendly" | Adjective, no observable outcome | **When** user opens the form, the system shall pre-fill known fields and focus the first empty field |
+| "Should work correctly" | No measurable result | **When** user submits valid data, the system shall return HTTP 200 with the created resource |
+| "Must be fast" | No threshold | **While** under normal load, the system shall respond in < 200ms for 95th percentile |
+| "Handle errors properly" | Vague handling | **If** the database is unreachable, **then** the system shall return 503 and display "Service temporarily unavailable" |
 
 When a user provides vague criteria, respond with:
 ```
-That criterion might be hard to verify in tests. Could we make it more specific?
+That criterion might be hard to verify in tests. Could we rewrite it using EARS format?
 
 Instead of: "{{vague_criterion}}"
-Consider: "{{suggested_testable_version}}"
+Consider: "{{ears_rewrite}}"
 
 Would that work, or did you have something else in mind?
 ```
 
 ---
 
+### 2.5. Scale Estimation
+
+**After the Scope & Boundaries category,** estimate the task scale to determine which documents to generate. See `references/scale-determination.md` for the full matrix.
+
+```bash
+cd "$PROJECT_ROOT"
+
+# Count files that would be modified
+MODIFIED=$(grep -rn "${KEYWORDS}" src/ lib/ app/ --include="*.ts" --include="*.js" --include="*.py" -l 2>/dev/null | wc -l)
+
+# Estimate new files from task description
+# (new model = 1, new service = 1, new route = 1, new test = 1, etc.)
+```
+
+**Decision matrix:**
+
+| Scale | Files | Documents | Dialogue Adjustment |
+|-------|-------|-----------|-------------------|
+| **Small** (1-2) | Config change, add field, simple fix | TECHNICAL_DESIGN only | Shorten remaining dialogue (5-8 turns total) |
+| **Medium** (3-5) | New endpoint, new service | PRD + TECHNICAL_DESIGN | Standard dialogue (10-15 turns) |
+| **Large** (6+) | New feature, architectural change | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | Full dialogue (15-20 turns) |
+
+**ADR trigger check** (always generate ADR if ANY apply, regardless of scale):
+- Type/interface change used in 3+ locations
+- Data flow change (storage, processing order, passing method)
+- Architecture change (new layer, responsibility shift)
+- External dependency introduction or replacement
+- Complex logic with 3+ states or 5+ async processes
+
+**Inform the user of the scale assessment:**
+```
+Based on the scope, this looks like a [small/medium/large] change (~N files).
+I'll generate [list of documents]. Does that sound right, or is this bigger/smaller than it seems?
+```
+
+Store in state.json:
+```json
+{
+  "scale": {
+    "estimated": "medium",
+    "file_count": 4,
+    "adr_triggers": [],
+    "docs_to_generate": ["prd", "technical_design"]
+  }
+}
+```
+
+---
+
 ### 3. Document Generation
+
+**Document segregation rules** (see `references/scale-determination.md` for details):
+
+- **PRD** = business value ONLY (problem, user stories, goals — never implementation details)
+- **ADR** = decision rationale ONLY (options, tradeoffs, consequences — never "how to implement")
+- **TECHNICAL_DESIGN** = implementation ONLY (architecture, data models, API contracts — never "why")
+- **WIREFRAMES** = user interface ONLY (layouts, flows, states)
+
+Cross-reference between documents instead of duplicating content.
 
 Once sufficient information is gathered, create the worktree and generate documents.
 
@@ -337,34 +403,47 @@ Use templates from `templates/` as starting points:
 - `templates/ADR.template.md`
 - `templates/TECHNICAL_DESIGN.template.md`
 
-**Documents to generate:**
+**Documents to generate (based on scale from Step 2.5):**
 
-1. **PRD.md** - Product Requirements Document
-   - Problem statement from gathered context
-   - Goals derived from user responses
-   - User stories with acceptance criteria
-   - Non-goals explicitly stated
-   - Success metrics where applicable
+**All acceptance criteria MUST use EARS format** (When/While/If-Then/None).
 
-2. **ADR.md** - Architecture Decision Record
-   - Context explaining the decision drivers
-   - Options considered (at least 2-3)
-   - Decision with rationale
-   - Consequences (positive and negative)
+#### Always generated (all scales):
 
-3. **TECHNICAL_DESIGN.md** - Technical Design Document
-   - Architecture overview
+1. **TECHNICAL_DESIGN.md** - Technical Design Document
+   - Architecture overview (simplified for small scale)
    - Data models and schemas
    - API contracts if applicable
+   - Integration points with existing code
    - Dependencies (internal and external)
    - Security considerations
    - Testing strategy outline
 
-4. **WIREFRAMES.md** - UI Wireframes (if applicable)
+#### Generated for medium and large scale:
+
+2. **PRD.md** - Product Requirements Document (business value only)
+   - Problem statement from gathered context
+   - Goals derived from user responses
+   - User stories with acceptance criteria (EARS format)
+   - Non-goals explicitly stated
+   - Success metrics where applicable
+   - Never include: implementation details, file paths, frameworks
+
+#### Generated for large scale (or when ADR triggers apply):
+
+3. **ADR.md** - Architecture Decision Record (decision rationale only)
+   - Context explaining the decision drivers
+   - Options considered (at least 2-3)
+   - Decision with rationale ("because X, Y, Z")
+   - Consequences (positive AND negative)
+   - Kill criteria (when would we reverse this decision?)
+   - Never include: implementation schedule, code examples
+
+4. **WIREFRAMES.md** - UI Wireframes (if applicable, UI changes only)
    - Skip for CLI, API, or library projects
    - ASCII/box diagrams for screen layouts
    - User flow diagrams
    - Component hierarchy
+   - Interactive states (hover, error, loading, empty)
 
 **Write documents:**
 ```bash

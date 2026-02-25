@@ -10,6 +10,7 @@ color: yellow
 
 - Context patterns: `references/context-engineering.md`
 - TDD methodology: `skills/test-driven-development/SKILL.md`
+- Scale determination: `references/scale-determination.md`
 
 ## Overview
 
@@ -126,35 +127,86 @@ If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
 ## Process
 
-### 0. Similar Function Discovery
+### 0. Pre-Implementation Analysis
 
-**BEFORE writing any code, search for existing similar functionality.**
+**BEFORE writing any code**, complete these three sub-steps. They prevent wasted work, catch design issues early, and keep implementations aligned with the codebase.
 
-This step prevents duplication and leverages existing patterns. Skipping it risks reinventing code that already exists.
+**Context budget for all of Step 0: ~2K tokens** (grep output + brief notes, no full file reads)
+
+---
+
+#### 0a. Metacognitive Questions
+
+Generate 3-5 self-interrogation questions based on the task type. Answer each **briefly** (1-2 sentences) before proceeding. If any answer is "I don't know," investigate before coding.
+
+| Task Type | Questions to Ask |
+|-----------|-----------------|
+| `create_model` / `add_field` | What existing models reference this? What migrations are needed? Will this break serialization? |
+| `create_service` / `add_method` | What's the call chain? Who consumes this? What error states exist? |
+| `add_endpoint` / `add_endpoint_complex` | What middleware applies? What auth is required? What's the response contract? |
+| `bug_fix` | Can I reproduce it? What's the root cause vs. symptom? What regression test proves the fix? |
+| `add_validation` | Where is validation enforced today? Client-side, server-side, or both? What happens to existing invalid data? |
+| `create_middleware` | What's the execution order? What gets passed downstream? What are the failure modes? |
+| `architectural` | What's the blast radius? What breaks if this is wrong? Is this reversible? |
+
+**If a question reveals a gap:** Read the relevant spec section (targeted grep, not full file) before proceeding.
+
+---
+
+#### 0b. Impact Analysis (3-Stage)
+
+Trace the full impact of the planned change before touching code.
+
+**Stage 1 — Discovery:** Find all code that touches the area you're changing.
 
 ```bash
 cd "$WORKTREE_PATH"
 
 # Search for functions/classes related to the task objective
-# Use keywords from the task title and objective
 grep -rn "function.*${KEYWORD}\|class.*${KEYWORD}\|const.*${KEYWORD}" src/ --include="*.ts" --include="*.js" | head -20
 
 # Search for similar patterns in test files
 grep -rn "${KEYWORD}" tests/ --include="*.test.*" | head -10
 
-# Check for existing utility functions that might already do what's needed
+# Check for existing utility functions
 grep -rn "export.*function\|export.*const" src/utils/ src/helpers/ src/lib/ 2>/dev/null | head -20
 ```
 
-**Duplication Evaluation:**
+**Stage 2 — Understanding:** For each match, determine the relationship.
 
-| Level | Indicators | Action |
-|-------|-----------|--------|
-| **High** (3+ matches) | Same function name, same parameters, same return type | STOP — reuse existing code, don't reimplement |
-| **Medium** (2 matches) | Similar name, overlapping parameters | Extend existing function or extract shared logic |
-| **Low** (0-1 matches) | No similar code found | Proceed with implementation |
+| Relationship | Description | Action |
+|-------------|-------------|--------|
+| **Calls** this code | Another module invokes the function you're changing | Verify caller expectations still hold |
+| **Called by** this code | The function you're changing depends on this | Ensure dependency contract is stable |
+| **Shares state** | Uses the same data store, config, or global | Check for race conditions or stale reads |
+| **Tests** this code | Existing test coverage | Note which tests to update |
 
-**If High duplication detected:**
+**Stage 3 — Identification:** Classify each impacted file.
+
+| Impact Level | Definition | Action |
+|-------------|------------|--------|
+| **Direct** | File you must modify | Include in implementation plan |
+| **Indirect** | File that imports/uses your changed code | Verify no breakage after implementation |
+| **Unaffected** | File with keyword match but no real dependency | Ignore |
+
+---
+
+#### 0c. Duplication Check (Rule of Three)
+
+Evaluate whether similar functionality already exists using the grep results from Stage 1.
+
+| Occurrence | Guideline | Action |
+|-----------|-----------|--------|
+| **1st** (no prior) | New code is fine | Implement inline as planned |
+| **2nd** (1 prior match) | Note the duplication, don't consolidate yet | Implement, add a `// NOTE: similar to <path>:<line>` comment |
+| **3rd+** (2+ prior matches) | Must consolidate | Extract shared logic to a common location before implementing |
+
+**When NOT to consolidate** (even at 3+):
+- The similar code is in a different bounded context (e.g., auth vs. billing)
+- Consolidation would create coupling between unrelated modules
+- The similarity is superficial (same shape, different semantics)
+
+**If high duplication detected (3+ real matches, same semantics):**
 ```json
 {
   "signal": "IMPLEMENTATION_BLOCKED",
@@ -167,8 +219,6 @@ grep -rn "export.*function\|export.*const" src/utils/ src/helpers/ src/lib/ 2>/d
   "suggested_resolution": "Import and reuse existing hashPassword() from src/utils/hash.ts"
 }
 ```
-
-**Context budget for this step: ~1K tokens** (grep output only, no full file reads)
 
 ---
 
@@ -475,14 +525,14 @@ If you find yourself in any of these situations, STOP and correct course:
 
 | Component | Budget | Strategy |
 |-----------|--------|----------|
-| Similar function discovery | ~1K | Grep output only, no full reads |
+| Pre-implementation analysis (0a-0c) | ~2K | Grep output + brief notes, no full reads |
 | Task input | ~1K | Already minimal |
 | Spec extraction | ~2K | Targeted grep, not full reads |
 | Existing code reads | ~3K | Signatures only, expand as needed |
 | Test output (per run) | ~0.5K | Masked: summary + first failure |
-| Implementation | ~4.5K | The actual work |
+| Implementation | ~4K | The actual work |
 | Commit/output | ~0.5K | Minimal |
-| **Buffer** | ~7.5K | For iterations and edge cases |
+| **Buffer** | ~7K | For iterations and edge cases |
 
 **If approaching 20K:**
 1. Stop reading new files

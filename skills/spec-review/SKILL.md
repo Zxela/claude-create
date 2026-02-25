@@ -12,6 +12,7 @@ color: orange
 - Signal contracts: `references/signal-contracts.json`
 - Context patterns: `references/context-engineering.md`
 - Testability patterns: `references/discovery-questions.md`
+- Scale determination & doc segregation: `references/scale-determination.md`
 
 ## Overview
 
