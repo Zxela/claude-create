@@ -3,10 +3,15 @@
 ## [3.1.5] - 2026-02-25
 
 ### Fixed
-- Conductor fallback no longer dead-ends when Task tool is unavailable — adds secondary fallback via Skill tool (`homerun:conductor`)
-- Added `Skill` to team-lead agent tools for secondary fallback path
-- Fallback chain: Task (spawn subagent) → Skill (invoke in current context) → report error and stop
-- New `CONDUCTOR_FALLBACK` signal action: `invoked_conductor_skill` for Skill-based fallback
+- **Flatten `/create` spawn chain** — all phases now run at depth 1 (direct child of main session), fixing `CONDUCTOR_FALLBACK` Tool Unavailability Error where Task tool was inaccessible to deeply nested agents
+- `/create` command rewritten as flat state machine loop: spawns each phase, reads `state.json`, spawns next phase
+- Discovery skill no longer chains to spec-reviewer or planner — returns after setting `phase: "spec_review"`
+- Planning skill no longer chains to team-lead — sets `phase: "implementing"` and returns
+- Team-lead fallback simplified: Task tool guaranteed available at depth 1, no secondary Skill fallback needed
+- Reverted `invoked_conductor_skill` signal action (no longer needed)
+
+### Changed
+- `/build`, `/plan`, `/review`, `/diagnose`, `/reverse-engineer` unchanged — already spawn at depth 1
 
 ## [3.1.4] - 2026-02-25
 

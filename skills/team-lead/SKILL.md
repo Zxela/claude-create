@@ -68,44 +68,32 @@ If TaskCreate is NOT found or returns an error, Agent Teams is NOT available reg
 If Agent Teams is unavailable for any reason, follow these exact steps and then STOP:
 
 1. Log the decision to state.json
-2. Try to spawn the conductor via Task (primary fallback)
-3. If Task is unavailable, invoke the conductor via Skill (secondary fallback)
-4. Exit
+2. Spawn the conductor
+3. Exit
 
 ```javascript
-// Step 1: Update state.json
+// Update state.json
 state.orchestration_mode = "conductor_fallback";
 state.orchestration_reason = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS not set or TaskCreate tool unavailable";
 saveState(state);
 
-// Step 2: Primary fallback — spawn conductor via Task
-try {
-  Task({
-    description: "Execute implementation loop (conductor fallback)",
-    subagent_type: "general-purpose",
-    model: "haiku",
-    prompt: `Use the homerun:conductor skill.
+// Spawn conductor instead — this is the ONLY valid fallback
+Task({
+  description: "Execute implementation loop (conductor fallback)",
+  subagent_type: "general-purpose",
+  model: "haiku",
+  prompt: `Use the homerun:conductor skill.
 
-    Worktree: ${state.worktree}
-    State file: ${state.worktree}/state.json
+  Worktree: ${state.worktree}
+  State file: ${state.worktree}/state.json
 
-    Read state.json, find pending tasks, and orchestrate parallel implementation.`
-  });
-  // Emit signal with action: "spawned_conductor"
-} catch (e) {
-  // Step 3: Secondary fallback — Task tool unavailable, invoke conductor via Skill
-  Skill({ skill: "homerun:conductor" });
-  // Then provide: Worktree: ${state.worktree}, State file: ${state.worktree}/state.json
-  // Emit signal with action: "invoked_conductor_skill"
-}
+  Read state.json, find pending tasks, and orchestrate parallel implementation.`
+});
 
 // EXIT HERE. Do not continue. The conductor handles everything from this point.
 ```
 
-**Fallback chain summary:**
-1. **Task tool available** → spawn conductor as subagent (`action: "spawned_conductor"`)
-2. **Task tool unavailable** → invoke conductor skill in current context (`action: "invoked_conductor_skill"`)
-3. **Both unavailable** → report error to user and STOP. Do not attempt to implement.
+**Note:** The `/create` and `/build` commands spawn the team-lead at depth 1 (direct child of the main session), guaranteeing Task tool availability for the conductor fallback.
 
 **Prohibited fallback behaviors (NEVER do any of these):**
 - Implementing tasks yourself directly

@@ -656,55 +656,24 @@ After validation is complete:
    git commit -m "chore: transition to spec review phase"
    ```
 
-3. **Spawn Spec Review Agent (Fresh Context)**
-
-   Use the Task tool to spawn the `spec-reviewer` native subagent:
-
-   ```javascript
-   Task({
-     description: "Review specification documents",
-     subagent_type: "spec-reviewer",
-     prompt: `Review specs for consistency, completeness, and testability.
-
-     Worktree: ${state.worktree}
-     Spec paths: ${JSON.stringify(state.spec_paths)}
-     Auto mode: ${state.config.auto_mode}
-
-     If approved, transition to planning phase.
-     If needs_revision, report issues for the user to fix.`
-   });
-   ```
-
-   **Why spec review before planning:**
-   - Catches contradictions between PRD, ADR, and TECHNICAL_DESIGN
-   - Validates all acceptance criteria are testable
-   - Prevents ambiguities from cascading into bad task decomposition
-   - Cheap quality gate (~15K tokens) that saves expensive replanning
-
-4. **Output signal to main session:**
+3. **Output signal and return:**
 
    ```json
    {
      "signal": "DISCOVERY_COMPLETE",
-     "worktree_path": "...",
-     "message": "Spawned spec review agent. Check task output for results."
+     "timestamp": "<ISO8601>",
+     "source": { "skill": "homerun:discovery" },
+     "payload": {
+       "worktree_path": "...",
+       "spec_paths": { "prd": "...", "adr": "...", "technical_design": "..." }
+     },
+     "envelope_version": "1.0.0"
    }
    ```
 
-**After spec review passes,** the spec-review skill transitions to planning:
-
-   ```javascript
-   Task({
-     description: "Plan implementation tasks",
-     subagent_type: "planner",
-     prompt: `Decompose specs into implementation tasks.
-
-     Worktree: ${state.worktree}
-     State file: ${state.worktree}/state.json
-
-     Read state.json and spec documents, then create tasks.json with DAG.`
-   });
-   ```
+   **Do NOT spawn the next phase.** The parent command (`/create`) handles phase sequencing.
+   Discovery sets `phase: "spec_review"` in state.json (step 1 above) and returns.
+   The parent reads state.json and spawns the spec-reviewer at depth 1.
 
 ---
 

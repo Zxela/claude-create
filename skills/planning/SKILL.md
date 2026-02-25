@@ -923,45 +923,32 @@ After creating tasks.json:
    $(jq -r '.tasks[] | "- \(.id): \(.title)"' docs/tasks.json)"
    ```
 
-2. **Spawn Conductor Agent (Fresh Context)**
-
-   Use the Task tool to spawn conductor in a fresh agent context:
-
-   ```javascript
-   Task({
-     description: "Execute implementation loop",
-     subagent_type: "team-lead",
-     prompt: `Orchestrate parallel implementation for this feature.
-
-     Worktree: ${state.worktree}
-     State file: ${state.worktree}/state.json
-
-     Read state.json and tasks.json, then coordinate implementation.
-     If Agent Teams is unavailable, fall back to conductor.`
-   });
+2. **Update state.json phase to "implementing":**
+   ```bash
+   jq '.phase = "implementing"' "$WORKTREE_PATH/state.json" > tmp.json && mv tmp.json "$WORKTREE_PATH/state.json"
+   git add state.json
+   git commit --amend --no-edit
    ```
 
-   **Why team-lead:**
-   - Detects Agent Teams availability and uses native task DAG when possible
-   - Falls back to conductor skill automatically if Agent Teams disabled
-   - Spawns implementer/reviewer/quality-checker teammates by name
-   - Uses sonnet for coordination decisions (teammate scaling, escalation)
-
-   **Why Task agent instead of direct invocation:**
-   - Planning deliberation no longer consuming tokens
-   - Conductor starts fresh with ~5-10K tokens
-   - Implementer/Reviewer agents also spawn fresh (nested Task agents)
-   - Each phase runs at optimal context capacity
-
-3. **Output signal to main session:**
+3. **Output signal and return:**
 
    ```json
    {
      "signal": "PLANNING_COMPLETE",
-     "task_count": N,
-     "message": "Spawned conductor agent. Implementation loop started."
+     "timestamp": "<ISO8601>",
+     "source": { "skill": "homerun:planning" },
+     "payload": {
+       "tasks_count": N,
+       "tasks_file": "docs/tasks.json",
+       "dependency_graph_valid": true
+     },
+     "envelope_version": "1.0.0"
    }
    ```
+
+   **Do NOT spawn the next phase.** The parent command (`/create` or `/plan`) handles phase sequencing.
+   Planning sets `phase: "implementing"` in state.json (step 2 above) and returns.
+   The parent reads state.json and spawns the team-lead at depth 1.
 
 ---
 
