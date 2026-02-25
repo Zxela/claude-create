@@ -35,7 +35,9 @@ The team lead orchestrates Phase 3 (Implementation) as a replacement for the con
 
 ## Prerequisite Check
 
-Before starting, verify Agent Teams is available:
+Before starting, verify Agent Teams is available using a **two-step check**:
+
+### Step 1: Environment variable check
 
 ```bash
 # Check for Agent Teams experimental flag
@@ -46,15 +48,36 @@ else
 fi
 ```
 
-**If unavailable:** Fall back to conductor skill. Log the decision:
+### Step 2: Tool availability check
+
+Even if the env var is set, verify that the Agent Teams tools are actually loadable:
+
+```
+ToolSearch({ query: "select:TaskCreate" })
+```
+
+If TaskCreate is found and available, Agent Teams is confirmed working.
+If TaskCreate is NOT found or returns an error, Agent Teams is NOT available regardless of the env var.
+
+**Both checks must pass** to proceed with Agent Teams orchestration.
+
+### If either check fails: MANDATORY conductor fallback
+
+**CRITICAL: You must NEVER implement tasks yourself. The ONLY fallback is the conductor.**
+
+If Agent Teams is unavailable for any reason, follow these exact steps and then STOP:
+
+1. Log the decision to state.json
+2. Spawn the conductor
+3. Exit
 
 ```javascript
 // Update state.json
 state.orchestration_mode = "conductor_fallback";
-state.orchestration_reason = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS not set";
+state.orchestration_reason = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS not set or TaskCreate tool unavailable";
 saveState(state);
 
-// Spawn conductor instead
+// Spawn conductor instead — this is the ONLY valid fallback
 Task({
   description: "Execute implementation loop (conductor fallback)",
   subagent_type: "general-purpose",
@@ -66,9 +89,17 @@ Task({
 
   Read state.json, find pending tasks, and orchestrate parallel implementation.`
 });
+
+// EXIT HERE. Do not continue. The conductor handles everything from this point.
 ```
 
-**If available:** Proceed with Agent Teams orchestration below.
+**Prohibited fallback behaviors (NEVER do any of these):**
+- Implementing tasks yourself directly
+- Telling yourself "Agent Teams are not available, so I'll do it myself"
+- Spawning general-purpose agents to implement individual tasks
+- Any form of self-implementation
+
+**If both checks pass:** Proceed with Agent Teams orchestration below.
 
 ---
 
