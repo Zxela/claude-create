@@ -50,7 +50,7 @@ evaluations:
       - signal_has:
           field: "payload.issues"
       - signal_has:
-          field: "payload.severity"
+          field: "payload.issues.severity"
           pattern: "high"
 
   - type: llm_judge
