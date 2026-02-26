@@ -671,9 +671,7 @@ After validation is complete:
    }
    ```
 
-   **Do NOT spawn the next phase.** The parent command (`/create`) handles phase sequencing.
-   Discovery sets `phase: "spec_review"` in state.json (step 1 above) and returns.
-   The parent reads state.json and spawns the spec-reviewer at depth 1.
+   **Do NOT spawn the next phase.** Return after emitting this signal.
 
 ---
 

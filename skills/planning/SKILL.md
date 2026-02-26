@@ -905,11 +905,14 @@ jq '.tasks[] | select(.id == "002") | .subtasks // []' docs/tasks.json
 
 After creating tasks.json:
 
-1. **Commit the tasks file:**
+1. **Update state.json phase to "implementing":**
    ```bash
    cd "$WORKTREE_PATH"
+   jq '.phase = "implementing"' state.json > tmp.json && mv tmp.json state.json
+   ```
 
-   # Count tasks
+2. **Commit tasks and state together:**
+   ```bash
    TASK_COUNT=$(jq '.tasks | length' docs/tasks.json)
    SUBTASK_COUNT=$(jq '[.tasks[].subtasks // [] | length] | add' docs/tasks.json)
 
@@ -923,14 +926,7 @@ After creating tasks.json:
    $(jq -r '.tasks[] | "- \(.id): \(.title)"' docs/tasks.json)"
    ```
 
-2. **Update state.json phase to "implementing":**
-   ```bash
-   jq '.phase = "implementing"' "$WORKTREE_PATH/state.json" > tmp.json && mv tmp.json "$WORKTREE_PATH/state.json"
-   git add state.json
-   git commit --amend --no-edit
-   ```
-
-3. **Output signal and return:**
+3. **Return signal — do NOT spawn the next phase:**
 
    ```json
    {
@@ -946,9 +942,7 @@ After creating tasks.json:
    }
    ```
 
-   **Do NOT spawn the next phase.** The parent command (`/create` or `/plan`) handles phase sequencing.
-   Planning sets `phase: "implementing"` in state.json (step 2 above) and returns.
-   The parent reads state.json and spawns the team-lead at depth 1.
+   **Do NOT spawn the next phase.** Return after emitting this signal.
 
 ---
 
