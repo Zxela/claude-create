@@ -4,11 +4,40 @@ Determines which specification documents to generate based on estimated task sco
 
 ## Scale Estimation Matrix
 
-| Scale | Estimated Files | Documents to Generate | Dialogue Turns | Planning |
-|-------|----------------|----------------------|----------------|----------|
-| **Small** | 1-2 files | TECHNICAL_DESIGN only (simplified) | 5-8 | Simplified task list (no DAG) |
-| **Medium** | 3-5 files | PRD + TECHNICAL_DESIGN | 10-15 | Full task DAG |
-| **Large** | 6+ files | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 | Full task DAG |
+| Scale | Estimated Files | Documents to Generate | Dialogue Turns | Planning | Execution Pipeline |
+|-------|----------------|----------------------|----------------|----------|--------------------|
+| **Small** | 1-2 files | TECHNICAL_DESIGN only (simplified) | 5-8 | Simplified task list (no DAG) | Single implementer, no Agent Teams, skip spec-review |
+| **Medium** | 3-5 files | PRD + TECHNICAL_DESIGN | 10-15 | Full task DAG | Standard pipeline, max 2 concurrent implementers |
+| **Large** | 6+ files | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 | Full task DAG | Full pipeline, up to 5 concurrent implementers |
+
+## Pipeline Short-Circuit Rules (Effort-Proportional Routing)
+
+The team-lead uses the scale from `state.json` to determine the execution pipeline:
+
+### Small Scale (1-2 files)
+- **Skip:** Spec review (trivial scope, not worth reviewing)
+- **Skip:** Agent Teams / native task DAG (overhead > value)
+- **Skip:** Separate reviewer agent (implementer self-verifies)
+- **Use:** Single implementer with all tasks inlined in prompt
+- **Use:** Quality check after implementation
+- **Model:** Prefer haiku for implementation
+- **Estimated cost:** ~5-10K tokens total
+
+### Medium Scale (3-5 files)
+- **Use:** Full spec review
+- **Use:** Task DAG with max 2 concurrent implementers
+- **Use:** 1 reviewer agent (background)
+- **Use:** Quality check
+- **Model:** Sonnet for implementation, skip opus escalation
+- **Estimated cost:** ~30-60K tokens total
+
+### Large Scale (6+ files)
+- **Use:** Full pipeline (spec review → planning → Agent Teams → review → quality)
+- **Use:** Up to 5 concurrent implementers (based on DAG width)
+- **Use:** 1 reviewer agent (background)
+- **Use:** Quality check with auto-fix
+- **Model:** Full model routing (haiku/sonnet/opus per task type)
+- **Estimated cost:** ~80-200K tokens total
 
 ## How to Estimate Scale
 

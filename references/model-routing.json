@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": "1.0.0",
-  "description": "Authoritative task type to model routing configuration",
+  "version": "2.0.0",
+  "description": "Authoritative task type to model routing configuration (v4.0 — effort-proportional)",
 
   "task_routing": {
     "haiku": {
@@ -18,7 +18,8 @@
       "max_parallel": 5,
       "decomposable": false,
       "default_methodology": "direct",
-      "methodology_note": "Simple tasks use direct+tests, not full TDD cycle"
+      "methodology_note": "Simple tasks use direct+tests, not full TDD cycle",
+      "skip_step_0": true
     },
     "sonnet": {
       "task_types": [
@@ -33,7 +34,8 @@
       "max_parallel": 3,
       "decomposable": true,
       "default_methodology": "tdd",
-      "methodology_note": "Complex tasks benefit from test-first design"
+      "methodology_note": "Complex tasks benefit from test-first design",
+      "skip_step_0": false
     },
     "opus": {
       "task_types": [
@@ -41,7 +43,8 @@
       ],
       "characteristics": "High-leverage decisions, decomposition cascades if wrong",
       "max_parallel": 1,
-      "decomposable": false
+      "decomposable": false,
+      "skip_step_0": false
     }
   },
 
@@ -59,10 +62,55 @@
     "walkthrough": "sonnet"
   },
 
-  "escalation": {
-    "trigger": "high_severity_rejection",
-    "from": "haiku",
-    "to": "sonnet"
+  "retry_strategy": {
+    "order": ["fresh_agent", "same_agent", "escalate"],
+    "note": "Fresh-context-first: first retry uses clean context with structured failure summary. Accumulated context from failed attempts degrades performance.",
+    "fresh_agent_retries": 1,
+    "same_agent_retries": 1,
+    "escalation": {
+      "from": "haiku",
+      "to": "sonnet"
+    }
+  },
+
+  "agent_limits": {
+    "maxTurns": {
+      "discovery": 30,
+      "spec_review": 10,
+      "planner": 20,
+      "implementer": 25,
+      "reviewer": 15,
+      "quality_checker": 15,
+      "team_lead": 50,
+      "diagnostician": 20,
+      "reverse_engineer": 30,
+      "test_skeleton_generator": 15,
+      "walkthrough_generator": 15
+    }
+  },
+
+  "scale_routing": {
+    "small": {
+      "max_implementers": 1,
+      "skip_spec_review": true,
+      "skip_agent_teams": true,
+      "skip_separate_reviewer": true,
+      "preferred_model": "haiku"
+    },
+    "medium": {
+      "max_implementers": 2,
+      "skip_spec_review": false,
+      "skip_agent_teams": false,
+      "skip_separate_reviewer": false,
+      "preferred_model": "sonnet"
+    },
+    "large": {
+      "max_implementers": 5,
+      "skip_spec_review": false,
+      "skip_agent_teams": false,
+      "skip_separate_reviewer": false,
+      "preferred_model": null
+    }
   },
 
   "no_test_exceptions": [

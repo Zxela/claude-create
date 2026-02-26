@@ -11,7 +11,7 @@ Extracted from conductor/SKILL.md for token efficiency.
       "task_id": "002",
       "attempt": 1,
       "last_error": "Test assertion failed: expected 200, got 404",
-      "retry_type": "same_agent",
+      "retry_type": "fresh_agent",
       "scheduled_at": "2026-01-25T11:00:00Z"
     }
   ]
@@ -21,31 +21,55 @@ Extracted from conductor/SKILL.md for token efficiency.
 ## Retry Precedence (Priority Order)
 
 1. **Fresh pending tasks** - Always prefer unstarted work
-2. **Same-agent retries** - Retry with accumulated context
-3. **Fresh-agent retries** - Clean slate after same-agent exhausted
+2. **Fresh-agent retries** - Clean slate with structured failure summary (DEFAULT for first retry)
+3. **Same-agent retries** - Only for trivial fixes where accumulated context helps
 4. **Model escalation** - Upgrade haiku to sonnet on persistent failure
+
+## Fresh-Context-First Strategy
+
+**Rationale (from Anthropic best practices):** "After two failed corrections, /clear and write a better initial prompt incorporating what you learned." Accumulated context from failed attempts is the #1 cause of degraded retry performance — each failed attempt adds ~500 tokens of noise.
+
+**Key principle:** The first retry should ALWAYS be a fresh agent with a structured failure summary, NOT a retry with accumulated context. This is the inverse of the naive approach.
 
 ## Retry Type Logic
 
 ```javascript
 function getRetryType(task, state) {
   const attempts = getAttemptCount(task.id, state);
-  const config = state.config.retries;
 
-  if (attempts < config.same_agent) {
+  // FIRST retry: fresh agent with clean context + structured failure summary
+  // This is MORE likely to succeed than retrying with accumulated context
+  if (attempts === 1) {
+    return {
+      type: 'fresh_agent',
+      model: task.model,
+      context: buildStructuredFailureSummary(task)
+    };
+  }
+
+  // SECOND retry: same agent with targeted guidance (for trivial remaining fixes)
+  if (attempts === 2) {
     return { type: 'same_agent', model: task.model };
   }
 
-  if (attempts < config.same_agent + config.fresh_agent) {
-    return { type: 'fresh_agent', model: task.model };
-  }
-
-  // Escalate haiku to sonnet
+  // THIRD retry: escalate haiku to sonnet
   if (task.model === 'haiku') {
     return { type: 'escalate', model: 'sonnet' };
   }
 
   return { type: 'human_escalation' };
+}
+
+// Build a concise summary of what failed and why, NOT raw reviewer feedback
+function buildStructuredFailureSummary(task) {
+  const lastRejection = task.feedback[task.feedback.length - 1];
+  return {
+    task_objective: task.objective,
+    what_failed: lastRejection.issues.map(i => i.description).join('; '),
+    specific_fixes_needed: lastRejection.required_fixes,
+    // DO NOT include: raw reviewer output, previous implementation code,
+    // or accumulated context from failed attempts
+  };
 }
 ```
 
@@ -116,9 +140,9 @@ function handleHighSeverityRejection(task, rejection, state) {
 }
 ```
 
-## Retry with Accumulated Context
+## Retry with Structured Failure Summary
 
-When retrying same-agent, include previous attempt context:
+When retrying with a fresh agent, provide a concise failure summary:
 
 ```javascript
 function buildRetryPrompt(task, previousAttempt, rejection) {
@@ -126,10 +150,11 @@ function buildRetryPrompt(task, previousAttempt, rejection) {
     task: task,
     retry_context: {
       attempt_number: previousAttempt.attempt + 1,
-      previous_issues: rejection.issues,
-      reviewer_feedback: rejection.required_fixes,
-      guidance: `Previous attempt failed due to: ${rejection.summary}.
-                 Focus on: ${rejection.required_fixes.join(', ')}`
+      // Structured summary — NOT raw accumulated context
+      failure_summary: `Previous attempt rejected: ${rejection.summary}`,
+      specific_fixes: rejection.required_fixes,
+      // Explicitly omit: previous implementation code, full reviewer output,
+      // accumulated dialogue context
     }
   };
 }
@@ -162,7 +187,7 @@ When blocked or stalled, present these options:
 
 | Option | Action | When to Use |
 |--------|--------|-------------|
-| **Retry with guidance** | Add reviewer feedback to task, retry | Fixable issues |
+| **Retry with guidance** | Fresh agent with structured failure summary | Fixable issues |
 | **Mark as fixed** | User fixed manually, re-review | External fix applied |
 | **Skip task** | Mark skipped, unblock dependents | Non-critical task |
 | **Return to planning** | Re-decompose the task | Fundamental design issue |

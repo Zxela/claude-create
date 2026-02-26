@@ -544,31 +544,36 @@ Map out which components depend on others. Visualize as ASCII:
 
 ---
 
-### 2.5. Embed Context in Tasks
+### 2.5. Create JIT Context References
 
-**For each task, extract and embed the relevant spec content directly.** Implementers should NOT need to re-read full spec documents — all context they need should be in the task.
+**Instead of embedding full spec excerpts, provide lightweight references** that implementers use to load current code at runtime. This prevents stale-context bugs (code changed between planning and implementation) and reduces tasks.json size.
 
-For each task, populate `embedded_context` with:
+For each task, populate `context_refs` with:
 
-| Field | What to Extract | Where From |
-|-------|----------------|------------|
-| `relevant_interfaces` | Type definitions, interfaces, data models the task touches | TECHNICAL_DESIGN.md "Data Models" section |
-| `existing_patterns` | How similar things are already done in this codebase | `grep` for similar functions/patterns in `src/` |
-| `constraints` | Key decisions or constraints affecting this task | ADR.md decisions, TECHNICAL_DESIGN.md "Non-Scope" and "Change Impact Map" |
+| Field | What to Provide | Example |
+|-------|----------------|---------|
+| `interface_locations` | File paths + section names for relevant types/interfaces | `["src/models/user.ts:User interface", "TECHNICAL_DESIGN.md:## Data Model"]` |
+| `pattern_files` | Paths to existing implementations that show the pattern to follow | `["src/services/base.ts"]` |
+| `grep_patterns` | Grep patterns to discover related code at runtime | `["export class.*Service", "interface Auth"]` |
+| `constraints_section` | Section reference in ADR/TECHNICAL_DESIGN for constraints | `"ADR.md:## Decision 1"` |
 
 ```json
 {
   "id": "003",
   "title": "Create auth service with login method",
-  "embedded_context": {
-    "relevant_interfaces": "interface User { id: string; email: string; password_hash: string; }\ninterface AuthResult { token: string; user: User; }",
-    "existing_patterns": "// Existing service pattern from src/services/base.ts:\nexport class BaseService {\n  constructor(private db: Database) {}\n}",
-    "constraints": "ADR-001: Use bcrypt for password hashing (cost factor 12). Non-scope: Do not modify existing User model fields."
+  "context_refs": {
+    "interface_locations": ["src/models/user.ts:User interface", "TECHNICAL_DESIGN.md:## Data Model"],
+    "pattern_files": ["src/services/base.ts"],
+    "grep_patterns": ["export class.*Service", "interface Auth"],
+    "constraints_section": "ADR.md:## Decision 1"
   }
 }
 ```
 
-**Trade-off:** This costs ~1-2K extra tokens at planning time per task, but saves ~3-5K per implementer invocation (no spec re-reads, no codebase searching for patterns). Since implementers run more often than the planner, this is a net win.
+**Why JIT over embedded context:**
+- **Current code:** Implementers read the actual current file, not a planner snapshot that may be stale
+- **Smaller tasks.json:** References are ~200 bytes vs ~1-2K per task for embedded excerpts. The team-lead reads tasks.json every monitoring iteration — smaller = cheaper.
+- **Targeted reads:** Implementers load only what they need, not everything the planner thought they might need
 
 ---
 
@@ -645,13 +650,14 @@ docs/
           }
         },
         "technical_notes": { "type": "string" },
-        "embedded_context": {
+        "context_refs": {
           "type": "object",
-          "description": "Relevant spec excerpts embedded directly so implementers don't re-read full docs",
+          "description": "JIT context references — lightweight pointers for implementers to load current code at runtime",
           "properties": {
-            "relevant_interfaces": { "type": "string", "description": "Type definitions and interfaces the task touches" },
-            "existing_patterns": { "type": "string", "description": "Code snippets showing how similar things are done in this codebase" },
-            "constraints": { "type": "string", "description": "Key constraints from ADR/TECHNICAL_DESIGN affecting this task" }
+            "interface_locations": { "type": "array", "items": { "type": "string" }, "description": "File paths + section names for relevant interfaces" },
+            "pattern_files": { "type": "array", "items": { "type": "string" }, "description": "Paths to existing implementations showing patterns to follow" },
+            "grep_patterns": { "type": "array", "items": { "type": "string" }, "description": "Grep patterns to discover related code at runtime" },
+            "constraints_section": { "type": "string", "description": "Section reference in ADR/TECHNICAL_DESIGN for constraints" }
           }
         },
         "model": { "enum": ["opus", "sonnet", "haiku"], "default": "sonnet" },
@@ -694,10 +700,11 @@ docs/
         "adr_decisions": ["ADR-001"]
       },
       "technical_notes": "Use UUID for primary key. Password hash using bcrypt (ADR-001). Soft delete via deleted_at.",
-      "embedded_context": {
-        "relevant_interfaces": "// From TECHNICAL_DESIGN: Users table\n// id: UUID PRIMARY KEY\n// email: VARCHAR(255) UNIQUE NOT NULL\n// password_hash: VARCHAR(255) NOT NULL\n// created_at: TIMESTAMP DEFAULT NOW()\n// updated_at: TIMESTAMP DEFAULT NOW()\n// deleted_at: TIMESTAMP NULL",
-        "existing_patterns": "// No existing schema migrations found",
-        "constraints": "ADR-001: Use bcrypt with cost factor 12. Non-scope: Do not add roles or permissions in this task."
+      "context_refs": {
+        "interface_locations": ["TECHNICAL_DESIGN.md:## Data Model:Users table"],
+        "pattern_files": [],
+        "grep_patterns": ["CREATE TABLE.*users", "migration.*user"],
+        "constraints_section": "ADR.md:## Decision 1"
       },
       "model": "haiku"
     },
@@ -748,7 +755,7 @@ docs/
 | depends_on | array | Yes | Task IDs that must complete first |
 | traces_to | object | Yes | Links to user stories, acceptance criteria, ADR decisions |
 | technical_notes | string | No | Implementation hints from specs |
-| embedded_context | object | No | Relevant spec excerpts (interfaces, patterns, constraints) embedded for implementer |
+| context_refs | object | No | JIT references (file paths, section names, grep patterns) for implementers to load current code at runtime |
 | model | enum | No | Which model executes: opus, sonnet (default), haiku |
 | subtasks | array | No | Decomposed subtasks for Haiku execution |
 

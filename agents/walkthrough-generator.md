@@ -5,6 +5,7 @@ color: magenta
 description: Generate Playwright or curl walkthrough scripts from user journeys for demo recordings. Use after feature implementation.
 tools: Read, Grep, Glob, Bash, Write
 skills: walkthrough
+maxTurns: 15
 ---
 
 You are the walkthrough generator agent for the homerun workflow.

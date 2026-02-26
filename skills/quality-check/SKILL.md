@@ -63,97 +63,115 @@ The conductor can invoke this after review approval or as a standalone gate befo
 
 ## Process
 
-### Phase 1: Lint & Format
+### Phase 1: Lint & Format (DETERMINISTIC — no LLM judgment)
 
-Run project linter/formatter on changed files:
+Run CLI tools and check exit codes. The LLM adds no value here — just execute and report.
 
 ```bash
 cd "$WORKTREE_PATH"
 
-# Detect linter from project config
+# Detect linter from project config and run with auto-fix
 if [ -f biome.json ] || [ -f biome.jsonc ]; then
   npx biome check --write "${FILES[@]}" 2>&1 | tail -20
+  LINT_EXIT=$?
 elif [ -f .eslintrc* ] || grep -q '"eslint"' package.json 2>/dev/null; then
   npx eslint --fix "${FILES[@]}" 2>&1 | tail -20
+  LINT_EXIT=$?
 elif [ -f .prettierrc* ] || grep -q '"prettier"' package.json 2>/dev/null; then
   npx prettier --write "${FILES[@]}" 2>&1 | tail -20
+  LINT_EXIT=$?
+else
+  echo "No linter found — skipping"
+  LINT_EXIT=0
 fi
+
+# Result: LINT_EXIT == 0 means pass. No LLM analysis needed.
 ```
 
-**If issues found and fix_mode=auto:** Apply fixes, record what changed.
-**If no linter found:** Skip phase, note in report.
-
-### Phase 2: Type Checking
+### Phase 2: Type Checking (DETERMINISTIC — no LLM judgment)
 
 ```bash
 cd "$WORKTREE_PATH"
 
 # TypeScript
 if [ -f tsconfig.json ]; then
-  npx tsc --noEmit 2>&1 | grep -E "error TS" | head -20
+  TYPE_OUTPUT=$(npx tsc --noEmit 2>&1)
+  TYPE_EXIT=$?
+  echo "$TYPE_OUTPUT" | grep -E "error TS" | head -20
 fi
 
 # Python (if applicable)
 if command -v mypy &>/dev/null && [ -f pyproject.toml ]; then
-  mypy "${FILES[@]}" 2>&1 | tail -20
+  TYPE_OUTPUT=$(mypy "${FILES[@]}" 2>&1)
+  TYPE_EXIT=$?
+  echo "$TYPE_OUTPUT" | tail -20
 fi
+
+# Result: TYPE_EXIT == 0 means pass. No LLM analysis needed.
 ```
 
-**If type errors found and fix_mode=auto:** Fix type errors in changed files only.
+**If type errors found and fix_mode=auto:** Fix type errors in changed files only. This is the ONE place in phases 1/2/4 where LLM judgment helps (choosing HOW to fix a type error).
 **Scope constraint:** Only fix errors in files from `files_changed`. Do not fix pre-existing errors in other files.
 
-### Phase 3: Structural Checks
+### Phase 3: Structural Review (LLM JUDGMENT — this is where you add value)
 
-Check for common structural issues in changed files:
+This is the ONLY phase that requires LLM reasoning. The other phases are deterministic CLI checks.
+
+Review changed files for:
+
+1. **Unused imports** — imports not referenced in the file body
+2. **Dead code** — functions, variables, or classes that are defined but never used
+3. **Debug artifacts** — `console.log`, `debugger`, `TODO`/`FIXME` comments left behind
+4. **Naming consistency** — do new names follow the existing codebase conventions?
+5. **File organization** — are new files in the right directories?
 
 ```bash
 cd "$WORKTREE_PATH"
 
 for file in "${FILES[@]}"; do
-  # Unused imports (TypeScript/JavaScript)
+  # Quick checks the LLM can interpret
   if [[ "$file" =~ \.(ts|tsx|js|jsx)$ ]]; then
-    # Check for imports not referenced in file body
-    grep -E "^import " "$file" | while read -r import_line; do
-      imported_name=$(echo "$import_line" | grep -oE '\b[A-Z][a-zA-Z]+\b' | head -1)
-      if [ -n "$imported_name" ]; then
-        count=$(grep -c "$imported_name" "$file")
-        if [ "$count" -le 1 ]; then
-          echo "UNUSED_IMPORT: $file: $imported_name"
-        fi
-      fi
-    done
+    echo "=== $file ==="
+    grep -n "console\.\(log\|debug\|warn\)" "$file" | head -5
+    grep -n "debugger" "$file" | head -5
+    grep -n "TODO\|FIXME\|HACK\|XXX" "$file" | head -5
   fi
 done
 ```
 
-### Phase 4: Tests
+### Phase 4: Tests (DETERMINISTIC — no LLM judgment)
 
 ```bash
 cd "$WORKTREE_PATH"
 
-# Run tests related to changed files
+# Run full test suite and check exit code
 if [ -f package.json ]; then
   npm test 2>&1 | tee /tmp/test-output.txt
-  echo "Tests: $(grep -c 'PASS\|FAIL' /tmp/test-output.txt) suites"
+  TEST_EXIT=$?
+  echo "Exit code: $TEST_EXIT"
   grep -A 2 'FAIL' /tmp/test-output.txt | head -20
 elif [ -f Cargo.toml ]; then
   cargo test 2>&1 | tail -30
+  TEST_EXIT=$?
 elif [ -f pyproject.toml ]; then
   pytest 2>&1 | tail -30
+  TEST_EXIT=$?
 fi
+
+# Result: TEST_EXIT == 0 means pass. No LLM analysis needed.
 ```
 
-**If tests fail and fix_mode=auto:** Attempt to fix failing tests (max 2 attempts).
+**If tests fail and fix_mode=auto:** Attempt to fix failing tests (max 2 attempts). This requires LLM judgment.
 **If tests still fail after 2 attempts:** Report as unresolved.
 
-### Phase 5: Final Recheck
+### Phase 5: Final Recheck (DETERMINISTIC — no LLM judgment)
 
-After all auto-fixes, verify everything still passes:
+After all auto-fixes, re-run deterministic checks to confirm no regressions:
 
 ```bash
 cd "$WORKTREE_PATH"
 
-# Re-run all checks
+# Re-run phases 1 and 2
 npx tsc --noEmit 2>&1 | grep "error" | wc -l
 npm test 2>&1 | grep -E "Tests:.*failed" || echo "All tests pass"
 ```

@@ -57,13 +57,29 @@ The conductor provides input as a JSON object. **Validate input before proceedin
           }
         },
         "test_file": { "type": ["string", "null"] },
-        "embedded_context": {
+        "context_refs": {
           "type": "object",
-          "description": "Pre-extracted spec context from planner — use this instead of re-reading full spec files",
+          "description": "JIT context references — file paths, section names, and grep patterns for loading current code at runtime instead of stale embedded excerpts",
           "properties": {
-            "relevant_interfaces": { "type": "string" },
-            "existing_patterns": { "type": "string" },
-            "constraints": { "type": "string" }
+            "interface_locations": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "File paths + section names for relevant interfaces, e.g. 'src/models/user.ts:User interface' or 'TECHNICAL_DESIGN.md:## Data Model'"
+            },
+            "pattern_files": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "File paths to existing implementations that demonstrate the pattern to follow, e.g. 'src/services/base.ts'"
+            },
+            "grep_patterns": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Grep patterns to discover relevant code at runtime, e.g. 'export class.*Service' or 'function.*validate'"
+            },
+            "constraints_section": {
+              "type": "string",
+              "description": "Section reference in TECHNICAL_DESIGN/ADR for constraints, e.g. 'ADR.md:## Decision 1' or 'TECHNICAL_DESIGN.md:## Non-Scope'"
+            }
           }
         }
       }
@@ -138,7 +154,9 @@ If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
 ### 0. Pre-Implementation Analysis
 
-**BEFORE writing any code**, complete these three sub-steps. They prevent wasted work, catch design issues early, and keep implementations aligned with the codebase.
+**Task-type gating:** Skip Step 0 entirely for haiku-level tasks (`add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`). These are mechanical, pattern-following tasks where pre-implementation analysis costs more than it saves. Jump directly to Step 1.
+
+**For sonnet/opus-level tasks only:** Complete these three sub-steps. They prevent wasted work, catch design issues early, and keep implementations aligned with the codebase.
 
 **Context budget for all of Step 0: ~2K tokens** (grep output + brief notes, no full file reads)
 
@@ -238,16 +256,20 @@ Before writing any code:
 - Identify what to build from `task.objective` and `task.acceptance_criteria`
 - Identify test file from `task.test_file`
 - Check `task.traces_to` for spec references
-- **Use `task.embedded_context` first** — if the planner embedded interfaces, patterns, and constraints, use those instead of re-reading spec files. Only read specs if embedded_context is missing or insufficient.
+- **Use `task.context_refs` for JIT context loading** — the planner provides file paths, section names, and grep patterns instead of stale embedded excerpts. Load the actual current code at runtime:
+  1. Read files from `context_refs.interface_locations` (targeted section reads, not full files)
+  2. Check `context_refs.pattern_files` for implementation patterns to follow
+  3. Run `context_refs.grep_patterns` to discover related code
+  4. Read `context_refs.constraints_section` for constraints and non-scope
 
-**File Reading Strategy:**
+**File Reading Strategy (JIT):**
 
 | Need | Approach |
 |------|----------|
-| Understand interfaces/types | Check `task.embedded_context.relevant_interfaces` first |
-| Find code patterns | Check `task.embedded_context.existing_patterns` first |
-| Know constraints/non-scope | Check `task.embedded_context.constraints` first |
-| Understand existing code (not in context) | Read function signatures only: `grep -A 5 "function\|class\|export"` |
+| Understand interfaces/types | Read from `task.context_refs.interface_locations` (e.g., `grep -A 20 "interface User" src/models/user.ts`) |
+| Find code patterns | Read `task.context_refs.pattern_files` (signatures only: `grep -A 5 "function\|class\|export"`) |
+| Discover related code | Run `task.context_refs.grep_patterns` against `src/` |
+| Know constraints/non-scope | Read `task.context_refs.constraints_section` from spec docs |
 | Find import patterns | `head -30 src/similar-file.ts` |
 | Check test patterns | `head -50 tests/existing.test.ts` |
 | Full file context | Only when modifying that specific file |
@@ -255,7 +277,7 @@ Before writing any code:
 **Avoid:**
 - Reading entire directories
 - Reading files you won't modify
-- Re-reading spec files when embedded_context already has what you need
+- Reading full spec files — use the section references from `context_refs`
 - Re-reading files already in context
 
 ### 2. Read Reference Docs (Targeted Extraction)
