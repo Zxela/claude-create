@@ -10,8 +10,9 @@ graph TB
 
     subgraph Agents["Agent Layer"]
         D[Discovery Agent<br/>model: opus]
+        SRv[Spec Reviewer<br/>model: sonnet]
         P[Planning Agent<br/>model: opus]
-        C[Conductor Agent<br/>model: haiku]
+        TL[Team Lead<br/>model: sonnet]
         I[Implementer Agents<br/>model: varies]
         R[Reviewer Agent<br/>model: sonnet]
     end
@@ -121,48 +122,58 @@ graph LR
 
 ## Agent Spawning Architecture
 
+All phases spawn at **depth 1** (flat state machine). Agents return to `/create` after each phase; no chaining.
+
 ```mermaid
 graph TB
-    subgraph Main["Main Session (User's Model)"]
+    subgraph Main["Main Session — /create loop controller"]
         Entry["/create"]
     end
 
-    subgraph Fresh1["Fresh Context #1"]
+    subgraph Depth1_Discovery["Depth 1: Discovery"]
         D[Discovery Agent<br/>~10-20K tokens<br/>model: opus]
     end
 
-    subgraph Fresh2["Fresh Context #2"]
+    subgraph Depth1_SpecReview["Depth 1: Spec Review"]
+        SR[Spec Reviewer<br/>~15K tokens<br/>model: sonnet]
+    end
+
+    subgraph Depth1_Planning["Depth 1: Planning"]
         P[Planning Agent<br/>~10K tokens<br/>model: opus]
     end
 
-    subgraph Fresh3["Fresh Context #3 (Refreshable)"]
-        C[Conductor Agent<br/>~5K tokens<br/>model: haiku]
+    subgraph Depth1_TeamLead["Depth 1: Team Lead"]
+        TL[Team Lead<br/>~5K tokens<br/>model: sonnet]
     end
 
-    subgraph Parallel["Parallel Fresh Contexts"]
+    subgraph Depth2["Depth 2: Teammates (spawned by Team Lead)"]
         I1[Implementer 1<br/>~15K tokens]
         I2[Implementer 2<br/>~15K tokens]
         I3[Implementer 3<br/>~15K tokens]
-    end
-
-    subgraph Sequential["Sequential Fresh Context"]
         R[Reviewer<br/>~10K tokens<br/>model: sonnet]
+        QC[Quality Checker<br/>model: sonnet]
     end
 
-    Entry -->|"Task(opus)"| D
-    D -->|"Task(opus)"| P
-    P -->|"Task(haiku)"| C
-    C -->|"Task(varies, background)"| I1
-    C -->|"Task(varies, background)"| I2
-    C -->|"Task(varies, background)"| I3
-    C -->|"Task(sonnet)"| R
+    Entry -->|"Task(discovery-agent)"| D
+    D -->|"returns"| Entry
+    Entry -->|"Task(spec-reviewer)"| SR
+    SR -->|"returns"| Entry
+    Entry -->|"Task(planner)"| P
+    P -->|"returns"| Entry
+    Entry -->|"Task(team-lead)"| TL
+    TL -->|"Task(varies, background)"| I1
+    TL -->|"Task(varies, background)"| I2
+    TL -->|"Task(varies, background)"| I3
+    TL -->|"Task(sonnet)"| R
+    TL -->|"Task(sonnet)"| QC
+    TL -->|"returns"| Entry
 
     style Main fill:#e1f5fe
-    style Fresh1 fill:#fff3e0
-    style Fresh2 fill:#fff3e0
-    style Fresh3 fill:#e8f5e9
-    style Parallel fill:#fce4ec
-    style Sequential fill:#f3e5f5
+    style Depth1_Discovery fill:#fff3e0
+    style Depth1_SpecReview fill:#fff3e0
+    style Depth1_Planning fill:#fff3e0
+    style Depth1_TeamLead fill:#e8f5e9
+    style Depth2 fill:#fce4ec
 ```
 
 ## File System Architecture
@@ -227,7 +238,8 @@ graph TB
     end
 
     subgraph Roles["Agent Roles"]
-        Cond[Conductor]
+        TLead[Team Lead]
+        Cond[Conductor<br/>fallback]
         Impl[Implementer]
         Rev[Reviewer]
         Plan[Planner]
@@ -237,6 +249,7 @@ graph TB
     Medium --> Sonnet
     Complex --> Opus
 
+    TLead --> Sonnet
     Cond --> Haiku
     Plan --> Opus
     Rev --> Sonnet

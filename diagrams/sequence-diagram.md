@@ -6,17 +6,18 @@
 sequenceDiagram
     autonumber
     participant U as User
-    participant M as Main Session
+    participant M as Main Session (/create loop)
     participant D as Discovery Agent
+    participant SR as Spec Reviewer
     participant P as Planning Agent
-    participant C as Conductor Agent
+    participant TL as Team Lead
     participant I as Implementer Agent
     participant R as Reviewer Agent
     participant FS as Filesystem
 
-    Note over U,FS: Phase 1: Discovery
+    Note over U,FS: Phase 1: Discovery (depth 1)
     U->>M: /create "feature idea"
-    M->>D: Task(model: opus)
+    M->>D: Task(discovery-agent)
     activate D
 
     loop One question at a time
@@ -26,12 +27,24 @@ sequenceDiagram
 
     D->>FS: Write PRD.md, ADR.md, TECHNICAL_DESIGN.md
     Note right of FS: ~/.claude/homerun/<hash>/<feature>/
-    D->>FS: Write state.json
+    D->>FS: Write state.json (phase: spec_review)
     D->>M: DISCOVERY_COMPLETE
     deactivate D
 
-    Note over U,FS: Phase 2: Planning
-    M->>P: Task(model: opus)
+    Note over M: Read state.json → phase: spec_review
+
+    Note over U,FS: Phase 2: Spec Review (depth 1)
+    M->>SR: Task(spec-reviewer)
+    activate SR
+    SR->>FS: Read spec documents
+    SR->>SR: Check consistency, completeness, testability
+    SR->>M: SPEC_REVIEW_COMPLETE (verdict: approved)
+    deactivate SR
+
+    Note over M: Update state.json → phase: planning
+
+    Note over U,FS: Phase 3: Planning (depth 1)
+    M->>P: Task(planner)
     activate P
     P->>FS: Read spec documents
     P->>FS: Read state.json
@@ -42,57 +55,52 @@ sequenceDiagram
     P->>M: PLANNING_COMPLETE
     deactivate P
 
-    Note over U,FS: Phase 3: Implementation Loop
-    M->>C: Task(model: haiku)
-    activate C
+    Note over M: Read state.json → phase: implementing
+
+    Note over U,FS: Phase 4: Implementation Loop (depth 1)
+    M->>TL: Task(team-lead)
+    activate TL
 
     loop Until all tasks complete
-        C->>FS: Read state.json, tasks.json
-        C->>C: Find ready tasks (deps resolved)
-        C->>C: Calculate available slots
+        TL->>FS: Read state.json, tasks.json
+        TL->>TL: Find ready tasks (deps resolved)
 
-        par Parallel Implementation
-            C->>I: Task(model: task.model, background: true)
+        par Parallel Implementation (depth 2)
+            TL->>I: Task(implementer, background: true)
             activate I
             I->>FS: Read extracted spec context
             I->>I: TDD: Write test → Implement → Refactor
             I->>FS: git commit
-            I->>C: IMPLEMENTATION_COMPLETE
+            I->>TL: IMPLEMENTATION_COMPLETE
             deactivate I
         end
 
-        C->>C: Poll for completions
-
-        loop Sequential Reviews
-            C->>R: Task(model: sonnet)
+        loop Sequential Reviews (depth 2)
+            TL->>R: Task(reviewer)
             activate R
             R->>FS: Read implementation + specs
             R->>R: Verify acceptance criteria
             alt Approved
-                R->>C: APPROVED
+                R->>TL: APPROVED
             else Rejected
-                R->>C: REJECTED (severity, issues)
+                R->>TL: REJECTED (severity, issues)
             end
             deactivate R
         end
 
         alt High Severity Rejection
-            C->>U: Present recovery options
-            U->>C: Choice (retry/skip/replan)
+            TL->>U: Present recovery options
+            U->>TL: Choice (retry/skip/replan)
         end
 
-        C->>FS: Update task statuses
-
-        opt Context Refresh Needed
-            C->>FS: Write state.json
-            C->>C: Spawn fresh conductor
-        end
+        TL->>FS: Update task statuses
     end
 
-    C->>M: WORKFLOW_COMPLETE
-    deactivate C
+    TL->>FS: Update state.json (phase: completing)
+    TL->>M: TEAM_LEAD_COMPLETE
+    deactivate TL
 
-    Note over U,FS: Phase 4: Completion
+    Note over U,FS: Phase 5: Completion
     M->>U: Options: Merge / Create PR / Continue
     U->>M: Choice
     M->>FS: Execute choice
@@ -103,33 +111,38 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant User
+    participant Main as /create loop
     participant Discovery as Discovery (opus)
     participant Planning as Planning (opus)
-    participant Conductor as Conductor (haiku)
-    participant Impl as Implementer (haiku/sonnet)
+    participant TL as Team Lead (sonnet)
+    participant Impl as Implementer (sonnet)
     participant Review as Reviewer (sonnet)
 
-    User->>Discovery: /create "idea"
+    User->>Main: /create "idea"
+    Main->>Discovery: Task()
     Discovery->>User: Questions
     User->>Discovery: Answers
-    Discovery->>Planning: Specs ready
+    Discovery->>Main: Specs ready
 
-    Planning->>Conductor: Tasks ready
+    Main->>Planning: Task()
+    Planning->>Main: Tasks ready
 
+    Main->>TL: Task()
     loop Per Task
-        Conductor->>Impl: Implement task
+        TL->>Impl: Implement task
         Impl->>Review: Code ready
-        Review->>Conductor: Approved/Rejected
+        Review->>TL: Approved/Rejected
     end
+    TL->>Main: All done!
 
-    Conductor->>User: All done!
+    Main->>User: Options: Merge / PR / Continue
 ```
 
 ## Retry Sequence
 
 ```mermaid
 sequenceDiagram
-    participant C as Conductor
+    participant C as Team Lead
     participant I as Implementer
     participant R as Reviewer
     participant U as User
@@ -158,7 +171,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant C as Conductor
+    participant C as Team Lead
     participant I1 as Implementer 1
     participant I2 as Implementer 2
     participant I3 as Implementer 3

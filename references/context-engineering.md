@@ -7,27 +7,27 @@
 
 ### 1. Context Isolation via Agent Spawning
 
-Each phase runs in a **fresh agent context** via named subagents with enforced tool restrictions:
+Each phase runs in a **fresh agent context** at **depth 1** (flat state machine). The `/create` command spawns each phase directly — agents do NOT chain to the next phase:
 
 ```
-/create (Opus - user's default)
+/create loop (main session)
    │
-   └─> Task(model: "opus")  → Discovery  [dialogue with user]
-           │
-           └─> Task(model: "opus")  → Planning   [high-leverage decomposition]
-                   │
-                   └─> Task(model: "haiku") → Conductor [mechanical scheduling]
-                           │
-                           ├─> Task(model: task.model) → Implementer [varies by complexity]
-                           │
-                           └─> Task(model: "sonnet")   → Reviewer    [quality judgment]
+   ├─> Task(discovery-agent)   → Discovery     [dialogue with user]       → returns
+   ├─> Task(spec-reviewer)     → Spec Review   [validation gate]          → returns
+   ├─> Task(planner)           → Planning      [decomposition into tasks] → returns
+   └─> Task(team-lead)         → Team Lead     [orchestration]            → returns
+                                     │
+                                     ├─> Task(implementer) × 1-5  (depth 2)
+                                     ├─> Task(reviewer) × 1       (depth 2)
+                                     └─> Task(quality-checker)     (depth 2)
 ```
 
 **Why this works:**
 - Each agent starts with ~5-10K tokens (just state.json + task)
 - Previous phase deliberation doesn't bloat next phase
 - Model selection optimizes cost/quality per role
-- No "telephone game" - agents read state.json directly
+- No "telephone game" — agents read state.json directly
+- **Flat spawning guarantees Task tool availability** — team-lead at depth 1 can always spawn conductor/implementers via Task at depth 2
 
 ### 2. Filesystem-as-Memory Pattern
 
@@ -36,7 +36,7 @@ Instead of passing data through messages, agents communicate via filesystem:
 | File | Purpose | Updated By |
 |------|---------|------------|
 | `state.json` | Workflow state, phase, progress | All phases |
-| `docs/tasks.json` | Task status, attempts, feedback | Conductor |
+| `docs/tasks.json` | Task status, attempts, feedback | Team lead / Conductor |
 | `~/.claude/homerun/<hash>/<feature>/` | Spec documents | Discovery |
 
 **Benefits:**
@@ -152,8 +152,10 @@ Based on research: **model choice drives 80% of performance variance**.
 | Role | Model | Rationale |
 |------|-------|-----------|
 | Discovery | inherit | User controls quality of requirements |
+| Spec Review | sonnet | Quality judgment on spec consistency |
 | Planning | opus | High-leverage - bad decomposition cascades |
-| Conductor | haiku | Mechanical scheduling, no reasoning needed |
+| Team Lead | sonnet | Coordination decisions, teammate scaling |
+| Conductor (fallback) | haiku | Mechanical scheduling, no reasoning needed |
 | Implementer (simple) | haiku | Pattern-following tasks |
 | Implementer (complex) | sonnet | Design decisions, security implications |
 | Reviewer | sonnet | Quality judgment requires reasoning |

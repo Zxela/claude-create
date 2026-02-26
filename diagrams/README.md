@@ -16,11 +16,13 @@ Visual documentation of the homerun workflow system.
 
 ### Agent Model Assignment
 ```
-Discovery  → opus (user dialogue, requirements)
-Planning   → opus (high-leverage decomposition)
-Conductor  → haiku (mechanical scheduling)
+Discovery   → opus (user dialogue, requirements)
+Spec Review → sonnet (spec consistency validation)
+Planning    → opus (high-leverage decomposition)
+Team Lead   → sonnet (coordination, teammate scaling)
+Conductor   → haiku (mechanical scheduling — fallback)
 Implementer → haiku/sonnet (based on task_type)
-Reviewer   → sonnet (quality judgment)
+Reviewer    → sonnet (quality judgment)
 ```
 
 ### Context Budgets
@@ -34,7 +36,7 @@ Reviewer:    ~10K tokens
 
 ### Key State Transitions
 ```
-Phases: discovery → planning → implementing → completing → done
+Phases: discovery → spec_review → planning → implementing → completing → done
 Tasks:  pending → in_progress → pending_review → completed/failed
 Retry:  attempt_1 → attempt_2 (same agent) → attempt_3 (fresh) → escalate
 ```
