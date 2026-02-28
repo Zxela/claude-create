@@ -1,14 +1,51 @@
 ---
-template_version: "1.0"
+template_version: "1.1"
 template_name: "TECHNICAL_DESIGN"
 compatible_homerun: ">=5.0.0"
 ---
 
 # Technical Design: {{FEATURE_NAME}}
 
+<!--
+INCLUDES: Architecture, components, data models, API contracts, dependencies, testing strategy,
+          existing codebase analysis, integration points, change impact, agreement checklist
+EXCLUDES: Business motivation, user stories, success metrics (→ PRD)
+          Decision rationale, option comparisons (→ ADR)
+          UI layouts, visual flows (→ WIREFRAMES)
+-->
+
 ## Overview
 
 {{1-2 paragraph summary of what this feature does and why}}
+
+## Existing Codebase Analysis
+
+_What already exists that this feature builds on or interacts with. Prevents duplication and ensures alignment._
+
+### Related Functionality
+
+| Existing Code | Relevance | Action |
+|---------------|-----------|--------|
+| {{file:line — description}} | Extends / Uses / Replaces | {{How this feature relates}} |
+
+### Patterns to Follow
+
+| Pattern | Source | Example |
+|---------|--------|---------|
+| {{Pattern name}} | {{file path}} | {{Brief description of the convention}} |
+
+### Integration Point Map
+
+_Where this feature connects to existing code. Each point needs verification after implementation._
+
+| Integration Point | Existing Code | Impact Level | Verification |
+|-------------------|--------------|--------------|--------------|
+| {{description}} | {{file:function}} | High / Medium / Low | {{How to verify no breakage}} |
+
+**Impact levels:**
+- **High** — Changes data flow or control flow through existing code
+- **Medium** — Changes data used by existing code (types, schemas)
+- **Low** — Read-only interaction (imports types, calls existing functions without modification)
 
 ## Architecture
 
@@ -104,19 +141,28 @@ compatible_homerun: ">=5.0.0"
 |---------|---------|---------|
 | {{name}} | {{version}} | {{why needed}} |
 
-## Security Considerations
+## Non-Functional Requirements (Implementation)
 
-### Authentication
+_Technical approach for meeting NFR targets from the PRD. Only include categories relevant to this feature._
 
-{{How users are authenticated for this feature}}
+### Performance
 
-### Authorization
+| Metric | Target | Implementation Approach |
+|--------|--------|------------------------|
+| {{e.g., API response time}} | {{e.g., < 200ms p95}} | {{e.g., Database index on email column, query caching}} |
 
-{{What permissions are required, how they're checked}}
+### Security
 
-### Data Protection
+| Concern | Approach | Verification |
+|---------|----------|--------------|
+| {{e.g., Password storage}} | {{e.g., bcrypt with cost factor 12}} | {{Unit test: hash is not plaintext}} |
+| {{e.g., Input validation}} | {{e.g., Zod schema validation at API boundary}} | {{Test: malformed input returns 400}} |
 
-{{How sensitive data is handled, encryption, etc.}}
+### Reliability
+
+| Failure Mode | Handling | Recovery |
+|-------------|----------|----------|
+| {{e.g., Database connection lost}} | {{e.g., Connection pool retry with backoff}} | {{e.g., Auto-reconnect, request queued}} |
 
 ## Error Handling
 
@@ -165,6 +211,34 @@ compatible_homerun: ">=5.0.0"
 | Metric | Type | Description |
 |--------|------|-------------|
 | {{name}} | {{counter/gauge/histogram}} | {{what it measures}} |
+
+## Change Impact Map
+
+### Direct Impact (files being modified)
+
+| File/Module | Change Description |
+|-------------|-------------------|
+| {{path}} | {{what changes}} |
+
+### Indirect Impact (files that import/use changed code)
+
+| File/Module | Dependency | Verification |
+|-------------|-----------|--------------|
+| {{path}} | Imports {{symbol}} from {{changed file}} | {{How to verify no breakage}} |
+
+### No Ripple Effect (explicitly unaffected)
+
+- {{Feature/module confirmed unaffected and why}}
+
+## Agreement Checklist
+
+_Before implementation begins, confirm agreement on each item._
+
+- [ ] **Scope**: {{What changes — list of components/files}}
+- [ ] **Non-scope**: {{What explicitly does NOT change — preserve list}}
+- [ ] **Constraints**: {{Backward compatibility, parallel operation, performance requirements}}
+- [ ] **Testing**: {{Test strategy — unit, integration, e2e coverage expectations}}
+- [ ] **Rollback**: {{How to revert if something goes wrong}}
 
 ## Open Questions
 

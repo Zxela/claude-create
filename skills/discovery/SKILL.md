@@ -200,14 +200,24 @@ Always generate ADR if any trigger is detected (type change in 3+ locations, dat
 
 Inform the user of the scale assessment. If they think it's bigger or smaller than estimated, adjust.
 
-#### Acceptance Criteria Quality
+#### Acceptance Criteria Quality (EARS Format)
 
-Every acceptance criterion must describe an **observable outcome** that a developer can write a test for. The litmus test: "Can I verify this passed or failed without asking a follow-up question?"
+Every acceptance criterion must use **EARS format** (Easy Approach to Requirements Syntax) and describe an **observable outcome** that a developer can write a test for. The litmus test: "Can I verify this passed or failed without asking a follow-up question?"
 
-**Good — observable, testable:**
-- "When user submits the form with an invalid email, the system displays 'Please enter a valid email address' below the email field"
-- "API responds with 200 and the created user object within 500ms"
-- "If the session token is expired, the system redirects to /login and clears local storage"
+**EARS patterns — use these:**
+
+| Pattern | When to Use | Template |
+|---------|-------------|----------|
+| **Event-driven** | Something triggers a response | **When** [trigger], the system **shall** [response] |
+| **State-driven** | Behavior depends on system state | **While** [state], the system **shall** [behavior] |
+| **Conditional** | Behavior depends on a condition | **If** [condition], **then** the system **shall** [response] |
+| **Unconditional** | Always true, no trigger | The system **shall** [behavior] |
+
+**Good — EARS format, observable, testable:**
+- "When user submits the form with an invalid email, the system shall display 'Please enter a valid email address' below the email field"
+- "The API shall respond with 200 and the created user object within 500ms"
+- "If the session token is expired, then the system shall redirect to /login and clear local storage"
+- "While the user is unauthenticated, the system shall return 401 for all /api/* requests"
 
 **Bad — vague, subjective:**
 - "Should be user-friendly" → ask: "What specific action should be easy?"
@@ -215,13 +225,13 @@ Every acceptance criterion must describe an **observable outcome** that a develo
 - "Must be fast" → ask: "What response time is acceptable?"
 - "Handle errors properly" → ask: "What should the user see when X fails?"
 
-When a user provides a vague criterion, help them make it specific:
+When a user provides a vague criterion, rewrite it into EARS format:
 
 ```
-That criterion might be hard to test as written. Could we make it more specific?
+That criterion might be hard to test as written. Let me suggest an EARS rewrite:
 
 Instead of: "[vague criterion]"
-Something like: "[specific rewrite with observable outcome]"
+Something like: "When [trigger], the system shall [specific observable outcome]"
 
 Would that capture what you mean?
 ```
@@ -258,10 +268,16 @@ mkdir -p "${WORKTREE_PATH}/docs"
 Use templates from `templates/*.md` as starting points. Generate only the documents appropriate for the scale (see `references/scale-determination.md`).
 
 **Document segregation — strict boundaries:**
-- **PRD** = business value ONLY (problem, user stories, goals — never implementation details)
+- **PRD** = business value ONLY (problem, FR/NFR requirements, user stories, goals — never implementation details)
 - **ADR** = decision rationale ONLY (options, tradeoffs, consequences — never "how to implement")
-- **TECHNICAL_DESIGN** = implementation ONLY (architecture, data models, API contracts — never "why")
+- **TECHNICAL_DESIGN** = implementation ONLY (architecture, data models, API contracts, NFR implementation approach — never "why")
 - **WIREFRAMES** = user interface ONLY (layouts, flows, states — skip for CLI/API/library projects)
+
+**Requirements classification:**
+- **Functional Requirements (FR)** go in PRD, prioritized by MoSCoW (Must/Should/Could/Won't)
+- **Non-Functional Requirements (NFR)** have quantified targets in PRD, implementation approach in TECHNICAL_DESIGN
+- Each FR must have an EARS-format acceptance criterion
+- Each NFR must have a measurable target — omit the category if no target exists
 
 Cross-reference between documents instead of duplicating content.
 

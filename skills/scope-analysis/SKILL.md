@@ -219,13 +219,20 @@ Classify each component by layer:
 
 For each acceptance criterion from the PRD, check testability patterns:
 
-#### Testable Pattern Recognition
+#### EARS Format Recognition
 
-| Pattern | Regex | Example |
-|---------|-------|---------|
-| Behavioral | `(Given\|When\|Then)` | "Given a user, when they log in, then session is created" |
-| Assertion | `(should\|must\|can\|will) [a-z]+ [a-z]+` | "User must see error message" |
-| Quantitative | `[<>=≤≥] ?[0-9]` | "Response time < 500ms" |
+Acceptance criteria MUST use EARS (Easy Approach to Requirements Syntax). Validate against these patterns:
+
+| EARS Pattern | Regex | Example |
+|--------------|-------|---------|
+| Event-driven | `^When .+, the system shall` | "When user submits invalid email, the system shall display error" |
+| State-driven | `^While .+, the system shall` | "While unauthenticated, the system shall redirect to /login" |
+| Conditional | `^If .+, then the system shall` | "If token is expired, then the system shall return 401" |
+| Unconditional | `^The system shall` | "The system shall hash passwords using bcrypt" |
+| Quantitative | `shall .+ (within\|under\|less than\|<) [0-9]` | "The API shall respond within 200ms at p95" |
+| Legacy behavioral | `(Given\|When\|Then)` | "Given a user, when they log in, then session is created" |
+
+**Note:** Legacy Given/When/Then is accepted but EARS is preferred for new criteria.
 
 #### Invalid Patterns to Reject
 
@@ -235,6 +242,7 @@ For each acceptance criterion from the PRD, check testability patterns:
 | Vague outcome | "should work correctly" | "correctly" is undefined |
 | No threshold | "must be fast" | No measurable target |
 | Passive/vague | "errors are handled" | What handling? |
+| Missing "shall" | "the system returns 200" | No obligation keyword — ambiguous intent |
 
 #### Validation Process
 

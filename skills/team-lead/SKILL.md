@@ -139,6 +139,24 @@ Task({
 - If still failing after 2 attempts, skip the task and note it
 - Continue with remaining tasks (failed tasks may block dependents — that's expected)
 
+### Requirement Change Detection
+
+During the dispatch loop, watch for signals that requirements have shifted. If ANY of these are detected in user messages, **stop the dispatch loop** and return to discovery/re-scoping before continuing:
+
+| Signal | Example | Action |
+|--------|---------|--------|
+| **New features mentioned** | "Oh, we should also add email notifications" | Stop — new scope needs spec updates |
+| **Constraint additions** | "Actually, this needs to work offline too" | Stop — constraint changes ripple through design |
+| **Technical requirement changes** | "Let's use WebSockets instead of polling" | Stop — architecture decision needs ADR update |
+| **Scope expansion** | "Can we also handle the admin side?" | Stop — new user stories need PRD update |
+| **Behavioral pivots** | "Actually the error should retry, not fail" | Assess — minor AC update vs. architectural change |
+
+**When detected:**
+1. Pause all pending implementer dispatches (let active ones finish)
+2. Inform the user: "I noticed a potential requirement change: [specific signal]. This may affect the current implementation plan."
+3. Ask whether to: (a) update specs and re-plan affected tasks, (b) note it for a follow-up, or (c) ignore — it was just thinking out loud
+4. If (a): update spec documents, re-run scope analysis for affected tasks only, resume dispatch
+
 ### 3.5. Continuous Incremental Review
 
 Instead of waiting for all implementers to finish before reviewing, spawn reviewers **as each task completes**. This parallelizes review with ongoing implementation.

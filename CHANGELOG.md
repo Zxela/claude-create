@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.6.0] - 2026-02-28
+
+### Added
+- **EARS format for acceptance criteria** — PRD template, scope-analysis validation, and discovery dialogue now enforce EARS (Easy Approach to Requirements Syntax): When/While/If-then/Unconditional/Quantitative patterns. Legacy Given/When/Then still accepted.
+- **Test granularity rules** — "Observable Behavior Only" guidance added to implement skill and TDD skill. MUST test public APIs/return values/side effects. MUST NOT test private methods/internal state/call order. Mocking rules: external boundaries only.
+- **Functional/Non-functional requirements** — PRD template now has FR section with MoSCoW prioritization (Must/Should/Could/Won't) and NFR section with quantified targets. TECHNICAL_DESIGN has NFR Implementation section (Performance/Security/Reliability approaches).
+- **Includes/Excludes on all templates** — PRD, ADR, and TECHNICAL_DESIGN templates now have HTML comment headers declaring what belongs in each document and what goes elsewhere, preventing information bleed.
+- **Existing Codebase Analysis** — TECHNICAL_DESIGN template now includes Related Functionality, Patterns to Follow, and Integration Point Map sections to prevent duplication and ensure alignment with existing code.
+- **Change Impact Map** — TECHNICAL_DESIGN template now requires Direct Impact, Indirect Impact, and No Ripple Effect sections.
+- **Agreement Checklist** — TECHNICAL_DESIGN template now includes pre-implementation sign-off on Scope, Non-scope, Constraints, Testing, and Rollback.
+- **Requirement change detection** — Team-lead skill now has explicit checklist for detecting mid-implementation requirement shifts (new features, constraint additions, tech changes, scope expansion, behavioral pivots) with stop-and-assess protocol.
+- **Strategy justification** — Implement skill Step 0a now requires explicit strategy selection for sonnet/opus tasks: vertical-slice, horizontal-layer, outside-in, inside-out, or risk-first, with 2-3 sentence rationale.
+
+### Changed
+- Template versions bumped 1.0 → 1.1 (PRD, TECHNICAL_DESIGN, ADR)
+- Implement skill Step 0 sub-steps renumbered: 0a (strategy) → 0b (metacognitive) → 0c (impact) → 0d (duplication)
+- Context budget for Step 0 increased from ~2K to ~2.5K tokens to accommodate strategy selection
+
 ## [5.5.0] - 2026-02-28
 
 ### Changed

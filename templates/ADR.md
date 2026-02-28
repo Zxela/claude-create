@@ -1,10 +1,17 @@
 ---
-template_version: "1.0"
+template_version: "1.1"
 template_name: "ADR"
 compatible_homerun: ">=5.0.0"
 ---
 
 # ADR: {{TITLE}}
+
+<!--
+INCLUDES: Decision context, options considered (3+ minimum), trade-off analysis, rationale, consequences
+EXCLUDES: Implementation details, component design (→ TECHNICAL_DESIGN)
+          Business requirements, user stories (→ PRD)
+          UI layouts (→ WIREFRAMES)
+-->
 
 ## Status
 

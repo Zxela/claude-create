@@ -161,13 +161,40 @@ If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
 **Task-type gating:** Skip Step 0 entirely for haiku-level tasks (`add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`). These are mechanical, pattern-following tasks where pre-implementation analysis costs more than it saves. Jump directly to Step 1.
 
-**For sonnet/opus-level tasks only:** Complete these three sub-steps. They prevent wasted work, catch design issues early, and keep implementations aligned with the codebase.
+**For sonnet/opus-level tasks only:** Complete these four sub-steps. They prevent wasted work, catch design issues early, and keep implementations aligned with the codebase.
 
-**Context budget for all of Step 0: ~2K tokens** (grep output + brief notes, no full file reads)
+**Context budget for all of Step 0: ~2.5K tokens** (grep output + brief notes, no full file reads)
 
 ---
 
-#### 0a. Metacognitive Questions
+#### 0a. Strategy Selection
+
+Before touching code, decide HOW to implement — not just WHAT. Select an implementation strategy and document the rationale in 2-3 sentences.
+
+**Strategy options:**
+
+| Strategy | When to Use | Example |
+|----------|-------------|---------|
+| **Vertical slice** | End-to-end through one path first | "Implement happy-path login: route → service → model → test" |
+| **Horizontal layer** | One architectural layer at a time | "Add all model fields first, then all service methods" |
+| **Outside-in** | Start from API surface, work inward | "Define endpoint contract, then build service to fulfill it" |
+| **Inside-out** | Start from data, work outward | "Model first, then service, then route" |
+| **Risk-first** | Tackle the most uncertain part first | "Prove the bcrypt integration works before building the rest" |
+
+**Select by answering:**
+1. What's the riskiest part? → If uncertain, use **risk-first** to validate early
+2. Is this extending existing patterns? → If yes, use **horizontal layer** (follow the pattern)
+3. Is this greenfield? → If yes, use **vertical slice** (prove the path works)
+
+**Output** (brief, inline — not a separate document):
+```
+Strategy: [vertical-slice | horizontal-layer | outside-in | inside-out | risk-first]
+Rationale: [2-3 sentences explaining why this strategy fits this task]
+```
+
+---
+
+#### 0b. Metacognitive Questions
 
 Generate 3-5 self-interrogation questions based on the task type. Answer each **briefly** (1-2 sentences) before proceeding. If any answer is "I don't know," investigate before coding.
 
@@ -185,7 +212,7 @@ Generate 3-5 self-interrogation questions based on the task type. Answer each **
 
 ---
 
-#### 0b. Impact Analysis (3-Stage)
+#### 0c. Impact Analysis (3-Stage)
 
 Trace the full impact of the planned change before touching code.
 
@@ -223,7 +250,7 @@ grep -rn "export.*function\|export.*const" src/utils/ src/helpers/ src/lib/ 2>/d
 
 ---
 
-#### 0c. Duplication Check (Rule of Three)
+#### 0d. Duplication Check (Rule of Three)
 
 Evaluate whether similar functionality already exists using the grep results from Stage 1.
 
@@ -605,9 +632,38 @@ If you find yourself in any of these situations, STOP and correct course:
 - **Skipping acceptance criterion** - Every criterion needs a corresponding test
 - **"I'll add tests later"** - This violates TDD; tests come first, always
 - **Modifying code to make a test pass that should fail** - Tests drive implementation, not the reverse
+- **Testing implementation details** - Tests must verify observable behavior, not internal state (see Test Granularity below)
 
 **For all methodologies:**
 - **Implementing beyond the task scope** - Stick to the assigned task only
+
+## Test Granularity: Observable Behavior Only
+
+Tests must verify **what the code does**, not **how it does it**. A test that breaks when you refactor internals (without changing behavior) is a bad test.
+
+**MUST test (observable behavior):**
+- Public API return values and side effects
+- Error responses and exception types
+- User-visible state changes (DB writes, UI updates, HTTP responses)
+- Contract compliance (response shapes, status codes)
+
+**MUST NOT test (implementation details):**
+- Private methods or internal helper functions
+- Internal state or intermediate variables
+- Call order between internal components
+- Specific implementation patterns (e.g., "uses a for-loop")
+
+**Mocking rules:**
+- Mock external boundaries only (databases, HTTP clients, file system, third-party APIs)
+- Do NOT mock internal modules — if you need to mock an internal, the design is too coupled
+- Use real implementations for in-process code whenever feasible
+
+| Test Smell | Problem | Fix |
+|------------|---------|-----|
+| `expect(spy).toHaveBeenCalledWith(...)` on internal function | Tests implementation, not behavior | Assert on the output/side-effect instead |
+| Mocking 3+ internal modules | Test is coupled to implementation | Use real implementations or integration test |
+| Test breaks after refactor with no behavior change | Testing internals | Rewrite to assert on observable outcomes |
+| `expect(instance.privateField).toBe(...)` | Testing internal state | Assert through public API only |
 
 ## Context Budget
 
@@ -615,7 +671,7 @@ If you find yourself in any of these situations, STOP and correct course:
 
 | Component | Budget | Strategy |
 |-----------|--------|----------|
-| Pre-implementation analysis (0a-0c) | ~2K | Grep output + brief notes, no full reads |
+| Pre-implementation analysis (0a-0d) | ~2.5K | Strategy + grep output + brief notes, no full reads |
 | Task input | ~1K | Already minimal |
 | Spec extraction | ~2K | Targeted grep, not full reads |
 | Existing code reads | ~3K | Signatures only, expand as needed |

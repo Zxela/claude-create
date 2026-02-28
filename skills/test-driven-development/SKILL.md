@@ -202,6 +202,29 @@ Next failing test for next feature.
 | **Minimal** | One thing. "and" in name? Split it. | `test('validates email and domain and whitespace')` |
 | **Clear** | Name describes behavior | `test('test1')` |
 | **Shows intent** | Demonstrates desired API | Obscures what code should do |
+| **Observable** | Asserts on outputs and side effects | Asserts on internal state or call order |
+
+### Observable Behavior Only
+
+Tests verify **what the code does**, not **how it does it**.
+
+**MUST test:**
+- Public API return values and side effects
+- Error responses and exception types
+- User-visible state changes (DB writes, HTTP responses)
+
+**MUST NOT test:**
+- Private methods or internal helpers
+- Internal state or intermediate variables
+- Call order between internal components
+
+**Mocking:** Mock at external boundaries only (DB, HTTP, filesystem). If you need to mock an internal module, the design is too coupled — simplify the interface instead.
+
+| Smell | Fix |
+|-------|-----|
+| `expect(spy).toHaveBeenCalledWith(...)` on internal fn | Assert on output/side-effect |
+| Mocking 3+ internal modules | Integration test or simplify |
+| Breaks after refactor, no behavior change | Rewrite to assert on outcomes |
 
 ## Why Order Matters
 
