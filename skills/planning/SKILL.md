@@ -454,8 +454,9 @@ Before creating tasks, validate that all acceptance criteria from the PRD are te
 ```bash
 cd "$WORKTREE_PATH"
 
-# Extract all acceptance criteria from PRD
-grep -E "^\s*-\s*\[" docs/specs/PRD.md > /tmp/criteria.txt
+# Extract all acceptance criteria from PRD (use mktemp to avoid cross-session collisions)
+CRITERIA_FILE=$(mktemp)
+grep -E "^\s*-\s*\[" docs/specs/PRD.md > "$CRITERIA_FILE"
 
 # Check each criterion for testable patterns
 while read -r line; do
@@ -474,7 +475,8 @@ while read -r line; do
   fi
 
   echo "$pattern: $criterion"
-done < /tmp/criteria.txt
+done < "$CRITERIA_FILE"
+rm -f "$CRITERIA_FILE"
 ```
 
 #### Transform to Test Assertions

@@ -354,10 +354,12 @@ Test output can consume 5-10K tokens per run. Apply masking:
 # Run tests with minimal output
 npm test -- --reporter=dot 2>&1 | tail -30
 
-# Or capture and summarize
-npm test 2>&1 | tee /tmp/test-output.txt
-echo "Tests: $(grep -c 'PASS\|FAIL' /tmp/test-output.txt) total"
-grep -A 2 'FAIL' /tmp/test-output.txt | head -20  # First failure only
+# Or capture and summarize (use worktree-local temp to avoid cross-session collisions)
+TEST_OUT=$(mktemp)
+npm test 2>&1 | tee "$TEST_OUT"
+echo "Tests: $(grep -c 'PASS\|FAIL' "$TEST_OUT") total"
+grep -A 2 'FAIL' "$TEST_OUT" | head -20  # First failure only
+rm -f "$TEST_OUT"
 ```
 
 **What to keep in context:**

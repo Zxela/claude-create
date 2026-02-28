@@ -29,8 +29,14 @@ Jump directly into the execution/implementation phase. Use when you already have
 
 If `--find`:
 ```bash
-git worktree list | grep create/
+# List all homerun worktrees with session info
+for wt in $(git worktree list | grep 'create/' | awk '{print $1}'); do
+  if [ -f "$wt/state.json" ]; then
+    echo "$wt — $(jq -r '"\(.feature // "unknown") [\(.phase // "unknown")]"' "$wt/state.json")"
+  fi
+done
 ```
+If multiple sessions exist, ask the user which one to build.
 
 Otherwise validate:
 ```bash

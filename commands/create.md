@@ -52,14 +52,21 @@ Start an orchestrated development workflow that takes you from idea to implement
 
 When resuming an interrupted session:
 
-1. Find the existing worktree:
+1. Find existing homerun worktrees and show their session info:
    ```bash
-   git worktree list | grep create/
+   # List all homerun worktrees with their phase and feature name
+   for wt in $(git worktree list | grep 'create/' | awk '{print $1}'); do
+     if [ -f "$wt/state.json" ]; then
+       echo "$wt — $(jq -r '"\(.feature // "unknown") [\(.phase // "unknown")]"' "$wt/state.json")"
+     fi
+   done
    ```
 
-2. Read `state.json` from the worktree root
+2. If multiple worktrees exist, ask the user which session to resume
 
-3. Jump into the **Phase Loop** below at the current phase
+3. Read `state.json` from the selected worktree root
+
+4. Jump into the **Phase Loop** below at the current phase
 
 ### New Session (no --resume)
 

@@ -1,9 +1,12 @@
 #!/bin/bash
 # Hook: SubagentStop (matcher: implementer)
-# Purpose: Update task status in tasks.json after an implementer finishes
+# Purpose: Log progress after an implementer finishes
 #
 # This script runs when an implementer subagent stops.
-# It checks if the task was completed successfully and updates state.
+# It reads tasks.json to report progress.
+#
+# IMPORTANT: Uses session-aware state lookup to avoid reading another
+# parallel session's state.json.
 #
 # Usage: Add to .claude/settings.json:
 #   "hooks": {
@@ -11,7 +14,7 @@
 #       "matcher": "implementer",
 #       "hooks": [{
 #         "type": "command",
-#         "command": "./scripts/homerun-post-implement.sh"
+#         "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-post-implement.sh"
 #       }]
 #     }]
 #   }
@@ -20,20 +23,33 @@ set -euo pipefail
 
 WORKTREE_PATH="${CLAUDE_WORKTREE_PATH:-$(pwd)}"
 
-# Find state.json
+# --- Session-aware state.json lookup ---
+# First: check the current worktree directly
 STATE_FILE="$WORKTREE_PATH/state.json"
+
 if [ ! -f "$STATE_FILE" ]; then
-  # Try parent directory (implementer may run in a sub-worktree)
-  for wt in $(git -C "$WORKTREE_PATH" worktree list | awk '{print $1}'); do
-    if [ -f "$wt/state.json" ]; then
-      STATE_FILE="$wt/state.json"
-      break
-    fi
-  done
+  # Implementer may run in a sub-worktree. Find the parent session's state.json
+  # by matching the branch prefix (create/<session-id>).
+  BRANCH=$(git -C "$WORKTREE_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  SESSION_ID="${BRANCH#create/}"
+
+  if [ -n "$SESSION_ID" ] && [ "$SESSION_ID" != "$BRANCH" ]; then
+    # Branch is create/*, search for matching session
+    for wt in $(git -C "$WORKTREE_PATH" worktree list | awk '{print $1}'); do
+      [ "$wt" = "$WORKTREE_PATH" ] && continue
+      if [ -f "$wt/state.json" ]; then
+        FILE_SESSION_ID=$(jq -r '.session_id // empty' "$wt/state.json" 2>/dev/null)
+        if [ "$FILE_SESSION_ID" = "$SESSION_ID" ]; then
+          STATE_FILE="$wt/state.json"
+          break
+        fi
+      fi
+    done
+  fi
 fi
 
 if [ ! -f "$STATE_FILE" ]; then
-  echo "homerun-post-implement: No state.json found, skipping" >&2
+  echo "homerun-post-implement: No state.json found for this session, skipping" >&2
   exit 0
 fi
 

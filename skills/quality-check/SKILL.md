@@ -144,12 +144,14 @@ done
 ```bash
 cd "$WORKTREE_PATH"
 
-# Run full test suite and check exit code
+# Run full test suite and check exit code (use mktemp to avoid cross-session collisions)
 if [ -f package.json ]; then
-  npm test 2>&1 | tee /tmp/test-output.txt
+  TEST_OUT=$(mktemp)
+  npm test 2>&1 | tee "$TEST_OUT"
   TEST_EXIT=$?
   echo "Exit code: $TEST_EXIT"
-  grep -A 2 'FAIL' /tmp/test-output.txt | head -20
+  grep -A 2 'FAIL' "$TEST_OUT" | head -20
+  rm -f "$TEST_OUT"
 elif [ -f Cargo.toml ]; then
   cargo test 2>&1 | tail -30
   TEST_EXIT=$?

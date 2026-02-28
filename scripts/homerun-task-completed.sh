@@ -6,12 +6,15 @@
 #   0 — Allow task completion
 #   2 — Block task completion (validation failed)
 #
+# IMPORTANT: Uses session-aware state lookup to avoid reading another
+# parallel session's state.json.
+#
 # Usage: Add to .claude/settings.json:
 #   "hooks": {
 #     "TaskCompleted": [{
 #       "hooks": [{
 #         "type": "command",
-#         "command": "./scripts/homerun-task-completed.sh"
+#         "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-task-completed.sh"
 #       }]
 #     }]
 #   }
@@ -20,16 +23,30 @@ set -euo pipefail
 
 WORKTREE_PATH="${CLAUDE_WORKTREE_PATH:-$(pwd)}"
 
-# Find state.json
-STATE_FILE=""
-for wt in $(git -C "$WORKTREE_PATH" worktree list 2>/dev/null | awk '{print $1}'); do
-  if [ -f "$wt/state.json" ]; then
-    STATE_FILE="$wt/state.json"
-    break
-  fi
-done
+# --- Session-aware state.json lookup ---
+# First: check the current worktree directly
+STATE_FILE="$WORKTREE_PATH/state.json"
 
-if [ -z "$STATE_FILE" ]; then
+if [ ! -f "$STATE_FILE" ]; then
+  # Find the parent session's state.json by matching session_id
+  BRANCH=$(git -C "$WORKTREE_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  SESSION_ID="${BRANCH#create/}"
+
+  if [ -n "$SESSION_ID" ] && [ "$SESSION_ID" != "$BRANCH" ]; then
+    for wt in $(git -C "$WORKTREE_PATH" worktree list 2>/dev/null | awk '{print $1}'); do
+      [ "$wt" = "$WORKTREE_PATH" ] && continue
+      if [ -f "$wt/state.json" ]; then
+        FILE_SESSION_ID=$(jq -r '.session_id // empty' "$wt/state.json" 2>/dev/null)
+        if [ "$FILE_SESSION_ID" = "$SESSION_ID" ]; then
+          STATE_FILE="$wt/state.json"
+          break
+        fi
+      fi
+    done
+  fi
+fi
+
+if [ ! -f "$STATE_FILE" ]; then
   # Not a homerun project, allow completion
   exit 0
 fi
