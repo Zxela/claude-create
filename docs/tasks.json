@@ -1,0 +1,429 @@
+{
+  "tasks": [
+    {
+      "id": "001",
+      "title": "Create feedback-aggregator.sh library script",
+      "objective": "Create scripts/lib/feedback-aggregator.sh that parses REVIEWER_FEEDBACK and REJECTED signals from session logs, extracts rejection patterns, and writes them to feedback_patterns.json in the worktree. This is the foundation for session-level feedback accumulation.",
+      "task_type": "create_service",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "001-AC1",
+          "criterion": "feedback-aggregator.sh exists at scripts/lib/feedback-aggregator.sh and is executable",
+          "test_assertion": "File exists and has executable permission"
+        },
+        {
+          "id": "001-AC2",
+          "criterion": "Script accepts worktree path argument and reads REJECTED signal payloads from task status in tasks.json",
+          "test_assertion": "Script parses rejection reasons from tasks.json failed/rejected entries"
+        },
+        {
+          "id": "001-AC3",
+          "criterion": "Script outputs valid JSON to feedback_patterns.json with rejection reasons grouped by task_id with counts",
+          "test_assertion": "Output JSON validates with jq and contains task_id keys with rejection_reasons arrays"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": [],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-1"],
+        "acceptance_criteria": ["AC-001"],
+        "adr_decisions": []
+      },
+      "technical_notes": "New file. Script should be POSIX-compatible bash. Use jq for JSON parsing. Accept $1 as worktree path, default to $CLAUDE_WORKTREE_PATH. Write output to $WORKTREE_PATH/feedback_patterns.json. Group by task_id, include rejection count per pattern. Handle empty/missing tasks.json gracefully (exit 0 with empty JSON).",
+      "context_refs": {
+        "interface_locations": ["scripts/lib/tasks-bridge.js:existing lib pattern"],
+        "pattern_files": ["scripts/homerun-post-implement.sh"],
+        "grep_patterns": ["REJECTED", "rejection_reason", "jq.*tasks"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-1"
+      },
+      "model": "sonnet",
+      "non_scope": ["Do NOT modify any existing scripts", "Do NOT touch signal-contracts.json"]
+    },
+    {
+      "id": "002",
+      "title": "Update post-implement hook to call feedback-aggregator",
+      "objective": "Enhance scripts/homerun-post-implement.sh to call feedback-aggregator.sh after logging progress, so rejection patterns are extracted and accumulated on every implementer stop event.",
+      "task_type": "add_method",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "002-AC1",
+          "criterion": "homerun-post-implement.sh sources or calls scripts/lib/feedback-aggregator.sh with the worktree path",
+          "test_assertion": "Script contains call to feedback-aggregator.sh with correct path"
+        },
+        {
+          "id": "002-AC2",
+          "criterion": "Feedback aggregation runs after progress logging, not before",
+          "test_assertion": "feedback-aggregator.sh call appears after the progress echo line"
+        },
+        {
+          "id": "002-AC3",
+          "criterion": "If feedback-aggregator.sh fails, post-implement hook still exits 0 (non-blocking)",
+          "test_assertion": "Error handling wraps aggregator call so hook never blocks on aggregation failure"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": ["001"],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-1"],
+        "acceptance_criteria": ["AC-001", "AC-002"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit existing file. Resolve PLUGIN_ROOT relative to script location for portable path to lib/feedback-aggregator.sh. Use '|| true' or similar to prevent aggregation failures from blocking the hook. The hook is SubagentStop type so must never exit non-zero for aggregation issues.",
+      "context_refs": {
+        "interface_locations": ["scripts/homerun-post-implement.sh:full file"],
+        "pattern_files": ["scripts/homerun-post-implement.sh"],
+        "grep_patterns": ["SubagentStop", "exit 0", "PLUGIN_ROOT"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-1"
+      },
+      "model": "haiku",
+      "non_scope": ["Do NOT change existing progress logging logic", "Do NOT change session-aware state lookup"]
+    },
+    {
+      "id": "003",
+      "title": "Update team-lead skill for feedback pattern injection",
+      "objective": "Add a section to skills/team-lead/SKILL.md that instructs team-lead to read feedback_patterns.json (if it exists) and inject accumulated rejection patterns into the task context before dispatching each implementer. This closes the feedback loop so implementers learn from prior rejections.",
+      "task_type": "add_method",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "003-AC1",
+          "criterion": "Team-lead SKILL.md contains instructions to check for feedback_patterns.json in worktree before dispatching implementer",
+          "test_assertion": "SKILL.md contains section about reading feedback_patterns.json"
+        },
+        {
+          "id": "003-AC2",
+          "criterion": "When feedback_patterns.json exists, team-lead includes 'previous_rejections' array in task context passed to implementer",
+          "test_assertion": "SKILL.md documents injecting previous_rejections into implementer task context"
+        },
+        {
+          "id": "003-AC3",
+          "criterion": "When feedback_patterns.json does not exist or is empty, team-lead proceeds normally without injection",
+          "test_assertion": "SKILL.md handles missing/empty feedback file gracefully"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": ["001"],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-1"],
+        "acceptance_criteria": ["AC-002", "AC-003"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit existing SKILL.md. Add a new subsection (e.g., '### Feedback Pattern Injection') in the task dispatch section. The team-lead should: 1) Check if feedback_patterns.json exists in worktree, 2) If yes, read and include as 'previous_rejections' in task context, 3) Instruct implementer to avoid previously-rejected approaches. Keep instructions concise -- team-lead is an inline skill so instructions must be clear and actionable. IMPORTANT: This task only adds the feedback injection section. The continuous review changes (IMPROVEMENT-5) will be added in TASK-009 as a separate edit.",
+      "context_refs": {
+        "interface_locations": ["skills/team-lead/SKILL.md:task dispatch section"],
+        "pattern_files": ["skills/team-lead/SKILL.md"],
+        "grep_patterns": ["dispatch", "implementer", "task_context", "Task\\(\\)"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-1"
+      },
+      "model": "sonnet",
+      "non_scope": ["Do NOT add continuous review logic (that is TASK-009)", "Do NOT modify reviewer spawning logic", "Do NOT change maxTurns or agent limits"]
+    },
+    {
+      "id": "004",
+      "title": "Create quality lint and typecheck hook scripts",
+      "objective": "Create two new bash scripts: scripts/homerun-quality-lint.sh (auto-fix lint issues) and scripts/homerun-quality-typecheck.sh (run type checking). These extract deterministic phases from the quality-checker agent into standalone hooks.",
+      "task_type": "create_service",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "004-AC1",
+          "criterion": "homerun-quality-lint.sh exists, is executable, auto-detects project lint tool (eslint/prettier/biome), runs auto-fix, and exits 0 on success",
+          "test_assertion": "Script exists with executable permission and contains lint tool detection logic"
+        },
+        {
+          "id": "004-AC2",
+          "criterion": "homerun-quality-typecheck.sh exists, is executable, auto-detects type checker (tsc/pyright/mypy), runs check, and exits with appropriate code",
+          "test_assertion": "Script exists with executable permission and contains type checker detection logic"
+        },
+        {
+          "id": "004-AC3",
+          "criterion": "Both scripts follow the existing hook script pattern (set -euo pipefail, session-aware, WORKTREE_PATH handling)",
+          "test_assertion": "Scripts match structural patterns from homerun-pre-commit.sh"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": [],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-2"],
+        "acceptance_criteria": ["AC-004", "AC-005"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Two new files. Follow the pattern from homerun-pre-commit.sh for structure: shebang, header comment, set -euo pipefail, WORKTREE_PATH detection. Lint script: detect package.json scripts (lint:fix, lint), or eslint --fix, or prettier --write. Exit 0 after auto-fix. Typecheck script: detect tsc, pyright, mypy. Exit 0 on pass, exit 1 on failure (log but allow). Both scripts should handle 'no tool found' gracefully by echoing a skip message and exiting 0.",
+      "context_refs": {
+        "interface_locations": ["scripts/homerun-pre-commit.sh:hook structure pattern"],
+        "pattern_files": ["scripts/homerun-pre-commit.sh", "scripts/homerun-auto-lint.sh"],
+        "grep_patterns": ["set -euo pipefail", "WORKTREE_PATH", "CLAUDE_WORKTREE_PATH", "exit 0"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-2"
+      },
+      "model": "sonnet",
+      "non_scope": ["Do NOT modify existing hook scripts", "Do NOT change hook exit code semantics (0=allow, 1=log, 2=block)"]
+    },
+    {
+      "id": "005",
+      "title": "Update quality-check skill and quality-checker agent for reduced scope",
+      "objective": "Update skills/quality-check/SKILL.md to document that Phase 1 (lint) and Phase 2 (typecheck) are now handled by bash hooks, and reduce quality-checker agent maxTurns from 15 to 10. Update agents/quality-checker.md to reflect the agent now handles only Phase 3-5.",
+      "task_type": "add_config",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "005-AC1",
+          "criterion": "quality-check SKILL.md documents Phase 1-2 are handled by homerun-quality-lint.sh and homerun-quality-typecheck.sh hooks",
+          "test_assertion": "SKILL.md references the two new hook scripts for Phase 1-2"
+        },
+        {
+          "id": "005-AC2",
+          "criterion": "quality-checker.md agent definition reflects reduced scope (Phase 3-5 only) and documents maxTurns as 10",
+          "test_assertion": "Agent file shows maxTurns: 10 and Phase 3-5 scope"
+        },
+        {
+          "id": "005-AC3",
+          "criterion": "model-routing.json agent_limits.maxTurns.quality_checker is updated to 10",
+          "test_assertion": "JSON value at agent_limits.maxTurns.quality_checker equals 10"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": ["004"],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-2"],
+        "acceptance_criteria": ["AC-005", "AC-006"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit 3 existing files. In SKILL.md: update the phase description table to show Phase 1 and Phase 2 as 'Hook: homerun-quality-lint.sh' and 'Hook: homerun-quality-typecheck.sh'. In quality-checker.md: remove Phase 1-2 instructions, update scope description. In model-routing.json: change quality_checker maxTurns from 15 to 10.",
+      "context_refs": {
+        "interface_locations": ["skills/quality-check/SKILL.md:Phase descriptions", "agents/quality-checker.md:agent definition", "references/model-routing.json:agent_limits"],
+        "pattern_files": ["skills/quality-check/SKILL.md"],
+        "grep_patterns": ["maxTurns", "Phase 1", "Phase 2", "quality_checker.*15"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-2"
+      },
+      "model": "haiku",
+      "non_scope": ["Do NOT change Phase 3-5 logic", "Do NOT modify other agent maxTurns values"]
+    },
+    {
+      "id": "006",
+      "title": "Add Step 5.5 mutation test verification to implement skill",
+      "objective": "Add a new Step 5.5 (Mutation Test Verification) to skills/implement/SKILL.md between existing Step 5 (run tests) and Step 6. This step instructs implementers to comment out one critical line, re-run tests, and block if tests still pass (tautological test detection). Only applies to complex task types.",
+      "task_type": "add_method",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "006-AC1",
+          "criterion": "SKILL.md contains Step 5.5 titled 'Mutation Test Verification' between Step 5 and Step 6",
+          "test_assertion": "Section heading 'Step 5.5' exists and is positioned correctly"
+        },
+        {
+          "id": "006-AC2",
+          "criterion": "Step 5.5 specifies mutation test only runs for task types: create_service, bug_fix, create_model",
+          "test_assertion": "Step 5.5 contains conditional logic listing the three task types"
+        },
+        {
+          "id": "006-AC3",
+          "criterion": "Step 5.5 instructs to emit IMPLEMENTATION_BLOCKED with blocker_type='tautological_test' when mutation test fails",
+          "test_assertion": "Step 5.5 references IMPLEMENTATION_BLOCKED signal with tautological_test blocker type"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": [],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-3"],
+        "acceptance_criteria": ["AC-007", "AC-008"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit existing SKILL.md. Insert new section after Step 5. The mutation test procedure: 1) Identify the most critical implementation line (the line that makes the core acceptance criterion pass), 2) Comment it out, 3) Re-run the relevant test, 4) If test still passes -> emit IMPLEMENTATION_BLOCKED(blocker_type: 'tautological_test'), 5) If test fails -> mutation caught, restore line and proceed to Step 6. Include a skip condition: 'If task_type not in [create_service, bug_fix, create_model], skip Step 5.5.'",
+      "context_refs": {
+        "interface_locations": ["skills/implement/SKILL.md:Step 5", "references/signal-contracts.json:IMPLEMENTATION_BLOCKED"],
+        "pattern_files": ["skills/implement/SKILL.md"],
+        "grep_patterns": ["Step 5", "Step 6", "IMPLEMENTATION_BLOCKED", "blocker_type"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-3"
+      },
+      "model": "sonnet",
+      "non_scope": ["Do NOT change Steps 1-5 or Step 6+", "Do NOT modify the review skill in this task"]
+    },
+    {
+      "id": "007",
+      "title": "Update implementer agent and review skill for mutation gate",
+      "objective": "Update agents/implementer.md to document the mutation test step and its conditional execution. Update skills/review/SKILL.md to handle the tautological_test blocker type, providing guidance for re-dispatch with stronger test instructions.",
+      "task_type": "add_method",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "007-AC1",
+          "criterion": "implementer.md documents Step 5.5 mutation test with skip conditions for haiku-level tasks",
+          "test_assertion": "Agent file references Step 5.5 and lists skip conditions"
+        },
+        {
+          "id": "007-AC2",
+          "criterion": "review SKILL.md handles tautological_test blocker type and provides guidance for re-dispatch",
+          "test_assertion": "Review skill contains tautological_test handling with re-dispatch guidance"
+        },
+        {
+          "id": "007-AC3",
+          "criterion": "Re-dispatch guidance instructs implementer to strengthen test assertions (not just add more tests)",
+          "test_assertion": "Guidance text focuses on assertion quality, not quantity"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": ["006"],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-3"],
+        "acceptance_criteria": ["AC-007", "AC-008", "AC-009"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit 2 existing files. In implementer.md: add a section about Step 5.5 mutation test, clearly state it runs only for create_service, bug_fix, create_model. In review SKILL.md: add a subsection under blocker handling for 'tautological_test' type. The re-dispatch guidance should instruct: 'Strengthen test assertions to verify actual behavior, not just function existence. Tests must fail when the critical implementation line is removed.'",
+      "context_refs": {
+        "interface_locations": ["agents/implementer.md:step documentation", "skills/review/SKILL.md:blocker handling"],
+        "pattern_files": ["agents/implementer.md", "skills/review/SKILL.md"],
+        "grep_patterns": ["Step 5", "IMPLEMENTATION_BLOCKED", "blocker_type", "re-dispatch", "tautological"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-3"
+      },
+      "model": "haiku",
+      "non_scope": ["Do NOT change other implementer steps", "Do NOT modify reviewer agent (that is TASK-010)"]
+    },
+    {
+      "id": "008",
+      "title": "Update discovery skill, agent, and create command for scale-aware haiku fast path",
+      "objective": "Add scale estimation questions to skills/discovery/SKILL.md, update agents/discovery-agent.md with small-scope detection logic, and update commands/create.md to document the haiku fast path. When scope < 3 files, set scale='small' in state.json and skip scope-analysis phase.",
+      "task_type": "create_service",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "008-AC1",
+          "criterion": "Discovery SKILL.md contains scale estimation questions that determine file count scope",
+          "test_assertion": "SKILL.md has questions about estimated files changed and scope size"
+        },
+        {
+          "id": "008-AC2",
+          "criterion": "Discovery agent documents logic: if scope < 3 files, set state.json scale='small' and emit only TECHNICAL_DESIGN signal",
+          "test_assertion": "Agent file contains scale='small' logic with < 3 files threshold"
+        },
+        {
+          "id": "008-AC3",
+          "criterion": "Create command documents haiku fast path: when scale='small', skip scope-analysis phase",
+          "test_assertion": "Create command references scale field and skip logic for small scope"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": [],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-4"],
+        "acceptance_criteria": ["AC-010", "AC-011", "AC-012"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit 3 existing files. In discovery SKILL.md: add 2 questions about estimated scope (file count, complexity level). Add a decision tree: if files < 3 -> scale='small'. In discovery-agent.md: document the fast path flow where small-scope tasks skip PRD/ADR and only generate TECHNICAL_DESIGN. In create.md: add a section about the haiku fast path, explaining that scale='small' tasks route to haiku model and skip scope-analysis.",
+      "context_refs": {
+        "interface_locations": ["skills/discovery/SKILL.md:question flow", "agents/discovery-agent.md:agent definition", "commands/create.md:workflow steps"],
+        "pattern_files": ["skills/discovery/SKILL.md", "commands/create.md"],
+        "grep_patterns": ["scale", "Question", "file count", "scope-analysis", "haiku"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-4"
+      },
+      "model": "sonnet",
+      "non_scope": ["Do NOT change /build, /plan, /diagnose commands", "Do NOT modify agent spawning depth rules"]
+    },
+    {
+      "id": "009",
+      "title": "Update team-lead skill for continuous incremental review",
+      "objective": "Add continuous incremental review logic to skills/team-lead/SKILL.md: on TASK_COMPLETED signal, spawn a reviewer immediately (up to 2 concurrent reviewers). Rejected tasks re-queue for immediate retry. Final quality gate still runs after all tasks complete.",
+      "task_type": "create_service",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "009-AC1",
+          "criterion": "Team-lead SKILL.md contains incremental review section: spawn reviewer on TASK_COMPLETED, max 2 concurrent reviewers",
+          "test_assertion": "SKILL.md documents reviewer spawning on task completion with concurrency limit of 2"
+        },
+        {
+          "id": "009-AC2",
+          "criterion": "Rejected tasks re-queue for immediate retry with feedback context from TASK-003's feedback injection",
+          "test_assertion": "SKILL.md documents re-queue logic for rejected tasks referencing feedback patterns"
+        },
+        {
+          "id": "009-AC3",
+          "criterion": "Final quality gate still runs after all tasks are accepted or finally rejected (no change to end-of-session quality check)",
+          "test_assertion": "SKILL.md preserves final quality gate as last step"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": ["003"],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-5"],
+        "acceptance_criteria": ["AC-013", "AC-014", "AC-015"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit existing SKILL.md (already modified by TASK-003 for feedback injection). Add a new major section for 'Continuous Incremental Review'. Key design: 1) After implementer completes a task and SubagentStop fires, team-lead checks if reviewer slots available (max 2 concurrent), 2) If slot available, spawn reviewer Task() for completed task, 3) On REJECTED signal, re-queue task with 'previous_rejections' context (leveraging TASK-003's feedback injection), 4) Continue dispatching pending implementer tasks in parallel with reviewers, 5) After all tasks processed, run final quality gate. This replaces the batch-review-at-end pattern.",
+      "context_refs": {
+        "interface_locations": ["skills/team-lead/SKILL.md:task orchestration section"],
+        "pattern_files": ["skills/team-lead/SKILL.md"],
+        "grep_patterns": ["TASK_COMPLETED", "reviewer", "Task\\(\\)", "quality gate", "max.*concurrent"],
+        "constraints_section": "scope-analysis.json:IMPROVEMENT-5"
+      },
+      "model": "sonnet",
+      "non_scope": ["Do NOT change team-lead from inline skill to spawned agent", "Do NOT modify agent spawning depth (keep depth 0 for team-lead, depth 1 for implementers/reviewers)"]
+    },
+    {
+      "id": "010",
+      "title": "Update signal-contracts.json, model-routing.json, and reviewer agent",
+      "objective": "Update cross-cutting reference files: add new signals (TAUTOLOGICAL_TEST_DETECTED, REVIEW_DISPATCHED, SCALE_ESTIMATION_COMPLETE) to signal-contracts.json, add haiku scale routing rule to model-routing.json, and update agents/reviewer.md for incremental review flow.",
+      "task_type": "add_config",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "010-AC1",
+          "criterion": "signal-contracts.json contains REVIEW_DISPATCHED signal with envelope schema documenting concurrent reviewer constraints (max 2)",
+          "test_assertion": "JSON contains REVIEW_DISPATCHED signal definition with concurrency metadata"
+        },
+        {
+          "id": "010-AC2",
+          "criterion": "model-routing.json scale_routing.small section includes skip_scope_analysis: true and documents haiku fast path",
+          "test_assertion": "JSON at scale_routing.small contains skip_scope_analysis: true"
+        },
+        {
+          "id": "010-AC3",
+          "criterion": "signal-contracts.json IMPLEMENTATION_BLOCKED envelope_example includes tautological_test as a blocker_type variant",
+          "test_assertion": "IMPLEMENTATION_BLOCKED signal example shows tautological_test blocker type"
+        },
+        {
+          "id": "010-AC4",
+          "criterion": "reviewer.md documents incremental review flow: receive single task for review, emit APPROVED or REJECTED, support re-queue on rejection",
+          "test_assertion": "Reviewer agent file contains incremental review documentation"
+        }
+      ],
+      "test_file": null,
+      "no_test_reason": "Plugin is markdown/bash only - validated by structural review",
+      "status": "pending",
+      "depends_on": ["006", "008", "009"],
+      "traces_to": {
+        "user_stories": ["IMPROVEMENT-3", "IMPROVEMENT-4", "IMPROVEMENT-5"],
+        "acceptance_criteria": ["AC-007", "AC-011", "AC-013", "AC-014"],
+        "adr_decisions": []
+      },
+      "technical_notes": "Edit 3 existing files. This is the cross-cutting reference update task -- it consolidates all reference file changes that depend on the skill/agent changes being finalized first. In signal-contracts.json: 1) Add REVIEW_DISPATCHED signal (producer: homerun:team-lead, payload: task_id, reviewer_slot, max_concurrent: 2), 2) Update IMPLEMENTATION_BLOCKED example to include tautological_test variant. In model-routing.json: add skip_scope_analysis: true to scale_routing.small. In reviewer.md: add section about incremental review lifecycle (single-task review, immediate signal emission).",
+      "context_refs": {
+        "interface_locations": ["references/signal-contracts.json:signals section", "references/model-routing.json:scale_routing", "agents/reviewer.md:agent definition"],
+        "pattern_files": ["references/signal-contracts.json"],
+        "grep_patterns": ["IMPLEMENTATION_BLOCKED", "scale_routing", "REVIEW_DISPATCHED", "reviewer"],
+        "constraints_section": "scope-analysis.json:change_impact_map"
+      },
+      "model": "haiku",
+      "non_scope": ["Do NOT modify envelope_schema", "Do NOT change retry_strategy", "Do NOT add signals not documented in scope-analysis.json"]
+    }
+  ]
+}
