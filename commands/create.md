@@ -119,6 +119,21 @@ After discovery returns, re-read `state.json`. Discovery sets `phase: "spec_revi
 
 #### Phase: spec_review
 
+**Auto-mode skip for non-large features:** If `auto_mode` is enabled and scale is not `"large"`, skip spec review entirely — update `state.json` phase to `"scope_analysis"` and continue the loop. In auto mode, the cost of a full spec review outweighs the risk for small/medium features.
+
+```bash
+SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' "$WORKTREE_PATH/state.json" 2>/dev/null)
+AUTO_MODE=$(jq -r '.config.auto_mode // false' "$WORKTREE_PATH/state.json" 2>/dev/null)
+
+if [ "$AUTO_MODE" = "true" ] && [ "$SCALE" != "large" ]; then
+  echo "Skipping spec review (auto mode, scale=$SCALE)"
+  jq '.phase = "scope_analysis"' "$WORKTREE_PATH/state.json" > tmp.json && mv tmp.json "$WORKTREE_PATH/state.json"
+  # Continue phase loop — do not spawn spec-reviewer
+fi
+```
+
+If not skipping, spawn the spec-reviewer:
+
 ```javascript
 Task({
   description: "Review specification documents",
@@ -201,7 +216,28 @@ fi
 ```
 
 If validation fails (exit code 2): report errors and **stop**. User fixes issues and runs `/create --resume`.
-If validation passes (exit code 0 or 1): continue to `implementing`.
+If validation passes (exit code 0 or 1): check mode before continuing.
+
+**Plan-then-stop (default for interactive mode):**
+
+If `auto_mode` is **not** enabled, print a task summary and stop — directing the user to start implementation explicitly:
+
+```bash
+AUTO_MODE=$(jq -r '.config.auto_mode // false' "$WORKTREE_PATH/state.json" 2>/dev/null)
+
+if [ "$AUTO_MODE" != "true" ]; then
+  TASK_COUNT=$(jq '.tasks | length' "$WORKTREE_PATH/docs/tasks.json")
+  echo ""
+  echo "Planning complete — $TASK_COUNT tasks ready for implementation:"
+  jq -r '.tasks[] | "  \(.id): \(.title) [\(.task_type)] → \(.model // "sonnet")"' "$WORKTREE_PATH/docs/tasks.json"
+  echo ""
+  echo "To start implementation, run:"
+  echo "  /build $WORKTREE_PATH"
+  # STOP — do not proceed to implementing
+fi
+```
+
+If `auto_mode` is enabled: continue to `implementing` as before.
 
 #### Phase: implementing
 
