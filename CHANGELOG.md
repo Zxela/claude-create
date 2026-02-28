@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.0.0] - 2026-02-27
+
+### Added
+- **Pre-commit quality gate hook** (`scripts/homerun-pre-commit.sh`) — PreToolUse hook that blocks `git commit`/`git push` if lint or typecheck fails. Auto-detects project tools (biome, eslint, prettier, ruff, tsc, mypy).
+- **Auto-lint hook** (`scripts/homerun-auto-lint.sh`) — PostToolUse hook that auto-formats files after Edit/Write operations.
+- **Setup quality gates skill** (`homerun:setup-quality-gates`) — Configures `.claude/settings.json` with hook entries for target projects. Idempotent, haiku model.
+- **Archived specs** (`references/archived-specs/hooks-quality-gates/`) — PRD, ADR, and TECHNICAL_DESIGN from the comprehensive hooks session, preserved for future reference.
+
+### Changed
+- **Team-lead converted from agent to inline skill** — Runs at depth 0 in the main session instead of as a constrained depth-1 agent. Leverages Claude's native orchestration. Reduced from ~700 lines to ~120 lines.
+- `/create` and `/build` commands now invoke team-lead via `Skill()` instead of `Task()`.
+- Architecture diagrams updated to reflect inline team-lead at depth 0.
+
+### Fixed
+- **Parallel session state.json collisions** — Hook scripts (`homerun-worktree-setup.sh`, `homerun-post-implement.sh`, `homerun-task-completed.sh`) now match `session_id` from branch name instead of grabbing the first `state.json` found across worktrees.
+- **Shared `/tmp/` path collisions** — Replaced hardcoded `/tmp/test-output.txt` and `/tmp/criteria.txt` with `mktemp` in implement, planning, and quality-check skills.
+
+### Removed
+- **Team-lead agent** (`agents/team-lead.md`) — Replaced by inline skill.
+- **`CONDUCTOR_FALLBACK` signal** — No longer needed with inline team-lead.
+
 ## [4.0.0] - 2026-02-25
 
 ### Added
