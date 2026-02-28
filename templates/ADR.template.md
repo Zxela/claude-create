@@ -1,3 +1,9 @@
+---
+template_version: "1.0"
+template_name: "ADR"
+compatible_homerun: ">=5.0.0"
+---
+
 # ADR: {{TITLE}}
 
 ## Status

@@ -1,3 +1,9 @@
+---
+template_version: "1.0"
+template_name: "TECHNICAL_DESIGN"
+compatible_homerun: ">=5.0.0"
+---
+
 # Technical Design: {{FEATURE_NAME}}
 
 ## Overview

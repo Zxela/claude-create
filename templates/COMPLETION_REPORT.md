@@ -1,3 +1,9 @@
+---
+template_version: "1.0"
+template_name: "COMPLETION_REPORT"
+compatible_homerun: ">=5.0.0"
+---
+
 # Completion Report: {{FEATURE_NAME}}
 
 Generated: {{TIMESTAMP}}

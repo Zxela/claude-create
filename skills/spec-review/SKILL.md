@@ -160,6 +160,25 @@ Check for explicit conflicts between documents:
 
 **Only flag explicit conflicts.** Omissions are checked in completeness (step 2), not here.
 
+### 4.5. Template Version Check (Informational)
+
+Check if spec documents include `template_version` front-matter. This is a non-blocking informational check — missing version metadata does not affect the review verdict.
+
+```bash
+for doc in "$SPEC_PATH/PRD.md" "$SPEC_PATH/ADR.md" "$SPEC_PATH/TECHNICAL_DESIGN.md"; do
+  if [ -f "$doc" ]; then
+    VERSION=$(head -10 "$doc" | grep "template_version:" | awk '{print $2}' | tr -d '"')
+    if [ -z "$VERSION" ]; then
+      echo "INFO: $(basename $doc) missing template_version front-matter"
+    else
+      echo "OK: $(basename $doc) template_version=$VERSION"
+    fi
+  fi
+done
+```
+
+If any document is missing `template_version`, include an informational note (severity: `low`, category: `style`) in the review report. This helps track template drift but should never block planning.
+
 ### 5. Generate Review Report
 
 Produce a structured review with severity levels:

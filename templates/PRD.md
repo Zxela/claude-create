@@ -1,3 +1,9 @@
+---
+template_version: "1.0"
+template_name: "PRD"
+compatible_homerun: ">=5.0.0"
+---
+
 # Product Requirements Document: {{FEATURE_NAME}}
 
 ## Problem Statement

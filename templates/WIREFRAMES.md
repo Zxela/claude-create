@@ -1,3 +1,9 @@
+---
+template_version: "1.0"
+template_name: "WIREFRAMES"
+compatible_homerun: ">=5.0.0"
+---
+
 # Wireframes: {{FEATURE_NAME}}
 
 ## Screen Flow

@@ -1,4 +1,7 @@
 ---
+template_version: "1.0"
+template_name: "TASK"
+compatible_homerun: ">=5.0.0"
 id: {{TASK_ID}}
 title: {{TASK_TITLE}}
 status: pending

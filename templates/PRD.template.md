@@ -1,3 +1,9 @@
+---
+template_version: "1.0"
+template_name: "PRD"
+compatible_homerun: ">=5.0.0"
+---
+
 # PRD: {{FEATURE_NAME}}
 
 ## Problem Statement
