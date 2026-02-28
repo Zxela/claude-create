@@ -1,50 +1,102 @@
 # Discovery Question Reference
 
-Quick reference for discovery phase dialogue. Ask ONE question at a time.
+Quick reference for the discovery dialogue. Use `AskUserQuestion` for all user interaction — present questions through the structured UI with clickable options.
 
-## Categories to Cover
+## Dialogue Approach
 
-### 1. Purpose & Goals
-- What is the primary goal? (new feature / improvement / bug fix / refactor)
-- What problem does this solve?
-- What does success look like?
+1. **Analyze the codebase first** — understand tech stack, architecture, patterns, and related code
+2. **Present findings** — tell the user what you learned, state what's already clear
+3. **Ask only gaps** — use `AskUserQuestion` for things the codebase can't tell you
+4. **Batch 1-4 questions per call** — group related topics together
 
-### 2. Users & Personas
-- Who will use this? (end users / internal / API consumers / admins)
-- What's their technical level?
-- How frequently will they use it?
+## Topics to Cover
 
-### 3. Scope & Boundaries
-- What scope for v1? (minimal / standard / comprehensive)
+Not a rigid checklist — skip topics the codebase already answers. Adapt based on the feature.
+
+### Purpose & Goals
+- What problem does this solve? Who benefits?
+- What does success look like? (measurable outcomes)
+- Why now? (context for prioritization)
+
+### Scope & Boundaries
+- What's in scope for v1? (minimal / standard / comprehensive)
 - What's explicitly out of scope?
+- What are you NOT changing? (non-scope declaration)
 
-### 4. Technical Constraints
-- Integration requirements?
-- Performance requirements?
-- Security/compliance needs?
+### Technical Preferences
+- How should errors be handled? (fail fast / degrade / retry)
+- Any specific integration requirements?
+- Performance or security constraints beyond what the codebase implies?
 
-### 5. Edge Cases & Error Handling
-- How should errors be handled? (fail fast / degrade / retry / queue)
+### Edge Cases
 - What are the boundary conditions?
+- What happens when things go wrong?
+- Which failure modes matter most?
+
+## AskUserQuestion Patterns
+
+### Scope level
+```json
+{
+  "question": "What scope level fits for the initial implementation?",
+  "header": "Scope",
+  "options": [
+    { "label": "Minimal", "description": "Core functionality only — bare essentials" },
+    { "label": "Standard", "description": "Core plus common use cases" },
+    { "label": "Comprehensive", "description": "Full feature set with edge cases" }
+  ],
+  "multiSelect": false
+}
+```
+
+### Error handling
+```json
+{
+  "question": "How should the feature handle errors?",
+  "header": "Errors",
+  "options": [
+    { "label": "Fail fast", "description": "Clear error messages, no recovery attempts" },
+    { "label": "Graceful degradation", "description": "Fall back to reduced functionality" },
+    { "label": "Retry automatically", "description": "Retry transient failures with backoff" },
+    { "label": "Depends on type", "description": "Different strategies for different error types" }
+  ],
+  "multiSelect": false
+}
+```
+
+### Constraints (multi-select)
+```json
+{
+  "question": "Which constraints apply to this feature?",
+  "header": "Constraints",
+  "options": [
+    { "label": "Performance targets", "description": "Specific latency, throughput, or resource limits" },
+    { "label": "Security/compliance", "description": "Auth, encryption, audit, or regulatory needs" },
+    { "label": "Backward compat", "description": "Must not break existing consumers" },
+    { "label": "None significant", "description": "Standard practices are sufficient" }
+  ],
+  "multiSelect": true
+}
+```
 
 ## Testable Acceptance Criteria
 
-Guide users toward testable patterns:
+Every AC must describe an **observable outcome** verifiable by a test.
 
-| Vague | Testable |
-|-------|----------|
-| "Should be user-friendly" | "User can complete checkout in < 3 clicks" |
-| "Should work correctly" | "Returns HTTP 200 with user data" |
-| "Must be fast" | "Response time < 200ms for 95th percentile" |
-| "Handle errors properly" | "Display error message and preserve form input" |
+| Good (testable) | Bad (vague) |
+|-----------------|-------------|
+| "When user submits invalid email, system displays 'Please enter a valid email'" | "Should be user-friendly" |
+| "API responds with 200 and created resource within 500ms" | "Must be fast" |
+| "If session expired, redirect to /login and clear local storage" | "Handle errors properly" |
+| "Failed login attempts rate-limited to 5 per minute per IP" | "Login should be secure" |
 
-**Valid patterns:**
-- Behavioral: "Given X, when Y, then Z"
-- Assertion: "User must see X when Y"
-- Quantitative: "X must be < N"
+When a user provides a vague criterion, help them make it specific by asking what the observable outcome should be.
 
 ## Dialogue Limits
 
-- Warning at 15 turns
-- Hard limit at 20 turns
-- Mark category complete after 2+ substantive answers
+- Warn at 15 turns: ask whether to generate specs or continue
+- Hard limit at 20 turns: generate specs with collected information
+- Mark topic complete after enough info to write that spec section
+- Small features: 5-8 turns total
+- Medium features: 10-15 turns
+- Large features: 15-20 turns

@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.5.0] - 2026-02-28
+
+### Changed
+- **Discovery skill rewrite** — Complete rewrite of discovery SKILL.md (880 → 397 lines). Codebase-first approach: analyzes project deeply before asking questions, presents findings then asks gaps instead of rigid 5-category questionnaire.
+- **Structured dialogue UI** — Discovery now uses `AskUserQuestion` for all user interaction, presenting clickable options instead of text-based Q&A. Added to discovery-agent tool list.
+- **Simplified AC guidance** — Replaced EARS format prescription (When/While/If-Then/None) with simpler "observable outcome" principle and good/bad examples.
+- **Simplified validation flow** — Documents presented for review at once instead of section-by-section 200-word chunks. User verdict collected via `AskUserQuestion`.
+- **Fixed dialogue contradictions** — Agent config and question reference previously said "one question at a time" while SKILL.md said "batch 2-4". All now consistently say batch.
+
+### Added
+- `references/state-schema.md` — State.json schema, field descriptions, and scale-based initialization examples (extracted from SKILL.md where it appeared twice).
+- `references/validation-gates.md` — PRD/ADR/user-story validation scripts and handling rules (extracted from SKILL.md).
+
 ## [5.4.0] - 2026-02-28
 
 ### Added
