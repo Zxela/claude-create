@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.1.0] - 2026-02-27
+
+### Added
+- **Scope analysis skill** (`homerun:scope-analysis`) — Sonnet-powered mechanical extraction of components, AC validation, JIT context refs from spec documents. Produces `docs/scope-analysis.json`.
+- **Scope analyzer agent** (`scope-analyzer`, sonnet, cyan) — Runs scope analysis at ~10 turns, 5x cheaper than opus.
+- **DAG validation script** (`scripts/homerun-validate-dag.sh`) — Pure bash/jq validation at zero LLM cost: cycle detection (Kahn's algorithm), test path validation, AC coverage, dependency ordering, required fields check. Exit codes: 0=pass, 1=warnings, 2=block.
+- **`SCOPE_ANALYSIS_COMPLETE` signal** — New signal contract for scope analysis phase completion.
+- New phases in `/create` flow: `scope_analysis` and `task_decomposition` replace single `planning` phase.
+
+### Changed
+- **Planning pipeline split into 3 layers** — The single planner agent (opus, ~20 turns) is replaced by: scope-analyzer (sonnet, ~10 turns) for mechanical work + task-decomposer (opus, ~8 turns) for judgment work + validate-dag.sh for structural validation. ~50% cost reduction.
+- **Planner agent renamed to task-decomposer** (`agents/planner.md` → `agents/task-decomposer.md`) — maxTurns reduced from 20 to 10, reads `docs/scope-analysis.json` instead of raw specs.
+- **Planning skill renamed to task-decomposition** (`skills/planning/` → `skills/task-decomposition/`) — Phases 1 (scope analysis), 1.5 (AC validation), and 2.5 (JIT ref creation) moved to scope-analysis skill. Validation gate moved to bash script.
+- `/create` command phase loop updated: `spec_review` → `scope_analysis` → `task_decomposition` → `validate-dag.sh` → `implementing`.
+- `/plan` command updated to invoke scope-analyzer then task-decomposer sequentially, plus validation script.
+- `PLANNING_COMPLETE` signal producer updated from `homerun:planning` to `homerun:task-decomposition`.
+- Model routing updated: `scope_analysis: sonnet`, `task_decomposition: opus` replace `planning: opus`.
+- Agent limits updated: `scope_analyzer: 12`, `task_decomposer: 10` replace `planner: 20`.
+- Architecture diagrams, sequence diagrams, and debugging flowchart updated to reflect 3-layer pipeline.
+- Spec reviewer now points to scope-analyzer as next phase instead of planner.
+
 ## [5.0.0] - 2026-02-27
 
 ### Added

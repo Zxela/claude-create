@@ -256,7 +256,7 @@ Before writing any code:
 - Identify what to build from `task.objective` and `task.acceptance_criteria`
 - Identify test file from `task.test_file`
 - Check `task.traces_to` for spec references
-- **Use `task.context_refs` for JIT context loading** — the planner provides file paths, section names, and grep patterns instead of stale embedded excerpts. Load the actual current code at runtime:
+- **Use `task.context_refs` for JIT context loading** — the task-decomposer provides file paths, section names, and grep patterns instead of stale embedded excerpts. Load the actual current code at runtime:
   1. Read files from `context_refs.interface_locations` (targeted section reads, not full files)
   2. Check `context_refs.pattern_files` for implementation patterns to follow
   3. Run `context_refs.grep_patterns` to discover related code

@@ -13,10 +13,12 @@ Each discovery/review/planning phase runs in a **fresh agent context** at **dept
 ```
 /create loop (main session)
    │
-   ├─> Task(discovery-agent)   → Discovery     [dialogue with user]       → returns
-   ├─> Task(spec-reviewer)     → Spec Review   [validation gate]          → returns
-   ├─> Task(planner)           → Planning      [decomposition into tasks] → returns
-   └─> Skill(team-lead)        → Orchestration [inline, dispatches:]
+   ├─> Task(discovery-agent)   → Discovery        [dialogue with user]          → returns
+   ├─> Task(spec-reviewer)     → Spec Review      [validation gate]             → returns
+   ├─> Task(scope-analyzer)    → Scope Analysis   [sonnet — mechanical extract] → returns
+   ├─> Task(task-decomposer)   → Decomposition    [opus — judgment work]        → returns
+   ├─> bash: validate-dag.sh   → DAG Validation   [zero LLM cost]              → pass/fail
+   └─> Skill(team-lead)        → Orchestration    [inline, dispatches:]
                                      │
                                      ├─> Task(implementer) × 1-N  (depth 1)
                                      └─> Task(quality-checker)     (depth 1)
@@ -36,7 +38,8 @@ Instead of passing data through messages, agents communicate via filesystem:
 | File | Purpose | Updated By |
 |------|---------|------------|
 | `state.json` | Workflow state, phase, progress | All phases |
-| `docs/tasks.json` | Task status, attempts, feedback | Team lead / Conductor |
+| `docs/scope-analysis.json` | Components, validated ACs, JIT refs | Scope analyzer |
+| `docs/tasks.json` | Task status, attempts, feedback | Task decomposer / Team lead |
 | `~/.claude/homerun/<hash>/<feature>/` | Spec documents | Discovery |
 
 **Benefits:**
@@ -128,7 +131,9 @@ Based on research: **model choice drives 80% of performance variance**.
 |------|-------|-----------|
 | Discovery | inherit | User controls quality of requirements |
 | Spec Review | sonnet | Quality judgment on spec consistency |
-| Planning | opus | High-leverage - bad decomposition cascades |
+| Scope Analysis | sonnet | Mechanical extraction — 5x cheaper than opus |
+| Task Decomposition | opus | High-leverage — bad decomposition cascades |
+| DAG Validation | bash | Zero LLM cost — pure algorithmic checks |
 | Team Lead | inherit | Runs inline in main session |
 | Implementer (simple) | haiku | Pattern-following tasks |
 | Implementer (complex) | sonnet | Design decisions, security implications |
@@ -152,7 +157,7 @@ AFTER (JIT references — current, lightweight):
   task.context_refs.interface_locations = ["src/models/user.ts:User interface"] // 20 tokens
 ```
 
-**Benefits:** Implementers read current code (not stale planner snapshots), tasks.json is smaller, and the team-lead monitoring loop is cheaper.
+**Benefits:** Implementers read current code (not stale snapshots), tasks.json is smaller, and the team-lead monitoring loop is cheaper.
 
 ### 8. Effort-Proportional Routing (v4.0)
 

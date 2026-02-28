@@ -46,7 +46,7 @@ cat "$WORKTREE_PATH/docs/tasks.json" | jq '.tasks | length'
 
 ### 2. Validate Prerequisites
 
-- `state.json` exists with `phase` = "planning" or "implementing"
+- `state.json` exists with `phase` = "task_decomposition" or "implementing"
 - `docs/tasks.json` exists with at least 1 task
 - At least 1 task has `status: "pending"`
 

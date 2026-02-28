@@ -9,7 +9,8 @@ sequenceDiagram
     participant M as Main Session (/create loop)
     participant D as Discovery Agent
     participant SR as Spec Reviewer
-    participant P as Planning Agent
+    participant SA as Scope Analyzer
+    participant TD as Task Decomposer
     participant TL as Team Lead
     participant I as Implementer Agent
     participant R as Reviewer Agent
@@ -41,19 +42,32 @@ sequenceDiagram
     SR->>M: SPEC_REVIEW_COMPLETE (verdict: approved)
     deactivate SR
 
-    Note over M: Update state.json → phase: planning
+    Note over M: Update state.json → phase: scope_analysis
 
-    Note over U,FS: Phase 3: Planning (depth 1)
-    M->>P: Task(planner)
-    activate P
-    P->>FS: Read spec documents
-    P->>FS: Read state.json
-    P->>P: Decompose into tasks
-    P->>P: Validate DAG (no cycles)
-    P->>FS: Write tasks.json
-    P->>FS: Update state.json (phase: implementing)
-    P->>M: PLANNING_COMPLETE
-    deactivate P
+    Note over U,FS: Phase 3a: Scope Analysis (depth 1, sonnet)
+    M->>SA: Task(scope-analyzer)
+    activate SA
+    SA->>FS: Read spec documents
+    SA->>SA: Extract components, validate ACs, create JIT refs
+    SA->>FS: Write docs/scope-analysis.json
+    SA->>FS: Update state.json (phase: task_decomposition)
+    SA->>M: SCOPE_ANALYSIS_COMPLETE
+    deactivate SA
+
+    Note over M: Read state.json → phase: task_decomposition
+
+    Note over U,FS: Phase 3b: Task Decomposition (depth 1, opus)
+    M->>TD: Task(task-decomposer)
+    activate TD
+    TD->>FS: Read docs/scope-analysis.json
+    TD->>TD: Decompose into tasks with DAG
+    TD->>FS: Write docs/tasks.json
+    TD->>FS: Update state.json (phase: implementing)
+    TD->>M: PLANNING_COMPLETE
+    deactivate TD
+
+    Note over M: Run validate-dag.sh (zero LLM cost)
+    M->>FS: bash: validate-dag.sh docs/tasks.json docs/scope-analysis.json
 
     Note over M: Read state.json → phase: implementing
 

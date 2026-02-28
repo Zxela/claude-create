@@ -41,12 +41,16 @@ Start an orchestrated development workflow that takes you from idea to implement
 /create (main session — loop controller)
   ├─ spawn discovery-agent      (depth 1) → returns
   ├─ spawn spec-reviewer        (depth 1) → returns
-  ├─ spawn planner              (depth 1) → returns
+  ├─ spawn scope-analyzer       (depth 1) → returns  [sonnet — mechanical]
+  ├─ spawn task-decomposer      (depth 1) → returns  [opus — judgment]
+  ├─ bash: homerun-validate-dag.sh         → validates [zero LLM cost]
   ├─ invoke team-lead skill     (depth 0, dispatches implementers at depth 1)
   └─ invoke finishing skill     (depth 0) → done
 ```
 
 **Agents do NOT chain to the next phase.** Each agent updates `state.json` with the next phase and returns. This command reads the phase and spawns the next agent. The team-lead runs inline as a skill (not a spawned agent) for reliable orchestration.
+
+**Planning pipeline split:** The old single `planner` (opus, ~20 turns) is replaced by a 3-layer pipeline: scope-analyzer (sonnet, ~10 turns) handles mechanical extraction, task-decomposer (opus, ~8 turns) handles decomposition judgment, and validate-dag.sh handles structural validation at zero LLM cost.
 
 ### Resume Mode (--resume flag)
 
@@ -130,27 +134,68 @@ Task({
 ```
 
 **After spec-review returns**, check the verdict:
-- If `verdict: "approved"`: update `state.json` phase to `"planning"` and continue
+- If `verdict: "approved"`: update `state.json` phase to `"scope_analysis"` and continue
 - If `verdict: "needs_revision"`: report issues to user and **stop** (user fixes specs, then runs `/create --resume`)
 
 **Note:** The spec-reviewer is read-only (no Write tool), so this command handles the phase transition.
 
-#### Phase: planning
+#### Phase: scope_analysis
 
 ```javascript
 Task({
-  description: "Plan implementation tasks",
-  subagent_type: "planner",
-  prompt: `Decompose specs into implementation tasks.
+  description: "Analyze scope from specs",
+  subagent_type: "scope-analyzer",
+  model: "sonnet",
+  prompt: `Extract scope analysis from specification documents.
 
   Worktree: ${worktree}
   State file: ${worktree}/state.json
 
-  Read state.json and spec documents, then create tasks.json with DAG.`
+  Read state.json and spec documents, then create docs/scope-analysis.json with components, validated ACs, and JIT context refs.`
 });
 ```
 
-After planning returns, re-read `state.json`. Planning sets `phase: "implementing"`.
+After scope-analyzer returns, re-read `state.json`. Scope analysis sets `phase: "task_decomposition"`.
+
+#### Phase: task_decomposition
+
+```javascript
+Task({
+  description: "Decompose into tasks",
+  subagent_type: "task-decomposer",
+  prompt: `Decompose scope analysis into implementation tasks.
+
+  Worktree: ${worktree}
+  State file: ${worktree}/state.json
+
+  Read docs/scope-analysis.json and create docs/tasks.json with DAG.`
+});
+```
+
+After task-decomposer returns, re-read `state.json`. Task decomposition sets `phase: "implementing"`.
+
+**DAG Validation:** Before proceeding to implementation, run the validation script:
+
+```bash
+VALIDATE_RESULT=$(bash scripts/homerun-validate-dag.sh "${worktree}/docs/tasks.json" "${worktree}/docs/scope-analysis.json")
+VALIDATE_EXIT=$?
+
+if [ $VALIDATE_EXIT -eq 2 ]; then
+  echo "DAG validation FAILED:"
+  echo "$VALIDATE_RESULT" | jq '.errors[]'
+  echo "Fix the issues and run /create --resume"
+  # STOP — do not proceed to implementing
+fi
+
+if [ $VALIDATE_EXIT -eq 1 ]; then
+  echo "DAG validation passed with warnings:"
+  echo "$VALIDATE_RESULT" | jq '.warnings[]'
+  # Continue to implementing
+fi
+```
+
+If validation fails (exit code 2): report errors and **stop**. User fixes issues and runs `/create --resume`.
+If validation passes (exit code 0 or 1): continue to `implementing`.
 
 #### Phase: implementing
 
@@ -196,39 +241,49 @@ Invoke the finishing skill in the current context to present merge/PR/continue o
 /create command
      │
      ▼
-┌─────────────┐
-│  Discovery  │  ← Gather requirements, explore codebase
-└─────────────┘
+┌─────────────────┐
+│   Discovery     │  ← Gather requirements, explore codebase
+└─────────────────┘
      │
      ▼
-┌─────────────┐
-│ Spec Review │  ← Validate specs for consistency, completeness, testability
-└─────────────┘
+┌─────────────────┐
+│  Spec Review    │  ← Validate specs for consistency, completeness, testability
+└─────────────────┘
      │
      ▼
-┌─────────────┐
-│  Planning   │  ← Create implementation plan
-└─────────────┘
+┌─────────────────┐
+│ Scope Analysis  │  ← [sonnet] Extract components, validate ACs, create JIT refs
+└─────────────────┘
      │
      ▼
-┌──────────────────┐
-│ Test Skeletons   │  ← (optional) Generate ROI-prioritized test scaffolding
-└──────────────────┘
+┌─────────────────┐
+│Task Decomposition│ ← [opus] Decompose into tasks with DAG dependencies
+└─────────────────┘
      │
      ▼
-┌─────────────┐
-│  Execution  │  ← Team lead orchestrates parallel implementation (Agent Teams)
-└─────────────┘
+┌─────────────────┐
+│ DAG Validation  │  ← [bash] Cycle detection, coverage, field validation
+└─────────────────┘
      │
      ▼
-┌───────────────┐
-│ Quality Check │  ← Lint, types, structure, tests, recheck
-└───────────────┘
+┌─────────────────┐
+│ Test Skeletons  │  ← (optional) Generate ROI-prioritized test scaffolding
+└─────────────────┘
      │
      ▼
-┌─────────────┐
-│  Complete   │  ← Merge, PR, keep, or discard
-└─────────────┘
+┌─────────────────┐
+│   Execution     │  ← Team lead orchestrates parallel implementation
+└─────────────────┘
+     │
+     ▼
+┌─────────────────┐
+│ Quality Check   │  ← Lint, types, structure, tests, recheck
+└─────────────────┘
+     │
+     ▼
+┌─────────────────┐
+│   Complete      │  ← Merge, PR, keep, or discard
+└─────────────────┘
 ```
 
 Each phase can be retried on failure according to the retry configuration. The workflow state is persisted to `state.json` in the worktree, allowing recovery from interruptions.

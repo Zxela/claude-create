@@ -51,7 +51,8 @@
   "phase_models": {
     "discovery": "inherit",
     "spec_review": "sonnet",
-    "planning": "opus",
+    "scope_analysis": "sonnet",
+    "task_decomposition": "opus",
     "test_skeletons": "sonnet",
     "conductor": "haiku",
     "team_lead": "sonnet",
@@ -77,7 +78,8 @@
     "maxTurns": {
       "discovery": 30,
       "spec_review": 10,
-      "planner": 20,
+      "scope_analyzer": 12,
+      "task_decomposer": 10,
       "implementer": 25,
       "reviewer": 15,
       "quality_checker": 15,

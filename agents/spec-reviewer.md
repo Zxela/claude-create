@@ -25,7 +25,7 @@ Follow the `homerun:spec-review` skill to validate specification documents befor
 **Phase:** Between discovery and planning
 **Input:** Spec paths from `state.json` (PRD, ADR, TECHNICAL_DESIGN, WIREFRAMES)
 **Output:** `SPEC_REVIEW_COMPLETE` signal with verdict, issues list, and summary
-**Next:** If approved → planning (`planner` agent). If needs_revision → back to user.
+**Next:** If approved → scope analysis (`scope-analyzer` agent). If needs_revision → back to user.
 
 ## Review Dimensions
 

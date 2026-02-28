@@ -10,6 +10,11 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 
 Jump directly into the planning phase, skipping discovery. Use when you already have specification documents and want to decompose them into implementation tasks.
 
+Planning runs as a 3-layer pipeline:
+1. **Scope analysis** (sonnet) — Extract components, validate ACs, create JIT context refs
+2. **Task decomposition** (opus) — Decompose into test-bounded tasks with DAG
+3. **DAG validation** (bash) — Cycle detection, coverage, structural checks
+
 ## Usage
 
 ```
@@ -47,7 +52,7 @@ cat "$WORKTREE_PATH/state.json" | jq '.phase'
 ### 2. Validate Prerequisites
 
 Read `state.json` and verify:
-- `phase` is "discovery" or "planning" (not already "implementing")
+- `phase` is "discovery", "spec_review", "scope_analysis", or "task_decomposition" (not already "implementing")
 - `spec_paths` are populated with valid file paths
 - Spec documents exist at the referenced paths
 
@@ -59,24 +64,58 @@ for spec in prd adr technical_design; do
 done
 ```
 
-### 3. Invoke Planning Agent
+### 3. Invoke Scope Analyzer
 
 ```javascript
 Task({
-  description: "Plan implementation tasks",
-  subagent_type: "planner",
-  prompt: `Decompose specs into implementation tasks.
+  description: "Analyze scope from specs",
+  subagent_type: "scope-analyzer",
+  model: "sonnet",
+  prompt: `Extract scope analysis from specification documents.
 
   Worktree: ${worktree_path}
   State file: ${worktree_path}/state.json
 
-  Read state.json and spec documents, then create tasks.json with DAG.`
+  Read state.json and spec documents, then create docs/scope-analysis.json.`
 });
 ```
 
-### 4. Report
+### 4. Invoke Task Decomposer
 
-Display the task summary from the PLANNING_COMPLETE signal.
+```javascript
+Task({
+  description: "Decompose into tasks",
+  subagent_type: "task-decomposer",
+  prompt: `Decompose scope analysis into implementation tasks.
+
+  Worktree: ${worktree_path}
+  State file: ${worktree_path}/state.json
+
+  Read docs/scope-analysis.json and create docs/tasks.json with DAG.`
+});
+```
+
+### 5. Validate DAG
+
+```bash
+VALIDATE_RESULT=$(bash scripts/homerun-validate-dag.sh "${worktree_path}/docs/tasks.json" "${worktree_path}/docs/scope-analysis.json")
+VALIDATE_EXIT=$?
+
+if [ $VALIDATE_EXIT -eq 2 ]; then
+  echo "DAG validation FAILED:"
+  echo "$VALIDATE_RESULT" | jq '.errors[]'
+  echo "Fix the issues and re-run /plan"
+fi
+
+if [ $VALIDATE_EXIT -eq 1 ]; then
+  echo "DAG validation passed with warnings:"
+  echo "$VALIDATE_RESULT" | jq '.warnings[]'
+fi
+```
+
+### 6. Report
+
+Display the task summary from the PLANNING_COMPLETE signal and DAG validation results.
 
 ## Examples
 

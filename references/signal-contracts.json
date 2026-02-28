@@ -68,12 +68,29 @@
       }
     },
 
+    "SCOPE_ANALYSIS_COMPLETE": {
+      "producer": "homerun:scope-analysis",
+      "envelope_example": {
+        "signal": "SCOPE_ANALYSIS_COMPLETE",
+        "timestamp": "2026-02-27T10:30:00Z",
+        "source": { "skill": "homerun:scope-analysis" },
+        "payload": {
+          "scope_file": "docs/scope-analysis.json",
+          "components_count": 5,
+          "acceptance_criteria_count": 12,
+          "all_criteria_testable": true,
+          "untestable_criteria": []
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
     "PLANNING_COMPLETE": {
-      "producer": "homerun:planning",
+      "producer": "homerun:task-decomposition",
       "envelope_example": {
         "signal": "PLANNING_COMPLETE",
-        "timestamp": "2026-01-25T10:45:00Z",
-        "source": { "skill": "homerun:planning" },
+        "timestamp": "2026-02-27T10:45:00Z",
+        "source": { "skill": "homerun:task-decomposition" },
         "payload": {
           "tasks_count": 8,
           "tasks_file": "docs/tasks.json",

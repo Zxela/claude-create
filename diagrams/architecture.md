@@ -135,8 +135,16 @@ graph TB
         SR[Spec Reviewer<br/>~15K tokens<br/>model: sonnet]
     end
 
-    subgraph Depth1_Planning["Depth 1: Planning"]
-        P[Planning Agent<br/>~10K tokens<br/>model: opus]
+    subgraph Depth1_Scope["Depth 1: Scope Analysis"]
+        SA[Scope Analyzer<br/>~8K tokens<br/>model: sonnet]
+    end
+
+    subgraph Depth1_Decomp["Depth 1: Task Decomposition"]
+        TD[Task Decomposer<br/>~8K tokens<br/>model: opus]
+    end
+
+    subgraph Bash_Validate["DAG Validation"]
+        VD[validate-dag.sh<br/>zero LLM cost]
     end
 
     subgraph Depth1_Impl["Depth 1: Implementers (dispatched by Team Lead)"]
@@ -153,8 +161,12 @@ graph TB
     D -->|"returns"| Entry
     Entry -->|"Task(spec-reviewer)"| SR
     SR -->|"returns"| Entry
-    Entry -->|"Task(planner)"| P
-    P -->|"returns"| Entry
+    Entry -->|"Task(scope-analyzer)"| SA
+    SA -->|"returns"| Entry
+    Entry -->|"Task(task-decomposer)"| TD
+    TD -->|"returns"| Entry
+    Entry -->|"bash"| VD
+    VD -->|"pass"| Entry
     Entry -->|"Skill(team-lead)"| TeamLead
     TeamLead -->|"Task(implementer)"| I1
     TeamLead -->|"Task(implementer)"| I2
@@ -164,7 +176,9 @@ graph TB
     style Main fill:#e1f5fe
     style Depth1_Discovery fill:#fff3e0
     style Depth1_SpecReview fill:#fff3e0
-    style Depth1_Planning fill:#fff3e0
+    style Depth1_Scope fill:#e0f7fa
+    style Depth1_Decomp fill:#f3e5f5
+    style Bash_Validate fill:#e8f5e9
     style Depth1_Impl fill:#fce4ec
     style Depth1_QC fill:#e8f5e9
 ```

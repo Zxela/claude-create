@@ -14,10 +14,15 @@ START: Workflow not progressing
   |   |       +-- Yes -> Check spec_paths populated
   |   |       +-- No  -> Resume discovery or restart
   |   |                                        |
-  |   +-- "planning" --------------------------+
-  |   |   +-- Check: Does tasks.json exist?    |
-  |   |       +-- Yes -> Check DAG valid       |
-  |   |       +-- No  -> Planning agent crashed
+  |   +-- "scope_analysis" -----------------------+
+  |   |   +-- Check: scope-analysis.json exist? |
+  |   |       +-- Yes -> Phase should advance   |
+  |   |       +-- No  -> Scope analyzer crashed |
+  |   |                                         |
+  |   +-- "task_decomposition" ------------------+
+  |   |   +-- Check: Does tasks.json exist?     |
+  |   |       +-- Yes -> Check DAG valid        |
+  |   |       +-- No  -> Task decomposer crashed
   |   |                                        |
   |   +-- "implementing" ----------------------+
   |   |   +-- Check parallel_state (see below) |
