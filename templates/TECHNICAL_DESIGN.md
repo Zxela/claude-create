@@ -24,6 +24,18 @@ compatible_homerun: ">=5.0.0"
 {{ASCII diagram showing internal components and their relationships}}
 ```
 
+### Data Flow
+
+```
+{{Step-by-step data flow through the system, e.g.:
+1. User Action
+2. Frontend Processing
+3. API Request
+4. Backend Processing
+5. Data Storage
+6. Response}}
+```
+
 ## Data Models
 
 ### {{Model Name}}

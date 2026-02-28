@@ -24,9 +24,22 @@ compatible_homerun: ">=5.0.0"
 
 ## Success Metrics
 
+_Each metric MUST have a quantifiable target._
+
 | Metric | Current | Target | How Measured |
 |--------|---------|--------|--------------|
 | {{metric}} | {{baseline}} | {{goal}} | {{measurement method}} |
+
+**Examples of good metrics:**
+| Metric | Current | Target | How Measured |
+|--------|---------|--------|--------------|
+| User registration completion rate | N/A | > 80% | Analytics: registrations / registration starts |
+| Login API response time (p95) | N/A | < 200ms | APM monitoring |
+
+**Invalid metrics (avoid):**
+- "Users are happy" (not measurable)
+- "System performs well" (no threshold)
+- "Fewer bugs" (no baseline or target)
 
 ## User Stories
 
@@ -37,9 +50,23 @@ compatible_homerun: ">=5.0.0"
 **So that** {{benefit/value}}
 
 **Acceptance Criteria:**
+
+_Each criterion MUST follow one of these testable patterns:_
+
+| Pattern | Format | Example |
+|---------|--------|---------|
+| Behavioral | Given [context], when [action], then [outcome] | Given a logged-in user, when they click logout, then their session is destroyed |
+| Assertion | [Subject] should/must/can [verb] [observable outcome] | User must see an error message when email is invalid |
+| Quantitative | [Subject] [comparison] [threshold] | API response time must be < 500ms |
+
 - [ ] AC-001: {{Testable criterion with observable outcome}}
 - [ ] AC-002: {{Testable criterion}}
 - [ ] AC-003: {{Testable criterion}}
+
+**Invalid criteria (do not use):**
+- "Should be user-friendly" (no observable outcome)
+- "Should work correctly" (vague)
+- "Must be fast" (no threshold)
 
 ### US-002: {{User Story Title}}
 

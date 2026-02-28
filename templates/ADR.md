@@ -10,6 +10,9 @@ compatible_homerun: ">=5.0.0"
 
 Proposed | Accepted | Deprecated | Superseded
 
+**Date:** YYYY-MM-DD
+**Deciders:** {{List decision makers}}
+
 ## Context
 
 {{Describe the situation and forces at play. What problem needs solving? What constraints exist?}}
