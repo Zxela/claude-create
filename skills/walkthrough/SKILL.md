@@ -10,7 +10,7 @@ color: magenta
 ## Reference Materials
 
 - Signal contracts: `references/signal-contracts.json`
-- PRD template: `templates/PRD.template.md`
+- PRD template: `templates/PRD.md`
 
 ## Overview
 

@@ -9,7 +9,7 @@ color: violet
 
 ## Reference Materials
 
-- Document templates: `templates/*.template.md`
+- Document templates: `templates/*.md`
 - Discovery patterns: `references/discovery-questions.md`
 - Signal contracts: `references/signal-contracts.json`
 
@@ -106,7 +106,7 @@ grep -E "import.*from|require\(" src/**/*.ts 2>/dev/null | grep -v "node_modules
 
 ### 3. Generate PRD (from code reality)
 
-Using `templates/PRD.template.md` as structure, populate:
+Using `templates/PRD.md` as structure, populate:
 
 - **Problem Statement:** Infer from README, package description, and code structure
 - **Goals:** Extract from feature set and test coverage

@@ -10,7 +10,7 @@ color: yellow
 
 - Question reference: `references/discovery-questions.md`
 - Dialogue examples: `cookbooks/discovery-dialogue-examples.md`
-- Document templates: `templates/*.template.md`
+- Document templates: `templates/*.md`
 - Agent handoff patterns: `references/context-engineering.md`
 - Scale determination & doc segregation: `references/scale-determination.md`
 
@@ -448,9 +448,9 @@ mkdir -p "${WORKTREE_PATH}/docs"
 Generate documents to the centralized `~/.claude/homerun/` directory.
 
 Use templates from `templates/` as starting points:
-- `templates/PRD.template.md`
-- `templates/ADR.template.md`
-- `templates/TECHNICAL_DESIGN.template.md`
+- `templates/PRD.md`
+- `templates/ADR.md`
+- `templates/TECHNICAL_DESIGN.md`
 
 **Documents to generate (based on scale from Step 2.5):**
 
