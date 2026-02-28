@@ -115,11 +115,27 @@
     }
   },
 
+  "test_requirements": {
+    "haiku": {
+      "add_field": "optional",
+      "add_config": "optional",
+      "rename_refactor": "optional",
+      "add_method": "required",
+      "add_validation": "required",
+      "add_test": "required",
+      "add_endpoint": "required"
+    },
+    "sonnet": "required",
+    "opus": "required"
+  },
+
   "no_test_exceptions": [
     "documentation_only",
     "config_static",
     "type_definitions_only",
     "dependency_update",
-    "delete_dead_code"
+    "delete_dead_code",
+    "rename_refactor",
+    "add_field_when_consolidatable"
   ]
 }

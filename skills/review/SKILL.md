@@ -173,10 +173,13 @@ Only reached if all hard gates pass. Score 0.0-1.0:
 
 #### Acceptance Criteria (Required)
 
-For EACH acceptance criterion in the task file:
-1. Is it implemented?
-2. Is there a corresponding test?
-3. Does the test actually test this criterion (not just exist)?
+For EACH acceptance criterion in the task file, check based on `risk_level` (default to `must_test` if `risk_level` is not set):
+
+| Risk Level | What to Check |
+|---|---|
+| `must_test` | Is it implemented? Does it have a dedicated test? Does the test actually verify the criterion? |
+| `verify_only` | Is it implemented? Is it covered by a consolidated/integration test? |
+| `structural` | Is it implemented? Do types/lint confirm correctness? |
 
 #### Technical Alignment (Required)
 
@@ -197,7 +200,7 @@ When rejecting, assign severity to each issue using this rubric:
 | Severity | Criteria | Examples |
 |----------|----------|----------|
 | **high** | Fails acceptance criterion, security flaw, or violates architectural decision from ADR | Wrong logic (off-by-one), missing auth check, SQL injection, diverges from TECHNICAL_DESIGN without reason |
-| **medium** | Missing test coverage, unhandled edge case, or non-critical spec deviation | No test for an AC, missing null/empty check, inconsistent error format |
+| **medium** | Missing test coverage for `must_test` AC, unhandled edge case, or non-critical spec deviation | No test for a `must_test` AC, missing null/empty check, inconsistent error format. Missing test for `verify_only`/`structural` ACs is **low**, not medium. |
 | **low** | Style, naming, or non-functional suggestion that doesn't affect correctness | Variable naming, missing JSDoc on internal function, minor formatting |
 
 **Severity determines team-lead retry behavior:**

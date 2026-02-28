@@ -9,7 +9,6 @@ color: yellow
 ## Reference Materials
 
 - Context patterns: `references/context-engineering.md`
-- TDD methodology: `skills/test-driven-development/SKILL.md`
 - Scale determination: `references/scale-determination.md`
 
 ## Overview
@@ -397,7 +396,7 @@ Once all acceptance criteria pass:
 
 ### 5.5. Mutation Test Verification
 
-**Task-type gating:** Only run this step for complex task types: `create_service`, `bug_fix`, `create_model`, `create_middleware`, `add_endpoint_complex`, `integration_test`. Skip for haiku-level tasks (`add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`).
+**Task-type gating:** Only run this step for high-risk task types: `bug_fix` and `create_service`. These are the task types where tautological tests cause the most damage. Skip for all other task types.
 
 This step catches tautological tests — tests that pass regardless of whether the implementation exists. A test that passes when implementation code is removed provides false confidence.
 
@@ -654,7 +653,9 @@ Include the verification level in the completion signal:
 Before signaling completion, verify this checklist:
 
 **For TDD methodology:**
-- [ ] All acceptance criteria have corresponding passing tests
+- [ ] All `must_test` ACs have dedicated passing tests
+- [ ] `verify_only` ACs confirmed in integration/consolidated tests
+- [ ] `structural` ACs confirmed by types/lint passing
 - [ ] Tests were written BEFORE implementation code
 
 **For direct methodology:**

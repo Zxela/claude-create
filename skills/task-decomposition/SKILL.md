@@ -193,6 +193,52 @@ test_file: null
 no_test_reason: "documentation only"
 ```
 
+### AC Risk-Level Classification (Test Worthiness)
+
+Not every acceptance criterion needs a dedicated test. Classify each AC by risk level to control test bloat:
+
+| Risk Level | When to Use | Test Requirement |
+|---|---|---|
+| `must_test` | Core behavior, security checks, data mutations, business logic | Dedicated test per AC |
+| `verify_only` | Secondary behavior, simple CRUD, happy-path only | Consolidate into integration test with related ACs |
+| `structural` | Type correctness, field existence, config presence | Covered by types/lint — no runtime test needed |
+
+**Classification rules:**
+1. Default to `must_test` if uncertain
+2. ACs involving user input validation, authentication, or data persistence → always `must_test`
+3. ACs that only assert a field exists or a type compiles → `structural`
+4. Same-layer subtasks with related ACs can share a test file (`verify_only`)
+
+**Test budget by scale:**
+
+| Scale | Test Budget | Rationale |
+|-------|-------------|-----------|
+| Small | 2-4 tests | Minimal feature, focused coverage |
+| Medium | 4-8 tests | Standard feature, per-component coverage |
+| Large | 10-20 tests | Complex feature, per-AC coverage for `must_test` |
+
+**Test consolidation guidance:** Subtasks within the same architectural layer (e.g., two model fields, two config entries) should share a test file rather than each getting a dedicated one.
+
+Add `risk_level` to each AC in the tasks.json output:
+
+```json
+{
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "criterion": "User can register with email/password",
+      "risk_level": "must_test",
+      "test_assertion": "expect(user).toBeDefined()"
+    },
+    {
+      "id": "AC-002",
+      "criterion": "User model has created_at field",
+      "risk_level": "structural"
+    }
+  ]
+}
+```
+
 ### Task Type Classification (Model Routing)
 
 See `references/model-routing.json` for the authoritative task type to model mapping.
