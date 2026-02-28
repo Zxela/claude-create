@@ -92,6 +92,46 @@ fi
 
 **If both LINT and TYPECHECK are "none":** Report that no quality tools were detected. Suggest the user install a linter/typechecker and re-run. Exit.
 
+### Step 2.5: Detect Existing Git Hook Frameworks
+
+Before configuring Claude Code hooks, check if the project already uses a git hook framework. If so, integrate with it rather than duplicating:
+
+```bash
+cd "$PROJECT_PATH"
+
+echo "=== Detecting git hook frameworks ==="
+
+HOOK_FRAMEWORK="none"
+
+# Check for husky (JS/TS)
+if [ -d .husky ] || ([ -f package.json ] && jq -e '.devDependencies.husky // .dependencies.husky' package.json >/dev/null 2>&1); then
+  HOOK_FRAMEWORK="husky"
+  echo "Hook framework: husky detected"
+
+# Check for pre-commit (Python)
+elif [ -f .pre-commit-config.yaml ]; then
+  HOOK_FRAMEWORK="pre-commit"
+  echo "Hook framework: pre-commit detected"
+
+# Check for custom hooks
+elif [ -x .git/hooks/pre-commit ]; then
+  HOOK_FRAMEWORK="custom"
+  echo "Hook framework: custom .git/hooks/pre-commit detected"
+fi
+
+echo "Result: $HOOK_FRAMEWORK"
+```
+
+**If no framework found:** Offer to install one (with user confirmation — never install silently):
+
+| Project Type | Recommended Framework | Install Command |
+|---|---|---|
+| JS/TS (package.json) | `husky` + `lint-staged` | `npx husky init && npm i -D lint-staged` |
+| Python (pyproject.toml) | `pre-commit` with ruff/mypy | `pip install pre-commit && pre-commit install` |
+| Other | Direct `.git/hooks/pre-commit` script | Write script manually |
+
+**If framework found:** Report it and skip framework installation. The Claude Code hooks (Step 3) complement git hooks — they enforce quality at the LLM tool level, while git hooks enforce at the git level.
+
 ### Step 2: Check Existing Configuration
 
 ```bash

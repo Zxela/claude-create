@@ -65,7 +65,15 @@ The team-lead can invoke this after review approval or as a standalone gate befo
 
 ### Phase 1: Lint & Format (HOOK — handled by `homerun-quality-lint.sh`)
 
-**This phase is now handled by the standalone hook script `scripts/homerun-quality-lint.sh`.** The hook runs automatically as part of the quality gate pipeline. If running quality-check manually, execute the hook first:
+**Git hook detection:** Before running, check if a git hook framework (husky, pre-commit, custom) already enforces lint. If so, skip this phase with `"skipped_by_hooks"` status — the git hooks already guarantee lint compliance at commit time.
+
+```bash
+if [ -d "$WORKTREE_PATH/.husky" ] || [ -f "$WORKTREE_PATH/.pre-commit-config.yaml" ] || [ -x "$WORKTREE_PATH/.git/hooks/pre-commit" ]; then
+  LINT_STATUS="skipped_by_hooks"
+fi
+```
+
+**If no git hooks enforce lint:** This phase is handled by the standalone hook script `scripts/homerun-quality-lint.sh`. The hook runs automatically as part of the quality gate pipeline. If running quality-check manually, execute the hook first:
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/homerun-quality-lint.sh"
@@ -76,7 +84,9 @@ The quality-checker agent does NOT run lint — it reads the hook's exit code an
 
 ### Phase 2: Type Checking (HOOK — handled by `homerun-quality-typecheck.sh`)
 
-**This phase is now handled by the standalone hook script `scripts/homerun-quality-typecheck.sh`.** Execute before quality-check if running manually:
+**Git hook detection:** Same as Phase 1 — if git hooks already enforce type checking, skip with `"skipped_by_hooks"` status.
+
+**If no git hooks enforce types:** This phase is handled by the standalone hook script `scripts/homerun-quality-typecheck.sh`. Execute before quality-check if running manually:
 
 ```bash
 bash "$PLUGIN_ROOT/scripts/homerun-quality-typecheck.sh"
