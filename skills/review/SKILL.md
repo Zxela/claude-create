@@ -466,6 +466,18 @@ Immediately reject if any of these are present:
 - **Diverges from design**: Implementation contradicts `docs/specs/TECHNICAL_DESIGN.md` without documented reason
 - **Security concern**: Implementation violates security decisions in `docs/specs/ADR.md`
 
+### Handling Tautological Test Blockers
+
+When an implementer emits `IMPLEMENTATION_BLOCKED` with `blocker_type: "tautological_test"`:
+
+1. **Do NOT re-dispatch with the same test** — the test itself is the problem
+2. **Re-dispatch guidance for implementer:**
+   - "Strengthen test assertions to verify actual behavior, not just function existence"
+   - "Tests must fail when the critical implementation line is removed"
+   - "Focus on asserting return values, side effects, or state changes — not just that the function was called"
+3. **Include in feedback:** The specific file and line that was mutated, so the implementer knows which assertion to strengthen
+4. **Max retries:** If tautological test persists after 2 re-dispatch attempts, escalate to user
+
 ## Exit Criteria
 
 Before completing your review, verify:

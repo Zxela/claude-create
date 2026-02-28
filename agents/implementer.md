@@ -50,6 +50,16 @@ Before writing any code:
 2. **Impact Analysis** — Grep for related code, classify each match as Direct (must modify) / Indirect (verify no breakage) / Unaffected (ignore)
 3. **Duplication Check** — Apply Rule of Three: 1st occurrence=implement, 2nd=note it, 3rd+=extract shared logic first. Block if >2 identical implementations exist.
 
+## Mutation Test Verification (Step 5.5)
+
+After committing and before signaling completion, run a mutation test on the most critical acceptance criterion:
+- **Only for complex task types:** `create_service`, `bug_fix`, `create_model`, `create_middleware`, `add_endpoint_complex`, `integration_test`
+- **Skip for haiku-level tasks:** `add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`
+- Comment out one critical implementation line, re-run the test
+- If test still passes → emit `IMPLEMENTATION_BLOCKED` with `blocker_type: "tautological_test"`
+- If test fails → mutation caught, test is valid, proceed to signal completion
+- See `homerun:implement` skill Step 5.5 for full procedure
+
 ## Context Budget
 
 | Section | Target |

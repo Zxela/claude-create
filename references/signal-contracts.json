@@ -143,6 +143,7 @@
         "payload": {
           "reason": "Cannot find the User model referenced in TECHNICAL_DESIGN.md",
           "blocker_type": "missing_dependency",
+          "blocker_type_options": ["missing_dependency", "unclear_requirements", "technical_constraint", "test_failure", "tautological_test"],
           "details": ["Task 001 should have created src/models/user.ts"],
           "suggested_resolution": "Run task 001 first or verify task ordering"
         },
@@ -446,6 +447,22 @@
           "tasks_completed": 7,
           "tasks_skipped": 1,
           "quality_verdict": "pass_with_fixes"
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "REVIEW_DISPATCHED": {
+      "producer": "homerun:team-lead",
+      "envelope_example": {
+        "signal": "REVIEW_DISPATCHED",
+        "timestamp": "2026-02-27T15:00:00Z",
+        "source": { "skill": "homerun:team-lead" },
+        "payload": {
+          "task_id": "003",
+          "reviewer_slot": 1,
+          "max_concurrent": 2,
+          "review_mode": "incremental"
         },
         "envelope_version": "1.0.0"
       }

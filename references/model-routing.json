@@ -82,7 +82,7 @@
       "task_decomposer": 10,
       "implementer": 25,
       "reviewer": 15,
-      "quality_checker": 15,
+      "quality_checker": 10,
       "team_lead": 50,
       "diagnostician": 20,
       "reverse_engineer": 30,
@@ -95,6 +95,7 @@
     "small": {
       "max_implementers": 1,
       "skip_spec_review": true,
+      "skip_scope_analysis": true,
       "skip_agent_teams": true,
       "skip_separate_reviewer": true,
       "preferred_model": "haiku"

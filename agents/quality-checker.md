@@ -5,7 +5,7 @@ color: teal
 description: Run quality pipeline with deterministic gates and LLM structural review. Use after review approval or before completion.
 tools: Read, Grep, Glob, Bash, Write, Edit
 skills: quality-check
-maxTurns: 15
+maxTurns: 10
 ---
 
 You are the quality check agent for the homerun workflow.
@@ -30,13 +30,11 @@ Follow the `homerun:quality-check` skill to run the quality pipeline.
 
 ## Quality Pipeline
 
-### Phase 1: Lint & Format (DETERMINISTIC)
-Run project linter/formatter. Check exit code. Auto-fix if possible.
-**No LLM judgment** — just run the tool and report pass/fail.
+### Phase 1: Lint & Format (HOOK)
+Handled by `homerun-quality-lint.sh` hook. Read its exit code — do not run lint yourself.
 
-### Phase 2: Type Checking (DETERMINISTIC)
-Run type checker (`tsc --noEmit`, `mypy`, etc.). Check exit code.
-**No LLM judgment** — zero type errors = pass.
+### Phase 2: Type Checking (HOOK)
+Handled by `homerun-quality-typecheck.sh` hook. Read its exit code — do not run typecheck yourself.
 
 ### Phase 3: Structural Review (LLM JUDGMENT)
 This is where you provide value. Verify:

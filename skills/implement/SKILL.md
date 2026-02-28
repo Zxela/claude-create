@@ -395,6 +395,53 @@ Once all acceptance criteria pass:
 - Commit with conventional format: `feat(<feature>): <task title>`
 - Example: `feat(auth): implement user login endpoint`
 
+### 5.5. Mutation Test Verification
+
+**Task-type gating:** Only run this step for complex task types: `create_service`, `bug_fix`, `create_model`, `create_middleware`, `add_endpoint_complex`, `integration_test`. Skip for haiku-level tasks (`add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`).
+
+This step catches tautological tests — tests that pass regardless of whether the implementation exists. A test that passes when implementation code is removed provides false confidence.
+
+**Procedure:**
+
+1. **Identify the critical implementation line** — the single line that makes the core acceptance criterion work (e.g., the actual validation logic, the service call, the database query)
+
+2. **Mutate** — Comment out that line:
+   ```bash
+   # Save original, comment out the critical line
+   sed -i "${LINE_NUM}s/^/\/\/ MUTATION: /" "$IMPL_FILE"
+   ```
+
+3. **Re-run the relevant test:**
+   ```bash
+   npm test -- --testPathPattern="$TEST_FILE" 2>&1 | tail -10
+   MUTATION_EXIT=$?
+   ```
+
+4. **Evaluate result:**
+   - If test **FAILS** (expected) → Mutation caught. Test is valid. Restore the line and proceed to Step 6.
+   - If test **PASSES** (bad) → Test is tautological. Restore the line and emit:
+     ```json
+     {
+       "signal": "IMPLEMENTATION_BLOCKED",
+       "reason": "Test passes without implementation — tautological test detected",
+       "blocker_type": "tautological_test",
+       "details": [
+         "File: ${IMPL_FILE}:${LINE_NUM}",
+         "Test: ${TEST_FILE}",
+         "The test passes even when the critical implementation line is commented out"
+       ],
+       "suggested_resolution": "Strengthen test assertions to verify actual behavior, not just function existence. Tests must fail when the critical implementation is removed."
+     }
+     ```
+
+5. **Restore original:**
+   ```bash
+   # Always restore, whether mutation was caught or not
+   sed -i "${LINE_NUM}s/^\/\/ MUTATION: //" "$IMPL_FILE"
+   ```
+
+**Scope limit:** Only mutate ONE line for ONE acceptance criterion (the most critical one). This is a quick sanity check, not full mutation testing.
+
 ### 6. Signal Completion
 
 Output the completion signal in **JSON format** (required for conductor parsing).
@@ -469,7 +516,7 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
   "properties": {
     "signal": { "const": "IMPLEMENTATION_BLOCKED" },
     "reason": { "type": "string" },
-    "blocker_type": { "enum": ["missing_dependency", "unclear_requirements", "technical_constraint", "test_failure"] },
+    "blocker_type": { "enum": ["missing_dependency", "unclear_requirements", "technical_constraint", "test_failure", "tautological_test"] },
     "details": { "type": "array", "items": { "type": "string" } },
     "suggested_resolution": { "type": "string" }
   }

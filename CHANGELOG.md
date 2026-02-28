@@ -1,5 +1,25 @@
 # Changelog
 
+## [5.2.0] - 2026-02-27
+
+### Added
+- **Session-level feedback accumulation** (`scripts/lib/feedback-aggregator.sh`) — Extracts reviewer rejection patterns from tasks.json and writes `feedback_patterns.json`. Team-lead injects accumulated patterns into each implementer's prompt, enabling session-wide learning from rejections.
+- **Deterministic lint hook** (`scripts/homerun-quality-lint.sh`) — Standalone bash script for lint auto-fix at zero LLM cost. Auto-detects project lint tool (biome, eslint, prettier, ruff).
+- **Deterministic typecheck hook** (`scripts/homerun-quality-typecheck.sh`) — Standalone bash script for type checking at zero LLM cost. Auto-detects type checker (tsc, mypy, pyright).
+- **Test mutation verification gate** (implement skill Step 5.5) — Before signaling completion, implementers comment out one critical line and re-run the test. If test still passes, blocks with `IMPLEMENTATION_BLOCKED(blocker_type: "tautological_test")`. Only for complex task types.
+- **Scale-aware discovery haiku fast path** — Early scale estimation in discovery dialogue. When scope < 3 files, skips PRD/ADR/WIREFRAMES, skips scope-analysis phase, and routes to haiku model. Adds `scale` field to state.json.
+- **Continuous incremental review** (team-lead Section 3.5) — Reviewers spawn as each task completes (max 2 concurrent), running in parallel with remaining implementers. Rejected tasks retry immediately with feedback context.
+- **`REVIEW_DISPATCHED` signal** — New signal contract for incremental review dispatch with `reviewer_slot` and `max_concurrent` metadata.
+- `tautological_test` blocker type added to `IMPLEMENTATION_BLOCKED` signal schema.
+- `skip_scope_analysis: true` added to `scale_routing.small` in model-routing.json.
+
+### Changed
+- **Quality-checker agent maxTurns reduced from 15 to 10** — Phases 1 (lint) and 2 (typecheck) now handled by standalone bash hooks, not the LLM agent. Agent focuses on Phase 3 (structural review), Phase 4 (tests), and Phase 5 (recheck). ~30-40% cost reduction.
+- **Quality-check skill** — Phases 1 and 2 updated to reference hook scripts instead of inline bash.
+- **Post-implement hook** — Now calls feedback-aggregator after logging progress (non-blocking).
+- **Reviewer agent** — Added incremental review mode documentation for single-task lifecycle.
+- **Implementer agent** — Added Step 5.5 mutation test verification documentation.
+
 ## [5.1.0] - 2026-02-27
 
 ### Added

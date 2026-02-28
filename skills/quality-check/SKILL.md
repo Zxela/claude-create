@@ -63,55 +63,27 @@ The conductor can invoke this after review approval or as a standalone gate befo
 
 ## Process
 
-### Phase 1: Lint & Format (DETERMINISTIC — no LLM judgment)
+### Phase 1: Lint & Format (HOOK — handled by `homerun-quality-lint.sh`)
 
-Run CLI tools and check exit codes. The LLM adds no value here — just execute and report.
-
-```bash
-cd "$WORKTREE_PATH"
-
-# Detect linter from project config and run with auto-fix
-if [ -f biome.json ] || [ -f biome.jsonc ]; then
-  npx biome check --write "${FILES[@]}" 2>&1 | tail -20
-  LINT_EXIT=$?
-elif [ -f .eslintrc* ] || grep -q '"eslint"' package.json 2>/dev/null; then
-  npx eslint --fix "${FILES[@]}" 2>&1 | tail -20
-  LINT_EXIT=$?
-elif [ -f .prettierrc* ] || grep -q '"prettier"' package.json 2>/dev/null; then
-  npx prettier --write "${FILES[@]}" 2>&1 | tail -20
-  LINT_EXIT=$?
-else
-  echo "No linter found — skipping"
-  LINT_EXIT=0
-fi
-
-# Result: LINT_EXIT == 0 means pass. No LLM analysis needed.
-```
-
-### Phase 2: Type Checking (DETERMINISTIC — no LLM judgment)
+**This phase is now handled by the standalone hook script `scripts/homerun-quality-lint.sh`.** The hook runs automatically as part of the quality gate pipeline. If running quality-check manually, execute the hook first:
 
 ```bash
-cd "$WORKTREE_PATH"
-
-# TypeScript
-if [ -f tsconfig.json ]; then
-  TYPE_OUTPUT=$(npx tsc --noEmit 2>&1)
-  TYPE_EXIT=$?
-  echo "$TYPE_OUTPUT" | grep -E "error TS" | head -20
-fi
-
-# Python (if applicable)
-if command -v mypy &>/dev/null && [ -f pyproject.toml ]; then
-  TYPE_OUTPUT=$(mypy "${FILES[@]}" 2>&1)
-  TYPE_EXIT=$?
-  echo "$TYPE_OUTPUT" | tail -20
-fi
-
-# Result: TYPE_EXIT == 0 means pass. No LLM analysis needed.
+bash "$PLUGIN_ROOT/scripts/homerun-quality-lint.sh"
+LINT_EXIT=$?
 ```
 
-**If type errors found and fix_mode=auto:** Fix type errors in changed files only. This is the ONE place in phases 1/2/4 where LLM judgment helps (choosing HOW to fix a type error).
-**Scope constraint:** Only fix errors in files from `files_changed`. Do not fix pre-existing errors in other files.
+The quality-checker agent does NOT run lint — it reads the hook's exit code and reports the result.
+
+### Phase 2: Type Checking (HOOK — handled by `homerun-quality-typecheck.sh`)
+
+**This phase is now handled by the standalone hook script `scripts/homerun-quality-typecheck.sh`.** Execute before quality-check if running manually:
+
+```bash
+bash "$PLUGIN_ROOT/scripts/homerun-quality-typecheck.sh"
+TYPE_EXIT=$?
+```
+
+The quality-checker agent does NOT run type checking — it reads the hook's exit code and reports the result.
 
 ### Phase 3: Structural Review (LLM JUDGMENT — this is where you add value)
 

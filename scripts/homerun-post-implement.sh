@@ -69,3 +69,11 @@ IN_PROGRESS=$(jq '[.tasks[] | select(.status == "in_progress")] | length' "$FULL
 PENDING=$(jq '[.tasks[] | select(.status == "pending")] | length' "$FULL_TASKS_PATH")
 
 echo "homerun-post-implement: Progress — $COMPLETED/$TOTAL completed, $IN_PROGRESS in progress, $PENDING pending"
+
+# --- Feedback pattern aggregation ---
+# Extract rejection patterns for session-level learning (non-blocking)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FEEDBACK_SCRIPT="$SCRIPT_DIR/lib/feedback-aggregator.sh"
+if [ -f "$FEEDBACK_SCRIPT" ]; then
+  bash "$FEEDBACK_SCRIPT" "$(dirname "$STATE_FILE")" 2>/dev/null || true
+fi

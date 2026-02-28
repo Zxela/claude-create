@@ -59,6 +59,34 @@ Pass 2: For each task with depends_on:
   })
 ```
 
+### 2.5. Feedback Pattern Injection
+
+Before dispatching implementers, check for accumulated feedback patterns from prior rejections in this session.
+
+```bash
+FEEDBACK_FILE="$WORKTREE_PATH/feedback_patterns.json"
+if [ -f "$FEEDBACK_FILE" ] && [ -s "$FEEDBACK_FILE" ]; then
+  PATTERNS=$(jq -r '.common_patterns // [] | join(", ")' "$FEEDBACK_FILE")
+  REJECTION_COUNT=$(jq -r '.total_rejections // 0' "$FEEDBACK_FILE")
+  echo "Session has $REJECTION_COUNT prior rejections. Common patterns: $PATTERNS"
+fi
+```
+
+**When feedback_patterns.json exists and is non-empty:**
+- Read the `common_patterns` and `session_patterns` arrays
+- Include a `previous_rejections` block in each implementer's task prompt:
+  ```
+  **Previous rejection patterns in this session (apply proactively):**
+  ${session_patterns.map(p => `- Task ${p.task_id}: ${p.rejection_reasons.join(', ')}`).join('\n')}
+
+  Common issues to avoid: ${common_patterns.join(', ')}
+  ```
+- This enables implementers to learn from earlier rejections without re-experiencing them
+
+**When feedback_patterns.json does not exist or is empty:**
+- Proceed normally — no injection needed
+- This is the common case for the first task in a session
+
 ### 3. Dispatch Loop
 
 Work through the DAG by dispatching implementers for ready tasks.
@@ -92,6 +120,8 @@ Task({
 
   Spec documents: ${JSON.stringify(specPaths)}
 
+  Previous session feedback: ${feedbackContext || 'None (first task)'}
+
   Use commit message format: [${task.id}] <description>
   Update docs/tasks.json status to "completed" when done.`
 });
@@ -108,6 +138,79 @@ Task({
 - Retry once with the error context added to the prompt
 - If still failing after 2 attempts, skip the task and note it
 - Continue with remaining tasks (failed tasks may block dependents — that's expected)
+
+### 3.5. Continuous Incremental Review
+
+Instead of waiting for all implementers to finish before reviewing, spawn reviewers **as each task completes**. This parallelizes review with ongoing implementation.
+
+**Review dispatch rules:**
+
+1. **On task completion:** When an implementer finishes and its task status moves to "completed", immediately check for available reviewer slots
+2. **Concurrency limit:** Maximum **2 concurrent reviewers** at any time
+3. **Parallel with implementers:** Reviewers run alongside remaining implementers — do not wait for all implementations to finish
+
+**Dispatch a reviewer for each completed task:**
+
+```javascript
+// When implementer completes task X:
+const activeReviewers = countActiveReviewers(); // track spawned reviewer agents
+if (activeReviewers < 2) {
+  Task({
+    description: `Review [${task.id}] ${task.title}`,
+    subagent_type: "homerun:reviewer",
+    run_in_background: true,
+    prompt: `Review this implementation against its specification.
+
+    Worktree: ${worktreePath}
+    Task ID: ${task.id}
+    Title: ${task.title}
+    Objective: ${task.objective}
+    Commit hash: ${task.commit_hash}
+    Files changed: ${task.files_changed}
+
+    Acceptance criteria:
+    ${task.acceptance_criteria.map(c => '- ' + c.criterion).join('\n')}
+
+    Spec documents: ${JSON.stringify(specPaths)}
+
+    Run Tier 1 hard gates first, then Tier 2 soft review.
+    Emit APPROVED or REJECTED signal.`
+  });
+} else {
+  // Queue for review when a slot opens
+  reviewQueue.push(task.id);
+}
+```
+
+**Handling rejections:**
+
+When a reviewer emits `REJECTED`:
+1. Read the rejection feedback
+2. Load feedback_patterns.json (updated by the post-implement hook)
+3. Re-dispatch the implementer with:
+   - The specific rejection issues from the reviewer
+   - The accumulated session feedback patterns (from Section 2.5)
+   - A retry counter (max 2 retries per task)
+4. The re-dispatched implementer runs alongside other active implementers/reviewers
+
+**Handling approvals:**
+
+When a reviewer emits `APPROVED`:
+1. Mark the task as "approved" in tasks.json
+2. Check reviewQueue — if tasks are waiting for review, dispatch the next one
+3. Check if all tasks are now approved → if yes, proceed to Quality Gate (Section 4)
+
+**Monitoring loop:**
+
+```
+while (pendingTasks > 0 || activeImplementers > 0 || activeReviewers > 0):
+  1. Check for completed implementers → dispatch reviewers (up to 2)
+  2. Check for completed reviewers → handle APPROVED/REJECTED
+  3. Dispatch next batch of ready implementers (respecting DAG)
+  4. Repeat
+```
+
+**Exit condition:** All tasks are either "approved" or "skipped" (after max retries). Then proceed to the final Quality Gate.
 
 ### 4. Quality Gate
 

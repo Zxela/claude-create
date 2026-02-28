@@ -141,6 +141,12 @@ Task({
 
 #### Phase: scope_analysis
 
+**Scale-based skip:** Before spawning the scope-analyzer, check if the scale is "small":
+```bash
+SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' "$WORKTREE_PATH/state.json" 2>/dev/null)
+```
+If `SCALE` is `"small"`, skip the scope_analysis phase entirely — update `state.json` phase directly to `"task_decomposition"` and continue the loop. Small features don't need the intermediate scope-analysis.json artifact.
+
 ```javascript
 Task({
   description: "Analyze scope from specs",

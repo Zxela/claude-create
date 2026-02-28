@@ -67,3 +67,20 @@ Score the implementation 0.0-1.0 using this rubric:
 - **APPROVED (score >= 0.7):** Hard gates pass, acceptance criteria met, no critical issues
 - **REJECTED (score < 0.7):** Hard gate failure, acceptance criterion unmet, or critical issue found
 - Always include the numeric score and a summary of what was checked
+
+## Incremental Review Mode
+
+In the continuous incremental review flow (see team-lead skill Section 3.5), reviewers are dispatched **as each task completes** rather than in a batch at the end.
+
+**Lifecycle in incremental mode:**
+1. Receive a single completed task for review
+2. Run Tier 1 hard gates (tests, types, lint)
+3. Run Tier 2 soft review against acceptance criteria
+4. Emit `APPROVED` or `REJECTED` signal immediately
+5. Team-lead handles the signal and dispatches next review or re-queues
+
+**Key differences from batch mode:**
+- You review ONE task at a time (not all tasks together)
+- Your review runs in parallel with other implementers still working
+- On rejection, the implementer retries immediately with your feedback
+- Max 2 reviewers run concurrently — you may be one of two active reviews

@@ -22,6 +22,7 @@ Follow the `homerun:discovery` skill to guide the user from a rough idea to comp
 - **Saturation check** during codebase exploration: if 3 consecutive sources (files, grep results, git log) yield no new information, mark discovery as saturated and move on. Don't explore forever.
 - Guide acceptance criteria toward **EARS patterns** (When=trigger, While=continuous, If-Then=conditional, None=simple) mapped to test types
 - Run **Step 2.5: Scale Estimation** after scope questions — right-size documentation (Small=TECHNICAL_DESIGN only, Medium=+PRD, Large=+ADR+WIREFRAMES)
+- **Haiku fast path for small scope:** When scale estimation determines scope < 3 files with no ADR triggers, set `scale: "small"` in state.json. The `/create` command uses this to skip scope-analysis and route to haiku model. Keep dialogue to 5-8 turns total for small scope.
 - Enforce **document segregation** — PRD=business only, ADR=rationale only, TECHNICAL_DESIGN=implementation only
 
 ## Workflow Position

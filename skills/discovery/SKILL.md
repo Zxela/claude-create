@@ -330,6 +330,39 @@ Store in state.json:
 
 ---
 
+### 2.6. Scale-Based Model and Phase Routing
+
+Based on the scale estimation, adjust the downstream workflow:
+
+| Scale | Discovery Model | Documents Generated | Skip Scope Analysis | Skip Spec Review |
+|-------|----------------|--------------------|--------------------|-----------------|
+| **Small** | haiku | TECHNICAL_DESIGN only | Yes | Yes |
+| **Medium** | inherit (user default) | PRD + TECHNICAL_DESIGN | No | No |
+| **Large** | inherit (user default) | All documents | No | No |
+
+**For small-scale features (< 3 files):**
+- Set `state.json` scale field: `"scale": "small"`
+- Generate only TECHNICAL_DESIGN.md (simplified — skip architecture diagrams, focus on data model + implementation plan)
+- Skip PRD, ADR, and WIREFRAMES
+- The `/create` command will skip the `scope_analysis` phase entirely
+- Task decomposition reads TECHNICAL_DESIGN directly (no scope-analysis.json intermediate)
+- Shorten dialogue to 5-8 turns total (reduce question depth in each category)
+
+**Store scale in state.json** (update the existing scale block):
+```json
+{
+  "scale": "small",
+  "scale_details": {
+    "estimated_files": 2,
+    "adr_triggers": [],
+    "docs_to_generate": ["technical_design"],
+    "skip_scope_analysis": true
+  }
+}
+```
+
+---
+
 ### 3. Document Generation
 
 **Document segregation rules** (see `references/scale-determination.md` for details):
