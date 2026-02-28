@@ -1,6 +1,6 @@
 # Retry Patterns Reference
 
-Extracted from conductor/SKILL.md for token efficiency.
+Extracted from team-lead orchestration logic for token efficiency.
 
 ## Retry Queue Structure
 
@@ -191,4 +191,4 @@ When blocked or stalled, present these options:
 | **Mark as fixed** | User fixed manually, re-review | External fix applied |
 | **Skip task** | Mark skipped, unblock dependents | Non-critical task |
 | **Return to planning** | Re-decompose the task | Fundamental design issue |
-| **User takeover** | Exit conductor, user continues | Complex judgment needed |
+| **User takeover** | Exit team-lead, user continues | Complex judgment needed |

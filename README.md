@@ -345,7 +345,6 @@ homerun/
 │   ├── scope-analysis/SKILL.md
 │   ├── task-decomposition/SKILL.md
 │   ├── team-lead/SKILL.md
-│   ├── conductor/SKILL.md        # DEPRECATED — fallback only
 │   ├── implement/SKILL.md
 │   ├── review/SKILL.md
 │   ├── quality-check/SKILL.md
@@ -372,7 +371,7 @@ homerun/
 │   ├── discovery-questions.md
 │   ├── scale-determination.md
 │   ├── retry-patterns.md
-│   └── state-machine.md
+│   └── retry-patterns.md
 ├── scripts/                      # Hook scripts
 │   ├── homerun-pre-commit.sh     # PreToolUse: block commit on lint/type errors
 │   ├── homerun-auto-lint.sh      # PostToolUse: auto-format after edits

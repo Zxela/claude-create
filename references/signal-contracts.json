@@ -223,11 +223,11 @@
     },
 
     "COVERAGE_GAPS_DETECTED": {
-      "producer": "homerun:conductor",
+      "producer": "homerun:team-lead",
       "envelope_example": {
         "signal": "COVERAGE_GAPS_DETECTED",
         "timestamp": "2026-01-25T12:00:00Z",
-        "source": { "skill": "homerun:conductor" },
+        "source": { "skill": "homerun:team-lead" },
         "payload": {
           "errors": [
             {

@@ -24,7 +24,7 @@ Follow the `homerun:generate-test-skeletons` skill to create test files prioriti
 **Phase:** Optional — between planning and implementation
 **Input:** tasks.json + spec documents (PRD, TECHNICAL_DESIGN)
 **Output:** `TEST_SKELETONS_COMPLETE` signal with file paths and ROI rankings
-**Next:** Implementation via conductor
+**Next:** Implementation via team-lead
 
 ## Process
 

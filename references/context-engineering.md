@@ -56,7 +56,7 @@ Tool outputs consume ~84% of context in typical agent workflows. Homerun applies
 | Build logs | Return exit code + last 20 lines |
 | Large file reads | Read in chunks, summarize findings |
 
-**Implementation in conductor:**
+**Implementation in team-lead:**
 ```javascript
 function maskObservation(toolOutput, type) {
   if (toolOutput.length < 2000) return toolOutput; // Keep small outputs
@@ -105,12 +105,12 @@ The main session auto-compacts naturally during long orchestration runs. No spec
 
 When work is complete, skip the orchestrator chain:
 
-**Problem:** Conductor summarizing reviewer responses loses fidelity.
+**Problem:** Team-lead summarizing reviewer responses loses fidelity.
 
 **Solution:** Final signals go directly to user:
 
 ```javascript
-// In conductor, when all tasks complete
+// In team-lead, when all tasks complete
 if (allTasksComplete(state)) {
   // Don't summarize - output directly for user
   return {

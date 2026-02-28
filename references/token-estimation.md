@@ -48,7 +48,7 @@ Add to `state.json`:
       },
       "implementing": {
         "started_at": null,
-        "conductor_refreshes": 0,
+        "team_lead_refreshes": 0,
         "implementer_invocations": 0,
         "reviewer_invocations": 0,
         "current_estimated_tokens": null
@@ -86,15 +86,15 @@ function estimateFileTokens(filePath) {
 
 ## Refresh Triggers
 
-Conductor should refresh when ANY of:
-1. `tasks_since_refresh >= conductor_refresh_interval` (default: 5)
+Team-lead should refresh when ANY of:
+1. `tasks_since_refresh >= team_lead_refresh_interval` (default: 5)
 2. `estimated_tokens > refresh_threshold_percent * window_size`
 3. `feedback_accumulation > 10KB`
 
 ## Token-Aware Refresh Decision
 
 ```javascript
-function shouldRefreshConductor(state) {
+function shouldRefreshTeamLead(state) {
   const tracking = state.token_tracking;
   const config = tracking?.config || {};
 
@@ -143,7 +143,7 @@ Include token estimates in skill_log entries:
 {
   "skill_log": [
     {
-      "skill": "homerun:conductor",
+      "skill": "homerun:team-lead",
       "timestamp": "2026-01-25T12:00:00Z",
       "event": "refresh",
       "reason": "token_threshold",

@@ -24,10 +24,6 @@ categories:
     description: Tests for reviewer skill (approval/rejection logic)
     skills: [homerun:review]
 
-  conductor:
-    description: Tests for conductor skill (orchestration, parallel execution)
-    skills: [homerun:conductor]
-
   integration:
     description: End-to-end tests (SWE-bench style)
     skills: [homerun:create]

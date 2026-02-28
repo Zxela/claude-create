@@ -70,7 +70,7 @@ parallel_state analysis:
 |---------|--------------|-----------|
 | No tasks running, many pending | Dependency cycle | `jq '.tasks[] \| select(.blocked_by \| length > 0)' tasks.json` |
 | Same rejection 3x | Circuit breaker tripped | Review feedback, fix root cause manually |
-| Team lead/conductor keeps refreshing | Token budget or state bloat | Check `tasks_since_refresh`, reduce task complexity |
+| Team lead keeps refreshing | Token budget or state bloat | Check `tasks_since_refresh`, reduce task complexity |
 | Implementer timeout | Task too large | Decompose into subtasks |
 | "VALIDATION_ERROR" signal | Input contract violation | Check task schema matches implement skill input |
 | Git conflicts in worktree | Concurrent modifications | `git status` in worktree, resolve manually |
@@ -127,7 +127,7 @@ If workflow is unrecoverable:
 
 ## Rollback Strategies
 
-See conductor SKILL.md "Rollback Strategy" section for:
+See team-lead SKILL.md "Rollback Strategy" section for:
 - **Revert Commits** - Clean git history
 - **Soft Skip** - Preserve partial work
 - **Reset to Planning** - Re-decompose tasks

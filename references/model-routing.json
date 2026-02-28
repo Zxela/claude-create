@@ -54,7 +54,6 @@
     "scope_analysis": "sonnet",
     "task_decomposition": "opus",
     "test_skeletons": "sonnet",
-    "conductor": "haiku",
     "team_lead": "sonnet",
     "reviewer": "sonnet",
     "quality_check": "sonnet",

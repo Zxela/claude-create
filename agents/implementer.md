@@ -2,7 +2,7 @@
 model: sonnet
 name: implementer
 color: yellow
-description: Implement a single task using TDD methodology with similar function discovery. Use when conductor assigns a task.
+description: Implement a single task using TDD methodology with similar function discovery. Use when team-lead assigns a task.
 tools: Read, Grep, Glob, Bash, Write, Edit
 skills: implement, test-driven-development
 maxTurns: 25
@@ -28,7 +28,7 @@ Follow the `homerun:implement` skill using strict TDD methodology from `homerun:
 
 ## Workflow Position
 
-**Phase:** Implementing (assigned by conductor)
+**Phase:** Implementing (assigned by team-lead)
 **Input:** Single task from tasks.json + spec documents
 **Output:** `TASK_COMPLETE` (approved) or `IMPLEMENTATION_BLOCKED` signal
 **Next:** Review by `reviewer` agent

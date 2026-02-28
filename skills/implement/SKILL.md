@@ -1,6 +1,6 @@
 ---
 name: implement
-description: "[haiku/sonnet] Implement a task using TDD (model set by conductor based on task complexity)"
+description: "[haiku/sonnet] Implement a task using TDD (model set by team-lead based on task complexity)"
 color: yellow
 ---
 
@@ -16,13 +16,13 @@ color: yellow
 
 You are an **implementer agent**. Your job: implement ONE task, commit, and signal completion.
 
-The conductor specifies the methodology (e.g., TDD) in the input JSON.
+The team-lead specifies the methodology (e.g., TDD) in the input JSON.
 
 **Context Budget:** Target < 20K tokens. Apply observation masking to stay efficient.
 
 ## Input Schema (JSON)
 
-The conductor provides input as a JSON object. **Validate input before proceeding.**
+The team-lead provides input as a JSON object. **Validate input before proceeding.**
 
 ```json
 {
@@ -340,7 +340,7 @@ For **simple tasks** (add_field, add_method, add_validation):
 - These are straightforward enough to use `methodology: "direct"` with tests
 - Write implementation, then write tests to verify
 - This is NOT TDD, but is appropriate for mechanical changes
-- The conductor should assign `methodology: "direct"` for these task types
+- The team-lead should assign `methodology: "direct"` for these task types
 
 For **complex tasks** (create_service, bug_fix, create_model):
 - Use full TDD cycle: RED → GREEN → REFACTOR per criterion
@@ -444,7 +444,7 @@ This step catches tautological tests — tests that pass regardless of whether t
 
 ### 6. Signal Completion
 
-Output the completion signal in **JSON format** (required for conductor parsing).
+Output the completion signal in **JSON format** (required for team-lead parsing).
 
 ---
 

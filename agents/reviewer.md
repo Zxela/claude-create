@@ -51,7 +51,7 @@ Score the implementation 0.0-1.0 using this rubric:
 **Phase:** After implementation of each task
 **Input:** Completed task implementation + spec documents + task definition
 **Output:** `REVIEW_APPROVED` or `REVIEW_REJECTED` signal
-**Next:** If approved → conductor marks task complete. If rejected → back to implementer with feedback.
+**Next:** If approved → team-lead marks task complete. If rejected → back to implementer with feedback.
 
 ## Review Checklist (Tier 2 — after hard gates pass)
 
