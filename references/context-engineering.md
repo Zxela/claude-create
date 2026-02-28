@@ -1,13 +1,14 @@
 # Context Engineering Patterns in Homerun
 
-> **Updated (v3.0.0):** Phases now use named native subagents (e.g., `Task(discovery-agent)` instead of `Task(general-purpose) + skill`).
-> The execution phase uses the `team-lead` agent with Agent Teams for native task DAG management.
+> **Updated (v5.0.0):** The execution phase now uses the `team-lead` **skill** inline in the main session
+> instead of a spawned agent. Claude's native coordination handles orchestration better than a
+> constrained subagent with monitoring loops.
 
 ## Core Principles Applied
 
 ### 1. Context Isolation via Agent Spawning
 
-Each phase runs in a **fresh agent context** at **depth 1** (flat state machine). The `/create` command spawns each phase directly — agents do NOT chain to the next phase:
+Each discovery/review/planning phase runs in a **fresh agent context** at **depth 1**. The execution phase runs **inline** (depth 0) via the team-lead skill, dispatching implementers at depth 1:
 
 ```
 /create loop (main session)
@@ -15,19 +16,18 @@ Each phase runs in a **fresh agent context** at **depth 1** (flat state machine)
    ├─> Task(discovery-agent)   → Discovery     [dialogue with user]       → returns
    ├─> Task(spec-reviewer)     → Spec Review   [validation gate]          → returns
    ├─> Task(planner)           → Planning      [decomposition into tasks] → returns
-   └─> Task(team-lead)         → Team Lead     [orchestration]            → returns
+   └─> Skill(team-lead)        → Orchestration [inline, dispatches:]
                                      │
-                                     ├─> Task(implementer) × 1-5  (depth 2)
-                                     ├─> Task(reviewer) × 1       (depth 2)
-                                     └─> Task(quality-checker)     (depth 2)
+                                     ├─> Task(implementer) × 1-N  (depth 1)
+                                     └─> Task(quality-checker)     (depth 1)
 ```
 
 **Why this works:**
-- Each agent starts with ~5-10K tokens (just state.json + task)
-- Previous phase deliberation doesn't bloat next phase
-- Model selection optimizes cost/quality per role
-- No "telephone game" — agents read state.json directly
-- **Flat spawning guarantees Task tool availability** — team-lead at depth 1 can always spawn conductor/implementers via Task at depth 2
+- Discovery/review/planning get fresh contexts (no cross-phase bleed)
+- Team-lead runs inline with full tool access — no artificial constraints
+- Claude's natural coordination handles ordering, parallelism, and failure recovery
+- Implementers at depth 1 (not depth 2) get full tool access
+- No "telephone game" — main session reads state.json and tasks.json directly
 
 ### 2. Filesystem-as-Memory Pattern
 
@@ -98,32 +98,7 @@ Key steps: poll → review → handle failures → spawn
 
 ### 5. Compaction and Auto-Compaction
 
-**Team-lead and conductor agents should proactively compact** to prevent context degradation during long monitoring loops.
-
-| Trigger | Threshold | Action |
-|---------|-----------|--------|
-| Monitoring iterations | every 10 | `/compact Focus on task status, DAG progress, unresolved blockers` |
-| Auto-compaction | 50% capacity | Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` for orchestrator agents |
-| Stalled iterations | 3 without progress | Escalate to user |
-| High-severity failure | any | Block and escalate |
-
-**Native auto-compaction (recommended over manual refresh):**
-Claude Code supports `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` — set to `50` for team-lead/conductor agents to trigger compaction at 50% capacity instead of the default 95%. This is cheaper than spawning a fresh conductor and preserves more context.
-
-**Tracked in state.json:**
-```json
-{
-  "token_tracking": {
-    "config": {
-      "autocompact_pct": 50,
-      "compact_focus": "task status, DAG progress, unresolved blockers"
-    },
-    "refresh_log": [
-      {"reason": "auto_compaction", "at": "...", "pre_tokens": 80000}
-    ]
-  }
-}
-```
+The main session auto-compacts naturally during long orchestration runs. No special configuration is needed since the team-lead skill runs inline.
 
 ### 6. Forward Message Bypass
 
@@ -154,8 +129,7 @@ Based on research: **model choice drives 80% of performance variance**.
 | Discovery | inherit | User controls quality of requirements |
 | Spec Review | sonnet | Quality judgment on spec consistency |
 | Planning | opus | High-leverage - bad decomposition cascades |
-| Team Lead | sonnet | Coordination decisions, teammate scaling |
-| Conductor (fallback) | haiku | Mechanical scheduling, no reasoning needed |
+| Team Lead | inherit | Runs inline in main session |
 | Implementer (simple) | haiku | Pattern-following tasks |
 | Implementer (complex) | sonnet | Design decisions, security implications |
 | Reviewer | sonnet | Quality judgment requires reasoning |

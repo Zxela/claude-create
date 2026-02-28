@@ -60,11 +60,36 @@ Runs tests before allowing a native task to complete. Exit code 2 blocks complet
 
 ## Deterministic Quality Gate Hooks (v4.0)
 
-These hooks replace LLM judgment for phases 1, 2, and 4 of the quality pipeline. They run deterministic CLI checks on every file edit, providing zero-cost, reproducible quality gates.
+These hooks replace LLM judgment for phases 1, 2, and 4 of the quality pipeline. They run deterministic CLI checks automatically, providing zero-cost, reproducible quality gates.
+
+### PreToolUse — Block commits if lint/typecheck fails
+
+**This is the primary quality gate.** Intercepts `git commit` and `git push` commands and runs the project's lint and typecheck tools first. Blocks the command (exit 2) if either fails, with error output on stderr so Claude can fix the issues.
+
+Auto-detects quality tools in this order:
+1. `package.json` scripts (`lint`, `typecheck`, `type-check`, `check-types`)
+2. Config files (biome.json, eslint.config.js, tsconfig.json, pyproject.toml)
+3. CLI tools (ruff, mypy)
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh"
+      }]
+    }]
+  }
+}
+```
+
+See `scripts/homerun-pre-commit.sh` for the full implementation.
 
 ### PostToolUse — Auto-lint after file edits
 
-Runs linter automatically after every Edit/Write operation. Zero LLM tokens consumed.
+Runs linter with auto-fix after every Edit/Write operation. Non-blocking (always exit 0). Zero LLM tokens consumed. Skips non-source files (markdown, JSON, YAML, lock files).
 
 ```json
 {
@@ -73,27 +98,14 @@ Runs linter automatically after every Edit/Write operation. Zero LLM tokens cons
       "matcher": "Edit|Write",
       "hooks": [{
         "type": "command",
-        "command": "./scripts/homerun-auto-lint.sh"
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-auto-lint.sh"
       }]
     }]
   }
 }
 ```
 
-Example `homerun-auto-lint.sh`:
-```bash
-#!/bin/bash
-# Auto-lint changed files after edit
-INPUT=$(cat)
-FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
-[ -z "$FILE" ] && exit 0
-if [ -f biome.json ] || [ -f biome.jsonc ]; then
-  npx biome check --write "$FILE" 2>/dev/null
-elif command -v eslint &>/dev/null; then
-  npx eslint --fix "$FILE" 2>/dev/null
-fi
-exit 0  # Don't block on lint failures
-```
+See `scripts/homerun-auto-lint.sh` for the full implementation.
 
 ### SubagentStop — Run type check + tests after implementer finishes
 
@@ -137,17 +149,24 @@ Add all hooks together in `.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "WorktreeCreate": [{
+    "PreToolUse": [{
+      "matcher": "Bash",
       "hooks": [{
         "type": "command",
-        "command": "./scripts/homerun-worktree-setup.sh"
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh"
       }]
     }],
     "PostToolUse": [{
       "matcher": "Edit|Write",
       "hooks": [{
         "type": "command",
-        "command": "./scripts/homerun-auto-lint.sh"
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-auto-lint.sh"
+      }]
+    }],
+    "WorktreeCreate": [{
+      "hooks": [{
+        "type": "command",
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-worktree-setup.sh"
       }]
     }],
     "SubagentStop": [{
@@ -160,7 +179,7 @@ Add all hooks together in `.claude/settings.json`:
     "TaskCompleted": [{
       "hooks": [{
         "type": "command",
-        "command": "./scripts/homerun-task-completed.sh"
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-task-completed.sh"
       }]
     }]
   }
@@ -173,7 +192,7 @@ Add all hooks together in `.claude/settings.json`:
 |-----------|---------|
 | 0 | Success — proceed normally |
 | 1 | Error — log but don't block |
-| 2 | Block — prevent the action (TaskCompleted only) |
+| 2 | Block — prevent the action (PreToolUse and TaskCompleted). stderr is fed back to Claude as feedback. |
 
 ## Environment Variables
 
@@ -181,6 +200,8 @@ Hooks receive these environment variables from Claude Code:
 
 | Variable | Description |
 |----------|-------------|
+| `CLAUDE_PROJECT_DIR` | The project root directory |
+| `CLAUDE_PLUGIN_ROOT` | The plugin's root directory (for plugin-bundled scripts) |
 | `CLAUDE_WORKTREE_PATH` | Path to the worktree being operated on |
 | `CLAUDE_AGENT_NAME` | Name of the agent that triggered the hook |
 | `CLAUDE_TASK_ID` | ID of the native task (TaskCompleted only) |

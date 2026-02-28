@@ -12,7 +12,6 @@ graph TB
         D[Discovery Agent<br/>model: opus]
         SRv[Spec Reviewer<br/>model: sonnet]
         P[Planning Agent<br/>model: opus]
-        TL[Team Lead<br/>model: sonnet]
         I[Implementer Agents<br/>model: varies]
         R[Reviewer Agent<br/>model: sonnet]
     end
@@ -20,7 +19,7 @@ graph TB
     subgraph Skills["Skill Layer"]
         SD[homerun:discovery]
         SP[homerun:planning]
-        SC[homerun:conductor]
+        STL[homerun:team-lead]
         SI[homerun:implement]
         SR[homerun:review]
         SF[homerun:finishing-a-development-branch]
@@ -45,10 +44,9 @@ graph TB
     D --> SD
     D --> P
     P --> SP
-    P --> C
-    C --> SC
-    C --> I
-    C --> R
+    CLI --> STL
+    STL --> I
+    STL --> R
     I --> SI
     R --> SR
 
@@ -61,8 +59,8 @@ graph TB
     SP --> State
     SP --> Tasks
 
-    SC --> State
-    SC --> Tasks
+    STL --> State
+    STL --> Tasks
 
     SI --> Code
     SI --> Tests
@@ -82,7 +80,7 @@ graph LR
     subgraph Core Skills
         Discovery
         Planning
-        Conductor
+        TeamLead[Team Lead]
         Implement
         Review
     end
@@ -92,42 +90,41 @@ graph LR
         Worktree[using-git-worktrees]
         Debug[systematic-debugging]
         Finish[finishing-a-development-branch]
+        QualityGates[setup-quality-gates]
     end
 
     subgraph Reference Docs
         CE[context-engineering.md]
-        SM[state-machine.md]
+        HC[hooks-configuration.md]
         RP[retry-patterns.md]
         MR[model-routing.json]
-        TE[token-estimation.md]
     end
 
     Create --> Discovery
     Discovery --> Planning
-    Planning --> Conductor
-    Conductor --> Implement
-    Conductor --> Review
-    Conductor --> Finish
+    Planning --> TeamLead
+    TeamLead --> Implement
+    TeamLead --> Review
+    TeamLead --> Finish
 
     Implement -.-> TDD
     Discovery -.-> Worktree
     Implement -.-> Debug
+    TeamLead -.-> QualityGates
 
-    Conductor -.-> CE
-    Conductor -.-> SM
-    Conductor -.-> RP
+    TeamLead -.-> CE
     Planning -.-> MR
-    Conductor -.-> TE
 ```
 
 ## Agent Spawning Architecture
 
-All phases spawn at **depth 1** (flat state machine). Agents return to `/create` after each phase; no chaining.
+Phases run at **depth 0-1** (flat state machine). The team-lead skill runs inline at depth 0, dispatching implementers at depth 1.
 
 ```mermaid
 graph TB
     subgraph Main["Main Session — /create loop controller"]
         Entry["/create"]
+        TeamLead["Team Lead Skill<br/>(inline, depth 0)"]
     end
 
     subgraph Depth1_Discovery["Depth 1: Discovery"]
@@ -142,15 +139,13 @@ graph TB
         P[Planning Agent<br/>~10K tokens<br/>model: opus]
     end
 
-    subgraph Depth1_TeamLead["Depth 1: Team Lead"]
-        TL[Team Lead<br/>~5K tokens<br/>model: sonnet]
-    end
-
-    subgraph Depth2["Depth 2: Teammates (spawned by Team Lead)"]
+    subgraph Depth1_Impl["Depth 1: Implementers (dispatched by Team Lead)"]
         I1[Implementer 1<br/>~15K tokens]
         I2[Implementer 2<br/>~15K tokens]
         I3[Implementer 3<br/>~15K tokens]
-        R[Reviewer<br/>~10K tokens<br/>model: sonnet]
+    end
+
+    subgraph Depth1_QC["Depth 1: Quality"]
         QC[Quality Checker<br/>model: sonnet]
     end
 
@@ -160,20 +155,18 @@ graph TB
     SR -->|"returns"| Entry
     Entry -->|"Task(planner)"| P
     P -->|"returns"| Entry
-    Entry -->|"Task(team-lead)"| TL
-    TL -->|"Task(varies, background)"| I1
-    TL -->|"Task(varies, background)"| I2
-    TL -->|"Task(varies, background)"| I3
-    TL -->|"Task(sonnet)"| R
-    TL -->|"Task(sonnet)"| QC
-    TL -->|"returns"| Entry
+    Entry -->|"Skill(team-lead)"| TeamLead
+    TeamLead -->|"Task(implementer)"| I1
+    TeamLead -->|"Task(implementer)"| I2
+    TeamLead -->|"Task(implementer)"| I3
+    TeamLead -->|"Task(quality-checker)"| QC
 
     style Main fill:#e1f5fe
     style Depth1_Discovery fill:#fff3e0
     style Depth1_SpecReview fill:#fff3e0
     style Depth1_Planning fill:#fff3e0
-    style Depth1_TeamLead fill:#e8f5e9
-    style Depth2 fill:#fce4ec
+    style Depth1_Impl fill:#fce4ec
+    style Depth1_QC fill:#e8f5e9
 ```
 
 ## File System Architecture
@@ -221,49 +214,6 @@ graph TB
     Feature1 -.->|"spec_paths"| State1
 ```
 
-## Model Routing Architecture
-
-```mermaid
-graph TB
-    subgraph TaskTypes["Task Types"]
-        Simple[Simple Tasks<br/>add_field, add_method,<br/>add_validation, rename_refactor,<br/>add_test, add_config]
-        Medium[Medium Tasks<br/>create_model, create_service,<br/>add_endpoint_complex,<br/>create_middleware, bug_fix]
-        Complex[Complex Tasks<br/>architectural]
-    end
-
-    subgraph Models["Model Selection"]
-        Haiku[Haiku<br/>Fast, Cost-effective<br/>5 concurrent max]
-        Sonnet[Sonnet<br/>Balanced<br/>3 concurrent max]
-        Opus[Opus<br/>Most Capable<br/>1 concurrent max]
-    end
-
-    subgraph Roles["Agent Roles"]
-        TLead[Team Lead]
-        Cond[Conductor<br/>fallback]
-        Impl[Implementer]
-        Rev[Reviewer]
-        Plan[Planner]
-    end
-
-    Simple --> Haiku
-    Medium --> Sonnet
-    Complex --> Opus
-
-    TLead --> Sonnet
-    Cond --> Haiku
-    Plan --> Opus
-    Rev --> Sonnet
-
-    Impl --> Simple
-    Impl --> Medium
-    Impl --> Complex
-
-    subgraph Escalation["Escalation Path"]
-        E1[Haiku fails 3x] --> E2[Retry with Sonnet]
-        E2 --> E3[Fails again] --> E4[Escalate to User]
-    end
-```
-
 ## State Management Architecture
 
 ```mermaid
@@ -278,8 +228,6 @@ graph LR
         TasksFile[tasks_file]
         Trace[traceability]
         Config[config]
-        ParState[parallel_state]
-        TokenTrack[token_tracking]
     end
 
     subgraph TasksJSON["tasks.json"]
@@ -305,41 +253,4 @@ graph LR
 
     Phase --> Phases
     TasksFile --> TasksJSON
-    ParState --> TaskList
-```
-
-## Concurrency Model
-
-```mermaid
-graph TB
-    subgraph Limits["Concurrency Limits"]
-        Global[Global: max_parallel_tasks = 3]
-        PerModel[Per-Model Limits]
-        HaikuL[Haiku: 5 max]
-        SonnetL[Sonnet: 3 max]
-        OpusL[Opus: 1 max]
-    end
-
-    subgraph Slots["Slot Calculation"]
-        Available[Available Slots = min<br/>global_limit - running,<br/>model_limit - running_by_model]
-    end
-
-    subgraph Queue["Task Queues"]
-        Ready[Ready Queue<br/>Dependencies resolved]
-        Retry[Retry Queue<br/>Previously failed]
-        Running[Running Set<br/>In progress]
-        Review[Review Queue<br/>Awaiting review]
-    end
-
-    Global --> Available
-    PerModel --> Available
-    HaikuL --> PerModel
-    SonnetL --> PerModel
-    OpusL --> PerModel
-
-    Available --> Ready
-    Ready -->|Spawn| Running
-    Running -->|Complete| Review
-    Review -->|Rejected| Retry
-    Retry -->|Available slot| Ready
 ```

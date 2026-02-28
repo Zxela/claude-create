@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Skill, Task
 
 # /build Command
 
-Jump directly into the execution/implementation phase. Use when you already have a `tasks.json` and want to start or resume implementation via the team-lead agent (or conductor fallback).
+Jump directly into the execution/implementation phase. Use when you already have a `tasks.json` and want to start or resume implementation.
 
 ## Usage
 
@@ -65,21 +65,13 @@ Ready to start? [Y/n]
 
 ### 4. Invoke Team Lead
 
-Spawn the team-lead agent, which handles Agent Teams detection and conductor fallback internally:
+Invoke the team-lead skill inline to orchestrate implementation:
 
 ```javascript
-Task({
-  description: "Execute implementation loop",
-  subagent_type: "team-lead",
-  prompt: `Orchestrate parallel implementation for this feature.
-
-  Worktree: ${worktree_path}
-  State file: ${worktree_path}/state.json
-
-  Read state.json and tasks.json, then coordinate implementation.
-  If Agent Teams is unavailable, fall back to conductor.`
-});
+Skill({ skill: "homerun:team-lead" });
 ```
+
+The team-lead skill runs in the current session — it reads tasks.json, dispatches implementers via Task(), tracks progress, and runs the quality gate.
 
 ## Examples
 

@@ -42,11 +42,11 @@ Start an orchestrated development workflow that takes you from idea to implement
   ├─ spawn discovery-agent      (depth 1) → returns
   ├─ spawn spec-reviewer        (depth 1) → returns
   ├─ spawn planner              (depth 1) → returns
-  ├─ spawn team-lead            (depth 1) → returns
+  ├─ invoke team-lead skill     (depth 0, dispatches implementers at depth 1)
   └─ invoke finishing skill     (depth 0) → done
 ```
 
-**Agents do NOT chain to the next phase.** Each agent updates `state.json` with the next phase and returns. This command reads the phase and spawns the next agent.
+**Agents do NOT chain to the next phase.** Each agent updates `state.json` with the next phase and returns. This command reads the phase and spawns the next agent. The team-lead runs inline as a skill (not a spawned agent) for reliable orchestration.
 
 ### Resume Mode (--resume flag)
 
@@ -148,20 +148,10 @@ After planning returns, re-read `state.json`. Planning sets `phase: "implementin
 #### Phase: implementing
 
 ```javascript
-Task({
-  description: "Execute implementation loop",
-  subagent_type: "team-lead",
-  prompt: `Orchestrate parallel implementation for this feature.
-
-  Worktree: ${worktree}
-  State file: ${worktree}/state.json
-
-  Read state.json and tasks.json, then coordinate implementation.
-  If Agent Teams is unavailable, fall back to conductor.`
-});
+Skill({ skill: "homerun:team-lead" });
 ```
 
-After team-lead returns, re-read `state.json`. Team-lead sets `phase: "completing"`.
+The team-lead skill runs inline — it reads tasks.json, dispatches implementers via Task(), tracks progress, and runs the quality gate. After completing, it sets `state.json` phase to `"completing"`.
 
 #### Phase: completing
 

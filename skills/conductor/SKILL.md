@@ -1,16 +1,18 @@
 ---
 name: conductor
-description: "[haiku] [DEPRECATED — use team-lead agent] Orchestrate the implementation loop - spawning implementer and reviewer agents"
+description: "[haiku] [DEPRECATED — use team-lead skill] Legacy orchestrator, no longer used"
 model: haiku
 color: green
 ---
 
 # Conductor Skill
 
-> **DEPRECATED in v3.0.0** — The conductor has been replaced by the `team-lead` agent which uses
-> Agent Teams for native parallel execution with TaskCreate/TaskUpdate DAG management.
-> This skill is retained as a **fallback** when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set.
-> The team-lead agent automatically falls back to spawning a conductor when Agent Teams is unavailable.
+> **FULLY DEPRECATED in v5.0.0** — The conductor has been replaced by the `team-lead` **skill** which
+> runs inline in the main session. The team-lead skill leverages Claude's native coordination
+> capabilities instead of complex reactive scheduling loops. No fallback path is needed because
+> the inline skill has full tool access and cannot fail the way the old team-lead agent did.
+>
+> This file is retained for historical reference only. Do not invoke this skill.
 
 ## Reference Documents
 
