@@ -1,5 +1,30 @@
 # Changelog
 
+## [5.4.0] - 2026-02-28
+
+### Added
+- **Plan-then-stop default** — In interactive mode, `/create` now stops after DAG validation and prints a task summary, directing the user to `/build <worktree>` to start implementation. Auto mode continues as before.
+- **AC risk-level classification** — Acceptance criteria are now classified as `must_test`, `verify_only`, or `structural` in task decomposition. Test budgets by scale (small: 2-4, medium: 4-8, large: 10-20) reduce test bloat.
+- **`/status` command** — Read-only command that lists homerun worktrees with phase, feature, scale, and task progress. Supports detailed mode with per-task status and feedback patterns.
+- **Git hook framework detection** — Setup-quality-gates now detects existing hook frameworks (husky, pre-commit, custom) before configuring Claude Code hooks, avoiding duplication.
+- **Template versioning** — All 9 templates now include YAML front-matter (`template_version`, `template_name`, `compatible_homerun`). Spec-review includes informational (non-blocking) version check.
+- **`test_requirements` map** in model-routing.json — Per-tier test requirements (haiku tasks like `add_field`, `add_config`, `rename_refactor` are `optional`).
+
+### Changed
+- **Spec-review skip in auto mode** — When `--auto` is set and scale is not `"large"`, spec review is skipped to reduce cost.
+- **Mutation testing narrowed** — Step 5.5 mutation verification now only runs for `bug_fix` and `create_service` task types (previously ran for all complex types).
+- **Review severity rubric** — "Missing test" is only `medium` severity for `must_test` ACs; `verify_only`/`structural` ACs are `low`.
+- **Quality-check hook detection** — Phases 1-2 (lint/typecheck) skip with `"skipped_by_hooks"` when git hooks already enforce these.
+- **Implement exit criteria** — Updated to reference risk levels: `must_test` ACs need dedicated tests, `verify_only` confirmed in integration tests, `structural` confirmed by types/lint.
+
+### Removed
+- **Conductor skill** (`skills/conductor/SKILL.md`) — Fully removed (deprecated since v5.0.0).
+- **Conductor evals** (`evals/conductor/`) — 5 eval files removed.
+- **State machine reference** (`references/state-machine.md`) — Removed (superseded by team-lead).
+- **Stale dev-notes** (`.dev-notes/2026-01-31-session-pickup-notes.md`) — All tasks done or superseded.
+- **TDD skill reference** in implement SKILL.md — Removed redundant cross-reference.
+- All remaining `"conductor"` references replaced with `"team-lead"` across skills, agents, references, templates, and evals config.
+
 ## [5.3.0] - 2026-02-27
 
 ### Added
