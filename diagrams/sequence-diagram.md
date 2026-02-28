@@ -126,25 +126,35 @@ sequenceDiagram
 sequenceDiagram
     participant User
     participant Main as /create loop
-    participant Discovery as Discovery (opus)
-    participant Planning as Planning (opus)
-    participant TL as Team Lead (sonnet)
+    participant Discovery as Discovery (inherit)
+    participant SR as Spec Review (sonnet)
+    participant SA as Scope Analyzer (sonnet)
+    participant TD as Task Decomposer (opus)
+    participant TL as Team Lead (inline)
     participant Impl as Implementer (sonnet)
     participant Review as Reviewer (sonnet)
 
     User->>Main: /create "idea"
     Main->>Discovery: Task()
-    Discovery->>User: Questions
+    Discovery->>User: Questions (batched)
     User->>Discovery: Answers
     Discovery->>Main: Specs ready
 
-    Main->>Planning: Task()
-    Planning->>Main: Tasks ready
+    Main->>SR: Task()
+    SR->>Main: Approved
 
-    Main->>TL: Task()
+    Main->>SA: Task() [sonnet]
+    SA->>Main: scope-analysis.json
+
+    Main->>TD: Task() [opus]
+    TD->>Main: tasks.json
+
+    Note over Main: validate-dag.sh (zero LLM cost)
+
+    Main->>TL: Skill() [inline]
     loop Per Task
         TL->>Impl: Implement task
-        Impl->>Review: Code ready
+        Impl->>Review: Code ready (incremental)
         Review->>TL: Approved/Rejected
     end
     TL->>Main: All done!

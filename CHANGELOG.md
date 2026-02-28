@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.3.0] - 2026-02-27
+
+### Added
+- **Auto mode support in discovery** — When `--auto` flag is set, discovery skips interactive dialogue entirely and generates specs from the initial prompt + codebase scan. Skips section-by-section validation and proceeds directly through phases.
+- **Auto mode support in /build** — Skips "Ready to start?" confirmation prompt when `--auto` is set.
+- **Auto mode in validation gates** — Discovery validation warnings auto-proceed instead of prompting in auto mode.
+
+### Changed
+- **Discovery dialogue format** — Changed from one-question-at-a-time to batched questions (2-4 related questions per message) for faster interactive discovery.
+- **README.md rewritten** — Updated to reflect v5.2.0 architecture: 3-layer planning pipeline (scope-analyzer → task-decomposer → validate-dag.sh), inline team-lead skill, continuous incremental review, deterministic quality hooks, feedback accumulation, all current scripts and agents.
+- **Architecture diagrams updated** — Fixed Discovery model (inherit not opus), added scope-analyzer and task-decomposer agents, updated phase transitions, fixed component relationships.
+- **Sequence diagrams updated** — Simplified flow now shows full 3-layer pipeline with scope analyzer and task decomposer as separate participants.
+- **Hooks configuration updated** — Added standalone quality-lint and quality-typecheck hook documentation, feedback aggregation docs, fixed combined configuration example.
+- **Context engineering reference** — Updated version header to v5.2.0, reflects current pipeline architecture.
+
 ## [5.2.0] - 2026-02-27
 
 ### Added

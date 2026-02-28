@@ -65,9 +65,11 @@ Build status for: user-auth
   Completed: 3
   Pending: 4
   Failed: 1
-
-Ready to start? [Y/n]
 ```
+
+**Auto mode (`--auto`):** Proceed immediately to team-lead invocation — do not prompt for confirmation.
+
+**Interactive mode (default):** Ask `Ready to start? [Y/n]` before proceeding.
 
 ### 4. Invoke Team Lead
 

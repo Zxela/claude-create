@@ -9,16 +9,18 @@ graph TB
     end
 
     subgraph Agents["Agent Layer"]
-        D[Discovery Agent<br/>model: opus]
+        D[Discovery Agent<br/>model: inherit]
         SRv[Spec Reviewer<br/>model: sonnet]
-        P[Planning Agent<br/>model: opus]
+        SA[Scope Analyzer<br/>model: sonnet]
+        TD[Task Decomposer<br/>model: opus]
         I[Implementer Agents<br/>model: varies]
         R[Reviewer Agent<br/>model: sonnet]
     end
 
     subgraph Skills["Skill Layer"]
         SD[homerun:discovery]
-        SP[homerun:planning]
+        SSA[homerun:scope-analysis]
+        STD[homerun:task-decomposition]
         STL[homerun:team-lead]
         SI[homerun:implement]
         SR[homerun:review]
@@ -29,7 +31,7 @@ graph TB
         subgraph Centralized["~/.claude/homerun/"]
             PRD[PRD.md]
             ADR[ADR.md]
-            TD[TECHNICAL_DESIGN.md]
+            TDOC[TECHNICAL_DESIGN.md]
             WF[WIREFRAMES.md]
         end
         subgraph Worktree["../project-create-feature/"]
@@ -42,8 +44,10 @@ graph TB
 
     CLI --> D
     D --> SD
-    D --> P
-    P --> SP
+    D --> SA
+    SA --> SSA
+    SA --> TD
+    TD --> STD
     CLI --> STL
     STL --> I
     STL --> R
@@ -52,12 +56,13 @@ graph TB
 
     SD --> PRD
     SD --> ADR
-    SD --> TD
+    SD --> TDOC
     SD --> WF
     SD --> State
 
-    SP --> State
-    SP --> Tasks
+    SSA --> State
+    STD --> State
+    STD --> Tasks
 
     STL --> State
     STL --> Tasks
@@ -79,7 +84,8 @@ graph LR
 
     subgraph Core Skills
         Discovery
-        Planning
+        ScopeAnalysis[Scope Analysis]
+        TaskDecomp[Task Decomposition]
         TeamLead[Team Lead]
         Implement
         Review
@@ -101,8 +107,9 @@ graph LR
     end
 
     Create --> Discovery
-    Discovery --> Planning
-    Planning --> TeamLead
+    Discovery --> ScopeAnalysis
+    ScopeAnalysis --> TaskDecomp
+    TaskDecomp --> TeamLead
     TeamLead --> Implement
     TeamLead --> Review
     TeamLead --> Finish
@@ -113,7 +120,7 @@ graph LR
     TeamLead -.-> QualityGates
 
     TeamLead -.-> CE
-    Planning -.-> MR
+    TaskDecomp -.-> MR
 ```
 
 ## Agent Spawning Architecture
@@ -128,7 +135,7 @@ graph TB
     end
 
     subgraph Depth1_Discovery["Depth 1: Discovery"]
-        D[Discovery Agent<br/>~10-20K tokens<br/>model: opus]
+        D[Discovery Agent<br/>~10-20K tokens<br/>model: inherit]
     end
 
     subgraph Depth1_SpecReview["Depth 1: Spec Review"]
@@ -259,8 +266,10 @@ graph LR
     end
 
     subgraph Phases["Phase Transitions"]
-        Discovery --> Planning
-        Planning --> Implementing
+        Discovery --> SpecReview[Spec Review]
+        SpecReview --> ScopeAn[Scope Analysis]
+        ScopeAn --> TaskDec[Task Decomposition]
+        TaskDec --> Implementing
         Implementing --> Completing
         Completing --> Done
     end

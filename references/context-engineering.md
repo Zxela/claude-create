@@ -1,8 +1,6 @@
 # Context Engineering Patterns in Homerun
 
-> **Updated (v5.0.0):** The execution phase now uses the `team-lead` **skill** inline in the main session
-> instead of a spawned agent. Claude's native coordination handles orchestration better than a
-> constrained subagent with monitoring loops.
+> **Updated (v5.2.0):** The planning pipeline is split into 3 layers: scope-analyzer (sonnet) → task-decomposer (opus) → validate-dag.sh (bash). The execution phase uses the `team-lead` **skill** inline with continuous incremental review and session feedback injection. Quality-check phases 1-2 run as deterministic bash hooks.
 
 ## Core Principles Applied
 

@@ -16,9 +16,9 @@ color: yellow
 
 ## Overview
 
-Guide the user from a rough idea to complete specification documents through structured, one-question-at-a-time dialogue. This skill is the first phase of the `/create` workflow, transforming initial concepts into formal PRD, ADR, Technical Design, and Wireframe documents.
+Guide the user from a rough idea to complete specification documents through structured dialogue. This skill is the first phase of the `/create` workflow, transforming initial concepts into formal PRD, ADR, Technical Design, and Wireframe documents.
 
-The discovery process is conversational and iterative. You ask focused questions, synthesize responses, and progressively build understanding until you have enough information to generate comprehensive specification documents.
+The discovery process is conversational and iterative. You ask batches of related questions, synthesize responses, and progressively build understanding until you have enough information to generate comprehensive specification documents. In auto mode, dialogue is skipped entirely — specs are generated from the initial prompt and codebase analysis.
 
 ---
 
@@ -139,7 +139,13 @@ Use this context to:
 
 ### 2. Refinement Dialogue
 
-Engage the user with **ONE question at a time**. Prefer multiple-choice options when possible to reduce cognitive load and speed up the process.
+**Auto mode (`config.auto_mode: true`):** Skip the interactive dialogue entirely. Instead:
+1. Use the initial prompt + codebase scan from Step 1 to infer answers for all categories
+2. Make reasonable assumptions based on project context (framework, existing patterns, tech stack)
+3. Jump directly to Step 3 (Document Generation)
+4. Log `"dialogue_stats": { "auto_completed": true, "total_turns": 0 }` in the signal
+
+**Interactive mode (default):** Engage the user with **multiple related questions per message** to move through discovery efficiently. Prefer multiple-choice options when possible to reduce cognitive load and speed up the process.
 
 **Question Reference:** See `references/discovery-questions.md` for the question catalog.
 
@@ -151,11 +157,12 @@ Engage the user with **ONE question at a time**. Prefer multiple-choice options 
 5. **Edge Cases & Error Handling** - Failure modes, validation
 
 **Dialogue Guidelines:**
-- Ask only ONE question per message
-- Acknowledge the previous answer before asking the next question
+- Ask **multiple related questions per message** (batch 2-4 questions from the same or adjacent categories)
+- Group questions logically — e.g., ask about purpose AND users together, scope AND constraints together
+- Acknowledge previous answers before asking follow-ups
 - Build on previous answers - make connections visible
 - If an answer is unclear, ask a clarifying follow-up
-- Summarize understanding periodically (every 3-4 questions)
+- Summarize understanding periodically (every 2-3 exchanges)
 
 ---
 
@@ -165,6 +172,15 @@ Track dialogue turns to prevent infinite loops:
 
 ```javascript
 function shouldContinueDialogue(state, config) {
+  // Auto mode — skip all dialogue
+  if (config.auto_mode) {
+    return {
+      continue: false,
+      reason: 'auto_mode',
+      action: 'auto_generate_specs'
+    };
+  }
+
   const turns = state.dialogue_state.turns_completed;
   const max = config.max_dialogue_turns || 20;
   const warning = config.dialogue_warning_at || 15;
@@ -616,7 +632,9 @@ Create `state.json` in the worktree root with traceability structure and token t
 
 ### 4. Validation
 
-Present each document section-by-section for user confirmation.
+**Auto mode (`config.auto_mode: true`):** Skip section-by-section validation entirely. Proceed directly to committing state.json and transitioning phases. Documents were generated from codebase analysis and initial prompt — no user confirmation needed.
+
+**Interactive mode (default):** Present each document section-by-section for user confirmation.
 
 **Validation Guidelines:**
 - Present sections in 200-300 word chunks
@@ -652,7 +670,7 @@ Present each document section-by-section for user confirmation.
    → Ask for confirmation
 ```
 
-After all sections confirmed:
+After all sections confirmed (or auto mode):
 - Documents are already in centralized storage (not committed to repo)
 - Commit state.json to track the feature
 
@@ -785,7 +803,7 @@ Before transitioning to the planning phase, verify all criteria are met:
 - [ ] ADR.md created with context, options, decision, and consequences
 - [ ] TECHNICAL_DESIGN.md created with architecture, data models, and API contracts
 - [ ] WIREFRAMES.md created (or explicitly skipped for non-UI features)
-- [ ] All document sections validated by user (200-300 word chunks confirmed)
+- [ ] All document sections validated by user (200-300 word chunks confirmed) — OR auto_mode enabled (skip validation)
 - [ ] Git worktree created with proper branch naming
 - [ ] state.json initialized with session configuration
 - [ ] All documents committed to the feature branch
@@ -856,6 +874,7 @@ If any `VALIDATION_FAILED` errors occur:
 
 If only `VALIDATION_WARNING` items occur:
 1. Present warnings to the user
-2. Ask: "These items may cause issues during implementation. Would you like to address them now or proceed with caution?"
-3. On "proceed", continue to planning phase
-4. On "address", return to dialogue to refine the content
+2. **Auto mode:** Log warnings and proceed automatically — do not ask for confirmation
+3. **Interactive mode:** Ask: "These items may cause issues during implementation. Would you like to address them now or proceed with caution?"
+   - On "proceed", continue to planning phase
+   - On "address", return to dialogue to refine the content

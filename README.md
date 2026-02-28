@@ -1,6 +1,6 @@
 # Homerun Plugin
 
-Orchestrated development workflow from idea to implementation with native Claude Code subagents and Agent Teams.
+Orchestrated development workflow from idea to implementation with native Claude Code subagents.
 
 ## Usage
 
@@ -20,7 +20,7 @@ Orchestrated development workflow from idea to implementation with native Claude
 
 ## Overview
 
-Homerun transforms a rough idea into a fully implemented feature through automated phases. Each phase runs as a **named native subagent** with enforced tool restrictions and dedicated context.
+Homerun transforms a rough idea into a fully implemented feature through automated phases. Each phase runs as a **named native subagent** with enforced tool restrictions and dedicated context. The team-lead runs as an **inline skill** at depth 0 for reliable orchestration.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -31,10 +31,10 @@ Homerun transforms a rough idea into a fully implemented feature through automat
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  PHASE 1: DISCOVERY                                    [discovery-agent]    │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  User ◄──── One question at a time ────► Discovery Agent           │   │
+│  │  User ◄──── Batched questions ────► Discovery Agent                │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  Outputs: PRD.md, ADR.md, TECHNICAL_DESIGN.md, WIREFRAMES.md               │
+│  Auto mode: skips dialogue, generates specs from prompt + codebase scan   │
+│  Outputs: PRD.md, ADR.md, TECHNICAL_DESIGN.md, WIREFRAMES.md              │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
@@ -43,44 +43,58 @@ Homerun transforms a rough idea into a fully implemented feature through automat
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  Specs ────► Review Agent ────► Verdict (approved / needs_revision) │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  Checks: cross-document consistency, completeness, testability             │
-│  Tools: Read, Grep, Glob only (read-only — cannot modify specs)            │
+│  Checks: cross-document consistency, completeness, testability            │
+│  Tools: Read, Grep, Glob only (read-only — cannot modify specs)           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 3: PLANNING                                     [planner]           │
+│  PHASE 3a: SCOPE ANALYSIS                              [scope-analyzer]    │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  Specs ────► Planning Agent ────► tasks.json (DAG-validated)        │   │
+│  │  Specs ────► Scope Analyzer (sonnet) ────► scope-analysis.json     │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  Outputs: docs/tasks.json with test-bounded, commit-sized tasks            │
+│  Mechanical extraction: components, validated ACs, JIT context refs       │
+│  Skipped for small-scale features (< 3 files)                             │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 4: EXECUTION                                    [team-lead]         │
+│  PHASE 3b: TASK DECOMPOSITION                         [task-decomposer]    │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  scope-analysis.json ────► Task Decomposer (opus) ────► tasks.json │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│  Outputs: docs/tasks.json with test-bounded, commit-sized tasks + DAG     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 3c: DAG VALIDATION                              [bash script]       │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  validate-dag.sh: cycles, coverage, fields, ordering               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│  Zero LLM cost — pure algorithmic validation                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 4: EXECUTION                                    [team-lead skill]   │
 │                                                                             │
 │  ┌───────────────────────────────────────────────────────────────────┐     │
-│  │                     TEAM LEAD (Agent Teams)                        │     │
+│  │                     TEAM LEAD (inline skill)                      │     │
 │  │                                                                    │     │
 │  │  1. Convert tasks.json → native TaskCreate with DAG               │     │
-│  │  2. Scale teammates based on DAG width (1-5 implementers)         │     │
-│  │  3. Monitor progress, handle escalations                          │     │
+│  │  2. Dispatch implementers in parallel based on DAG                │     │
+│  │  3. Continuous incremental review (max 2 concurrent reviewers)    │     │
+│  │  4. Inject session feedback patterns into implementer prompts     │     │
 │  │                                                                    │     │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────┐    ┌──────────┐          │     │
 │  │  │Implement-│ │Implement-│ │Implement-│    │ Reviewer │          │     │
-│  │  │er A      │ │er B      │ │er C      │    │          │          │     │
-│  │  │          │ │          │ │          │    │ Reviews  │          │     │
-│  │  │Self-claim│ │Self-claim│ │Self-claim│───►│completed │          │     │
-│  │  │tasks from│ │tasks from│ │tasks from│    │tasks     │          │     │
-│  │  │DAG queue │ │DAG queue │ │DAG queue │    │          │          │     │
+│  │  │er A      │ │er B      │ │er C      │    │(up to 2  │          │     │
+│  │  │          │ │          │ │          │    │concurrent)│          │     │
+│  │  │ TDD:     │ │ TDD:     │ │ TDD:     │───►│          │          │     │
+│  │  │ red→green│ │ red→green│ │ red→green│    │ Reviews  │          │     │
+│  │  │ →refactor│ │ →refactor│ │ →refactor│    │ per-task │          │     │
 │  │  └──────────┘ └──────────┘ └──────────┘    └──────────┘          │     │
-│  │       │             │            │                │               │     │
-│  │       │      TDD: RED → GREEN → REFACTOR → COMMIT                │     │
-│  │       │                                                           │     │
-│  │  Fallback: conductor skill if Agent Teams unavailable             │     │
 │  └───────────────────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -88,10 +102,9 @@ Homerun transforms a rough idea into a fully implemented feature through automat
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  PHASE 5: QUALITY CHECK                                [quality-checker]   │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  Lint ──► Types ──► Structure ──► Tests ──► Recheck                │   │
+│  │  Lint (hook) ──► Types (hook) ──► Structure (LLM) ──► Tests ──► ✓ │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  Auto-fixes issues, re-runs checks until clean                             │
+│  Phases 1-2 run as bash hooks (zero LLM cost), Phase 3 uses LLM          │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
@@ -115,13 +128,13 @@ Start an orchestrated workflow from idea through implementation.
 
 | Flag | Description |
 |------|-------------|
-| `--auto` | Skip confirmations between phases |
+| `--auto` | Skip all confirmations — dialogue, validation, phase transitions |
 | `--resume` | Resume interrupted session |
 | `--retries N,M` | Retry limits: N=same agent, M=fresh agent (default: 2,1) |
 
 ### `/plan` — Jump to Planning
 
-Skip discovery and plan directly from existing specs.
+Skip discovery and plan directly from existing specs. Runs the 3-layer pipeline: scope analysis → task decomposition → DAG validation.
 
 ```bash
 /plan <worktree-path> [--auto]
@@ -130,7 +143,7 @@ Skip discovery and plan directly from existing specs.
 
 ### `/build` — Jump to Execution
 
-Start or resume implementation via team-lead (or conductor fallback).
+Start or resume implementation via the team-lead skill.
 
 ```bash
 /build <worktree-path> [--auto]
@@ -165,52 +178,45 @@ Analyze existing codebase and generate PRD, ADR, TECHNICAL_DESIGN.
 
 ## Agent Architecture
 
-Homerun uses **11 native Claude Code subagents** defined in `agents/*.md`. Each agent has enforced tool restrictions, a dedicated model, and references one or more skills.
+Homerun uses **11 native Claude Code subagents** defined in `agents/*.md`. Each agent has enforced tool restrictions, a dedicated model, and references one or more skills. The team-lead runs as an **inline skill** (not a spawned agent) for reliable orchestration.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                          MAIN SESSION                                     │
 │                         /create "idea"                                    │
 │                     (flat state machine loop)                             │
-└──┬────────────┬────────────┬────────────┬────────────────────────────────┘
-   │            │            │            │
-   │ Task()     │ Task()     │ Task()     │ Task()
-   ▼            ▼            ▼            ▼
-┌────────┐  ┌────────┐  ┌────────┐  ┌──────────────────────────────────────┐
-│discover│  │spec-   │  │planner │  │  team-lead          Model: sonnet     │
-│y-agent │  │reviewer│  │        │  │  Tools: Read, Bash, Write, Edit,     │
-│        │  │        │  │        │  │         Task, ToolSearch              │
-│Model:  │  │Model:  │  │Model:  │  │  Skills: team-lead                    │
-│inherit │  │sonnet  │  │opus    │  │                                       │
-│Color:  │  │Color:  │  │Color:  │  │  Spawns teammates:                    │
-│yellow  │  │orange  │  │purple  │  │     ┌────────────────────┐            │
-│        │  │        │  │        │  │     │  Task(implementer) │ × 1-5      │
-│Skills: │  │Skills: │  │Skills: │  │     ▼                    │            │
-│discover│  │spec-   │  │planning│  │  ┌──────────────────┐    │            │
-│y       │  │review  │  │        │  │  │ implementer      │◄───┘            │
-│        │  │        │  │        │  │  │ Model: sonnet    │                 │
-│ returns│  │ returns│  │ returns│  │  │ Skills: implement │                 │
-│ ▲      │  │ ▲      │  │ ▲      │  │  └──────────────────┘                 │
-└─┼──────┘  └─┼──────┘  └─┼──────┘  │                                       │
-  │           │           │          │     ┌────────────────────┐            │
-  │           │           │          │     │  Task(reviewer)    │ × 1       │
-  │           │           │          │     ▼                    │            │
-  │           │           │          │  ┌──────────────────┐    │            │
-  │           │           │          │  │ reviewer          │◄──┘            │
-  │           │           │          │  │ Model: sonnet     │                │
-  │           │           │          │  └──────────────────┘                 │
-  │           │           │          │                                       │
-  │           │           │          │  After all tasks ──► Task(quality)   │
-  │           │           │          │  ┌──────────────────┐                 │
-  │           │           │          │  │ quality-checker   │                │
-  │           │           │          │  │ Model: sonnet     │                │
-  │           │           │          │  └──────────────────┘                 │
-  │           │           │          │   returns ▲                           │
-  └───────────┴───────────┴──────────┴───────────┘
-        All agents return to Main Session (depth 1)
+└──┬──────────┬──────────┬──────────┬──────────┬───────────────────────────┘
+   │          │          │          │          │
+   │ Task()   │ Task()   │ Task()   │ Task()   │ bash
+   ▼          ▼          ▼          ▼          ▼
+┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌─────────┐
+│discover│ │spec-   │ │scope-  │ │task-   │ │validate │
+│y-agent │ │reviewer│ │analyzer│ │decomp- │ │-dag.sh  │
+│        │ │        │ │        │ │oser    │ │         │
+│Model:  │ │Model:  │ │Model:  │ │Model:  │ │Zero LLM │
+│inherit │ │sonnet  │ │sonnet  │ │opus    │ │cost     │
+│Color:  │ │Color:  │ │Color:  │ │Color:  │ │         │
+│yellow  │ │orange  │ │cyan    │ │purple  │ │         │
+└─┬──────┘ └─┬──────┘ └─┬──────┘ └─┬──────┘ └─┬───────┘
+  │          │          │          │          │
+  └──────────┴──────────┴──────────┴──────────┘
+        All return to Main Session
+                    │
+                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│  TEAM-LEAD SKILL (inline, depth 0)                                       │
+│  Dispatches at depth 1:                                                   │
+│                                                                           │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐       │
+│  │ implementer      │  │ reviewer          │  │ quality-checker   │       │
+│  │ Model: sonnet    │  │ Model: sonnet     │  │ Model: sonnet     │       │
+│  │ Skills: implement│  │ Skills: review    │  │ Skills: quality   │       │
+│  │ × 1-3 parallel   │  │ × 1-2 concurrent │  │ × 1 (final gate)  │       │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘       │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key architectural property:** Every phase agent runs at **depth 1** (direct child of main session). Agents do NOT chain to the next phase — they update `state.json` and return. The `/create` loop reads `state.json` and spawns the next phase. This guarantees all agents have full tool access including `Task` for spawning subagents.
+**Key architectural property:** Every phase agent runs at **depth 1** (direct child of main session). Agents do NOT chain to the next phase — they update `state.json` and return. The `/create` loop reads `state.json` and spawns the next phase. The team-lead runs inline (depth 0) and dispatches implementers/reviewers at depth 1.
 
 ### Standalone Agents
 
@@ -236,30 +242,6 @@ These agents can be invoked directly without the full `/create` workflow:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Agent Teams & Conductor Fallback
-
-The execution phase uses two orchestration modes:
-
-### Agent Teams Mode (default when available)
-
-When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set:
-
-1. **Team lead** converts `tasks.json` to native Claude Code tasks via `TaskCreate` with DAG dependencies (`addBlockedBy`)
-2. Implementer teammates **self-claim** tasks from the DAG queue — when a task's dependencies are complete, any idle teammate can pick it up
-3. Reviewer teammate processes completed implementations sequentially
-4. Quality-checker runs after all tasks pass review
-5. Native task system provides DAG enforcement and cross-session visibility
-
-### Conductor Fallback Mode
-
-When Agent Teams is unavailable:
-
-1. Team lead detects the missing env var and spawns a **conductor** agent (haiku model)
-2. Conductor uses the legacy `homerun:conductor` skill with manual `Task()` spawning and `TaskOutput` polling
-3. Behavior is identical to v2.x — same retry logic, same escalation
-
-The orchestration mode is logged in `state.json` as `orchestration_mode: "agent_teams"` or `"conductor_fallback"`.
-
 ## Model Routing
 
 > **Note:** The authoritative source for model routing is `references/model-routing.json`.
@@ -278,9 +260,11 @@ Tasks are automatically assigned to the appropriate model based on complexity:
 |-------|-------|-------|-----------|
 | Discovery | `discovery-agent` | inherit | User-facing dialogue |
 | Spec Review | `spec-reviewer` | sonnet | Judgment for consistency checks |
-| Planning | `planner` | opus | Bad decomposition cascades |
+| Scope Analysis | `scope-analyzer` | sonnet | Mechanical extraction (5x cheaper than opus) |
+| Task Decomposition | `task-decomposer` | opus | Bad decomposition cascades |
+| DAG Validation | `validate-dag.sh` | bash | Zero LLM cost |
 | Test Skeletons | `test-skeleton-generator` | sonnet | Spec comprehension |
-| Execution | `team-lead` | sonnet | Coordination decisions |
+| Execution | team-lead skill | inherit | Inline coordination |
 | Implementation | `implementer` | sonnet | TDD + similar function discovery |
 | Review | `reviewer` | sonnet | Quality judgment |
 | Quality Check | `quality-checker` | sonnet | Fix reasoning |
@@ -296,21 +280,13 @@ Homerun provides hook scripts for Claude Code integration. See `references/hooks
 
 | Hook | Script | Purpose |
 |------|--------|---------|
-| `WorktreeCreate` | `scripts/homerun-worktree-setup.sh` | Initialize implementer worktrees |
-| `SubagentStop` | `scripts/homerun-post-implement.sh` | Log progress after implementation |
-| `TaskCompleted` | `scripts/homerun-task-completed.sh` | Validate tests before task completion |
-
-Add to your `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "WorktreeCreate": [{ "hooks": [{ "type": "command", "command": "./scripts/homerun-worktree-setup.sh" }] }],
-    "SubagentStop": [{ "matcher": "implementer", "hooks": [{ "type": "command", "command": "./scripts/homerun-post-implement.sh" }] }],
-    "TaskCompleted": [{ "hooks": [{ "type": "command", "command": "./scripts/homerun-task-completed.sh" }] }]
-  }
-}
-```
+| `PreToolUse` | `homerun-pre-commit.sh` | Block git commit/push if lint or typecheck fails |
+| `PostToolUse` | `homerun-auto-lint.sh` | Auto-format after Edit/Write operations |
+| `PostToolUse` | `homerun-quality-lint.sh` | Standalone lint check (zero LLM cost) |
+| `PostToolUse` | `homerun-quality-typecheck.sh` | Standalone typecheck (zero LLM cost) |
+| `WorktreeCreate` | `homerun-worktree-setup.sh` | Initialize implementer worktrees |
+| `SubagentStop` | `homerun-post-implement.sh` | Log progress + aggregate feedback patterns |
+| `TaskCompleted` | `homerun-task-completed.sh` | Validate tests before task completion |
 
 ## State Management
 
@@ -321,9 +297,8 @@ state.json
 ├── session_id              # Unique workflow identifier
 ├── branch                  # Git branch name
 ├── worktree                # Path to isolated worktree
-├── phase                   # discovery → spec_review → planning → implementing → completing
-├── orchestration_mode      # "agent_teams" or "conductor_fallback"
-├── native_task_mapping     # Homerun task ID → native Claude Code task ID
+├── phase                   # discovery → spec_review → scope_analysis → task_decomposition → implementing → completing
+├── scale                   # "small" | "medium" | "large"
 ├── homerun_docs_dir        # Centralized docs location (absolute path)
 ├── spec_paths              # Explicit paths to spec documents
 │   ├── prd
@@ -337,10 +312,10 @@ state.json
 │   ├── adr_decisions
 │   └── non_goals
 ├── config
+│   ├── auto_mode
 │   ├── timeout_minutes
 │   ├── max_identical_rejections
 │   ├── max_iterations_without_progress
-│   ├── max_teammates         # Max parallel implementers (default: 3)
 │   └── retries { same_agent, fresh_agent }
 └── skill_log               # Audit trail of skill invocations
 ```
@@ -351,12 +326,12 @@ state.json
 ```
 homerun/
 ├── .claude-plugin/
-│   └── plugin.json              # Plugin metadata (v3.0.0)
+│   └── plugin.json              # Plugin metadata
 ├── agents/                       # Native Claude Code subagent definitions
 │   ├── discovery-agent.md
 │   ├── spec-reviewer.md
-│   ├── planner.md
-│   ├── team-lead.md
+│   ├── scope-analyzer.md
+│   ├── task-decomposer.md
 │   ├── implementer.md
 │   ├── reviewer.md
 │   ├── quality-checker.md
@@ -367,7 +342,8 @@ homerun/
 ├── skills/                       # Skill definitions (source of truth for agent behavior)
 │   ├── discovery/SKILL.md
 │   ├── spec-review/SKILL.md
-│   ├── planning/SKILL.md
+│   ├── scope-analysis/SKILL.md
+│   ├── task-decomposition/SKILL.md
 │   ├── team-lead/SKILL.md
 │   ├── conductor/SKILL.md        # DEPRECATED — fallback only
 │   ├── implement/SKILL.md
@@ -389,19 +365,26 @@ homerun/
 │   ├── diagnose.md
 │   └── reverse-engineer.md
 ├── references/                   # Configuration and contracts
-│   ├── signal-contracts.json     # 17 typed signal envelopes
+│   ├── signal-contracts.json     # Typed signal envelopes
 │   ├── model-routing.json        # Task-to-model assignments
 │   ├── hooks-configuration.md    # Hook setup guide
 │   ├── context-engineering.md
 │   ├── discovery-questions.md
+│   ├── scale-determination.md
 │   ├── retry-patterns.md
 │   └── state-machine.md
 ├── scripts/                      # Hook scripts
-│   ├── homerun-worktree-setup.sh
-│   ├── homerun-post-implement.sh
-│   ├── homerun-task-completed.sh
+│   ├── homerun-pre-commit.sh     # PreToolUse: block commit on lint/type errors
+│   ├── homerun-auto-lint.sh      # PostToolUse: auto-format after edits
+│   ├── homerun-quality-lint.sh   # Standalone lint (zero LLM cost)
+│   ├── homerun-quality-typecheck.sh  # Standalone typecheck (zero LLM cost)
+│   ├── homerun-validate-dag.sh   # DAG validation (zero LLM cost)
+│   ├── homerun-worktree-setup.sh # WorktreeCreate hook
+│   ├── homerun-post-implement.sh # SubagentStop hook + feedback aggregation
+│   ├── homerun-task-completed.sh # TaskCompleted validation gate
 │   └── lib/
-│       └── tasks-bridge.js       # tasks.json → native TaskCreate reference
+│       ├── tasks-bridge.js       # tasks.json → native TaskCreate reference
+│       └── feedback-aggregator.sh # Extract rejection patterns for session learning
 ├── templates/                    # Document templates
 ├── evals/                        # Skill evaluation suites
 └── cookbooks/                    # Example dialogues and patterns
@@ -411,7 +394,9 @@ homerun/
 ```
 ../project-create-feature-uuid/
 ├── docs/
-│   └── tasks.json             # All tasks in single JSON file
+│   ├── tasks.json             # All tasks in single JSON file
+│   └── scope-analysis.json    # Extracted components, ACs, JIT refs
+├── feedback_patterns.json     # Accumulated rejection patterns (generated)
 └── state.json                 # Workflow state & configuration
 ```
 
@@ -432,20 +417,20 @@ All inter-agent communication uses typed JSON signal envelopes. See `references/
 |--------|----------|---------|
 | `DISCOVERY_COMPLETE` | discovery-agent | Phase 1 done, specs ready |
 | `SPEC_REVIEW_COMPLETE` | spec-reviewer | Specs validated (approved/needs_revision) |
-| `PLANNING_COMPLETE` | planner | Tasks decomposed, ready for implementation |
+| `SCOPE_ANALYSIS_COMPLETE` | scope-analyzer | Components, ACs, JIT refs extracted |
+| `PLANNING_COMPLETE` | task-decomposer | Tasks decomposed, ready for implementation |
 | `TEST_SKELETONS_COMPLETE` | test-skeleton-generator | Test scaffolding generated |
 | `IMPLEMENTATION_COMPLETE` | implementer | Task done, ready for review |
-| `IMPLEMENTATION_BLOCKED` | implementer | Task blocked (missing dep, unclear reqs, duplication) |
+| `IMPLEMENTATION_BLOCKED` | implementer | Task blocked (missing dep, unclear reqs, duplication, tautological test) |
+| `REVIEW_DISPATCHED` | team-lead | Reviewer spawned for completed task |
 | `APPROVED` | reviewer | Task passed review |
 | `REJECTED` | reviewer | Task failed review with feedback |
 | `QUALITY_CHECK_COMPLETE` | quality-checker | Quality pipeline results |
 | `TEAM_LEAD_COMPLETE` | team-lead | All tasks orchestrated, quality gate passed |
-| `CONDUCTOR_FALLBACK` | team-lead | Fell back to conductor (Agent Teams unavailable) |
 | `DIAGNOSIS_COMPLETE` | diagnostician | Root cause identified with solutions |
 | `DIAGNOSIS_INCONCLUSIVE` | diagnostician | Needs more investigation |
 | `REVERSE_ENGINEER_COMPLETE` | reverse-engineer | Specs generated from code |
 | `WALKTHROUGH_COMPLETE` | walkthrough-generator | Demo scripts generated |
-| `COVERAGE_GAPS_DETECTED` | conductor | Acceptance criteria not covered |
 | `VALIDATION_ERROR` | any | Input validation failed |
 
 ## Retry Logic & Circuit Breakers
@@ -454,11 +439,11 @@ All inter-agent communication uses typed JSON signal envelopes. See `references/
 Task rejected
       │
       ▼
-  attempts < same_agent_limit (default: 2)
-      │ YES → Retry with same agent + accumulated context
+  attempts < fresh_agent_limit (default: 1)
+      │ YES → Spawn fresh agent (clean slate + failure summary)
       │ NO ↓
-  attempts < same_agent + fresh_agent_limit (default: 1)
-      │ YES → Spawn fresh agent (clean slate)
+  attempts < fresh + same_agent_limit (default: 1)
+      │ YES → Retry with same agent + accumulated context
       │ NO ↓
   Escalate model (sonnet → opus)
       │ NO ↓

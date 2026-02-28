@@ -107,9 +107,29 @@ Runs linter with auto-fix after every Edit/Write operation. Non-blocking (always
 
 See `scripts/homerun-auto-lint.sh` for the full implementation.
 
-### SubagentStop — Run type check + tests after implementer finishes
+### Standalone Quality Scripts (v5.2)
 
-Validates implementation before the reviewer even sees it. Catches obvious failures early.
+These scripts handle lint and typecheck as standalone hooks at zero LLM cost. They can be called independently or used by the quality-checker agent.
+
+#### Lint auto-fix
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Edit|Write",
+      "hooks": [{
+        "type": "command",
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-quality-lint.sh"
+      }]
+    }]
+  }
+}
+```
+
+See `scripts/homerun-quality-lint.sh`. Auto-detects: package.json scripts → biome → eslint → prettier → ruff.
+
+#### Type check
 
 ```json
 {
@@ -118,29 +138,20 @@ Validates implementation before the reviewer even sees it. Catches obvious failu
       "matcher": "implementer",
       "hooks": [{
         "type": "command",
-        "command": "./scripts/homerun-post-implement-validate.sh"
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-quality-typecheck.sh"
       }]
     }]
   }
 }
 ```
 
-Example `homerun-post-implement-validate.sh`:
-```bash
-#!/bin/bash
-# Run deterministic checks after implementer finishes
-cd "${CLAUDE_WORKTREE_PATH:-.}"
-echo "=== Post-implementation validation ==="
-# Type check
-if [ -f tsconfig.json ]; then
-  npx tsc --noEmit 2>&1 | tail -5
-fi
-# Test suite
-if [ -f package.json ]; then
-  npm test 2>&1 | tail -10
-fi
-exit 0  # Log results but don't block — reviewer will handle failures
-```
+See `scripts/homerun-quality-typecheck.sh`. Auto-detects: package.json scripts → tsc --noEmit → mypy.
+
+### Feedback Aggregation (v5.2)
+
+Extracts rejection patterns from tasks.json after each implementer finishes. Non-blocking.
+
+Built into `homerun-post-implement.sh` — calls `lib/feedback-aggregator.sh` after logging progress. Writes `feedback_patterns.json` with common rejection patterns for session-wide learning.
 
 ## Combined Configuration
 
@@ -173,7 +184,7 @@ Add all hooks together in `.claude/settings.json`:
       "matcher": "implementer",
       "hooks": [{
         "type": "command",
-        "command": "./scripts/homerun-post-implement-validate.sh"
+        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-post-implement.sh"
       }]
     }],
     "TaskCompleted": [{
