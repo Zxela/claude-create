@@ -51,7 +51,13 @@ The team-lead provides input as a JSON object. **Validate input before proceedin
             "required": ["id", "criterion"],
             "properties": {
               "id": { "type": "string", "pattern": "^AC-[0-9]{3}$" },
-              "criterion": { "type": "string" }
+              "criterion": { "type": "string" },
+              "risk_level": {
+                "type": "string",
+                "enum": ["must_test", "verify_only", "structural"],
+                "default": "must_test",
+                "description": "Test requirement level — must_test: dedicated test, verify_only: consolidate into integration test, structural: covered by types/lint"
+              }
             }
           }
         },

@@ -68,9 +68,17 @@ The team-lead can invoke this after review approval or as a standalone gate befo
 **Git hook detection:** Before running, check if a git hook framework (husky, pre-commit, custom) already enforces lint. If so, skip this phase with `"skipped_by_hooks"` status — the git hooks already guarantee lint compliance at commit time.
 
 ```bash
-if [ -d "$WORKTREE_PATH/.husky" ] || [ -f "$WORKTREE_PATH/.pre-commit-config.yaml" ] || [ -x "$WORKTREE_PATH/.git/hooks/pre-commit" ]; then
+# Only skip if hooks are verifiably enforcing lint:
+# - husky: dir exists AND husky in devDependencies AND pre-commit hook is executable
+# - pre-commit: config exists AND .git/hooks/pre-commit links to pre-commit framework
+# - custom: hook is executable and contains lint/format commands
+LINT_STATUS=""
+if [ -d "$WORKTREE_PATH/.husky" ] && [ -x "$WORKTREE_PATH/.husky/pre-commit" ] && grep -q '"husky"' "$WORKTREE_PATH/package.json" 2>/dev/null; then
+  LINT_STATUS="skipped_by_hooks"
+elif [ -f "$WORKTREE_PATH/.pre-commit-config.yaml" ] && [ -x "$WORKTREE_PATH/.git/hooks/pre-commit" ] && grep -q "pre-commit" "$WORKTREE_PATH/.git/hooks/pre-commit" 2>/dev/null; then
   LINT_STATUS="skipped_by_hooks"
 fi
+# When in doubt, don't skip — better to lint twice than miss a violation
 ```
 
 **If no git hooks enforce lint:** This phase is handled by the standalone hook script `scripts/homerun-quality-lint.sh`. The hook runs automatically as part of the quality gate pipeline. If running quality-check manually, execute the hook first:

@@ -486,6 +486,12 @@ docs/
             "properties": {
               "id": { "type": "string" },
               "criterion": { "type": "string" },
+              "risk_level": {
+                "type": "string",
+                "enum": ["must_test", "verify_only", "structural"],
+                "default": "must_test",
+                "description": "Test requirement level — determines testing approach for this AC"
+              },
               "test_assertion": { "type": "string" }
             }
           }
