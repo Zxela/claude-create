@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.6.1] - 2026-02-28
+
+### Added
+- **Code quality reference files** — 6 compact reference files (278 lines total) for JIT loading by skills, not global context:
+  - `anti-patterns.md` — Red flag checklist: Rule of Three, SRP, DRY, error suppression, YAGNI
+  - `impact-analysis.md` — 3-stage procedure (Discovery → Understanding → Identification) before modifying existing code
+  - `duplication-matrix.md` — 5-dimension similarity scoring with escalation thresholds
+  - `test-assertion-rules.md` — Literal expected values, verify results not invocation order, no dead tests
+  - `five-whys.md` — Structured root cause analysis with common failure patterns
+  - `quality-gates.md` — Sequential zero-error phase model (lint → structure → types → tests → recheck)
+- Wired references into skill definitions: `implement` (4 files), `diagnose` (1 file), `quality-check` (1 file)
+
 ## [5.6.0] - 2026-02-28
 
 ### Added

@@ -10,6 +10,10 @@ color: yellow
 
 - Context patterns: `references/context-engineering.md`
 - Scale determination: `references/scale-determination.md`
+- Red flag checklist (refactor step): `references/anti-patterns.md`
+- Impact analysis procedure (Step 0c): `references/impact-analysis.md`
+- Duplication scoring matrix (Step 0d): `references/duplication-matrix.md`
+- Test writing rules (TDD steps): `references/test-assertion-rules.md`
 
 ## Overview
 

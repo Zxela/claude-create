@@ -11,6 +11,7 @@ color: red
 
 - Debugging methodology: `skills/systematic-debugging/SKILL.md`
 - Root cause tracing: `skills/systematic-debugging/root-cause-tracing.md`
+- 5 Whys root cause analysis: `references/five-whys.md`
 - Signal contracts: `references/signal-contracts.json`
 
 ## Overview

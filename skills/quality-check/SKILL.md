@@ -11,6 +11,7 @@ color: teal
 
 - Signal contracts: `references/signal-contracts.json`
 - Context patterns: `references/context-engineering.md`
+- Sequential zero-error gate model: `references/quality-gates.md`
 
 ## Overview
 
