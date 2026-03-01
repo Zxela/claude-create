@@ -542,12 +542,14 @@ docs/
         {
           "id": "AC-001",
           "criterion": "Users table has id, email, password_hash, created_at, updated_at",
-          "test_assertion": "expect(columns).toContain(['id', 'email', 'password_hash'])"
+          "test_assertion": "expect(columns).toContain(['id', 'email', 'password_hash'])",
+          "risk_level": "must_test"
         },
         {
           "id": "AC-002",
           "criterion": "Email has unique constraint",
-          "test_assertion": "expect(insertDuplicate).toThrow(/unique/i)"
+          "test_assertion": "expect(insertDuplicate).toThrow(/unique/i)",
+          "risk_level": "must_test"
         }
       ],
       "test_file": "tests/schema/user.test.ts",

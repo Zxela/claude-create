@@ -1,10 +1,17 @@
 ---
-template_version: "1.0"
+template_version: "1.1"
 template_name: "WIREFRAMES"
 compatible_homerun: ">=5.0.0"
 ---
 
 # Wireframes: {{FEATURE_NAME}}
+
+<!--
+INCLUDES: Screen flows, layouts, component hierarchy, interactions, responsive breakpoints
+EXCLUDES: Business requirements, acceptance criteria (→ PRD)
+          Technical implementation, component code (→ TECHNICAL_DESIGN)
+          Visual design, colors, typography (→ design system)
+-->
 
 ## Screen Flow
 

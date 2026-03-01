@@ -1,5 +1,5 @@
 ---
-template_version: "1.0"
+template_version: "1.1"
 template_name: "TASK"
 compatible_homerun: ">=5.0.0"
 id: {{TASK_ID}}
@@ -14,6 +14,13 @@ traces_to:
 ---
 
 # {{TASK_TITLE}}
+
+<!--
+INCLUDES: Objective, acceptance criteria, technical approach, files to modify, test requirements
+EXCLUDES: Business rationale, user stories (→ PRD)
+          Architecture decisions, option comparisons (→ ADR)
+          Full system design (→ TECHNICAL_DESIGN)
+-->
 
 ## Objective
 

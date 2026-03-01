@@ -1,10 +1,17 @@
 ---
-template_version: "1.0"
+template_version: "1.1"
 template_name: "COMPLETION_REPORT"
 compatible_homerun: ">=5.0.0"
 ---
 
 # Completion Report: {{FEATURE_NAME}}
+
+<!--
+INCLUDES: Coverage summary, traceability matrix, scope verification, test results, metrics, recommendation
+EXCLUDES: Implementation details, code (→ commits)
+          Requirements, acceptance criteria definitions (→ PRD)
+          Architecture decisions (→ ADR)
+-->
 
 Generated: {{TIMESTAMP}}
 Branch: {{BRANCH_NAME}}
