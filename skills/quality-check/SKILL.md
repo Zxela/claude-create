@@ -130,6 +130,21 @@ for file in "${FILES[@]}"; do
 done
 ```
 
+#### Severity Tiers
+
+Classify each structural finding as **blocking** or **advisory**:
+
+**Blocking** (affects verdict):
+- Debug artifacts (`console.log`, `debugger`) — these would reach production
+- Genuine dead code (functions/variables defined but never called anywhere)
+
+**Advisory** (reported but don't block pass):
+- Naming consistency — follows conventions but non-standard
+- File organization — could be better but functional
+- Benign TODO/FIXME — tracked work items, not forgotten debug code
+
+Advisory-only findings result in `pass` (not `fail`). Only blocking findings cause `fail`.
+
 ### Phase 4: Tests (DETERMINISTIC — no LLM judgment)
 
 ```bash
@@ -278,7 +293,8 @@ If new issues introduced by auto-fixes, revert auto-fixes and report as `needs_m
 |-----------|---------|
 | All phases pass, no fixes needed | `pass` |
 | Issues found and auto-fixed, recheck passes | `pass_with_fixes` |
-| Unresolved issues remain | `fail` |
+| Only advisory issues remain (no blocking findings) | `pass` |
+| Unresolved blocking issues remain | `fail` |
 
 When verdict is `pass_with_fixes`:
 - Amend the task's commit with quality fixes: `git add -A && git commit --amend --no-edit`

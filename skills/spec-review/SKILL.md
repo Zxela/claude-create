@@ -179,6 +179,23 @@ done
 
 If any document is missing `template_version`, include an informational note (severity: `low`, category: `style`) in the review report. This helps track template drift but should never block planning.
 
+### 4.6. Scope Cohesion Check
+
+Assess whether the spec covers a cohesive, shippable unit or spans too many independent concerns. This check is advisory — it does **not** block approval.
+
+| Signal | Threshold | Severity |
+|--------|-----------|----------|
+| Component count | >8 | Medium — warn "Consider phasing" |
+| Distinct user types | >3 | Medium — warn "Multiple user types — should they ship together?" |
+| Non-scope items | >5 | Low — info "Large deferred scope. Phase 2 planning recommended" |
+
+**How to detect:**
+- Count top-level components or modules in TECHNICAL_DESIGN architecture section
+- Count distinct user/actor types across PRD user stories
+- Count items in the non-scope / non-goals lists across PRD and TECHNICAL_DESIGN
+
+Include any triggered warnings in the review report under the appropriate severity. These warnings use category `scope_cohesion`.
+
 ### 5. Generate Review Report
 
 Produce a structured review with severity levels:
@@ -226,7 +243,7 @@ Produce a structured review with severity levels:
   "required": ["signal", "verdict", "issues"],
   "properties": {
     "signal": { "const": "SPEC_REVIEW_COMPLETE" },
-    "verdict": { "enum": ["approved", "needs_revision"] },
+    "verdict": { "enum": ["approved", "approved_with_scope_warning", "needs_revision"] },
     "issues": {
       "type": "object",
       "properties": {
@@ -242,7 +259,7 @@ Produce a structured review with severity levels:
         "required": ["severity", "category", "description", "file", "fix"],
         "properties": {
           "severity": { "enum": ["high", "medium", "low"] },
-          "category": { "enum": ["contradiction", "incomplete", "untestable", "missing_entity", "style"] },
+          "category": { "enum": ["contradiction", "incomplete", "untestable", "missing_entity", "style", "scope_cohesion"] },
           "description": { "type": "string" },
           "file": { "type": "string" },
           "fix": { "type": "string" }
@@ -301,7 +318,8 @@ Return if input validation fails (see `references/signal-contracts.json`).
 
 | Condition | Verdict |
 |-----------|---------|
-| 0 high severity issues | `approved` |
+| 0 high severity issues, no scope cohesion warnings | `approved` |
+| 0 high severity issues, scope cohesion warnings present | `approved_with_scope_warning` |
 | Any high severity issues | `needs_revision` |
 
 **Medium and low issues are reported but do not block planning.**
@@ -310,6 +328,12 @@ When verdict is `needs_revision`:
 - Present the high-severity issues to the user
 - User must resolve them before planning proceeds
 - After fixes, re-run spec review
+
+When verdict is `approved_with_scope_warning`:
+- Specs are complete and testable, but scope decomposition might be beneficial
+- Present scope cohesion warnings alongside any other medium/low issues
+- In auto_mode: proceed to planning (log warnings)
+- In interactive mode: ask user whether to split scope or proceed as-is
 
 When verdict is `approved` with medium/low issues:
 - Present issues as advisory

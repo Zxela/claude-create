@@ -73,6 +73,32 @@ Before engaging the user, build a deep understanding of the project. This analys
 
 ---
 
+### 1.5. Early Scope Assessment
+
+After codebase analysis but **before** asking clarifying questions, scan the initial request for signals of multiple independent subsystems:
+
+1. **Scan for scope breadth:**
+   - Count distinct user types/personas mentioned
+   - Count separate integration points or external systems
+   - Count architectural layers implied (data, API, UI, admin, etc.)
+   - Watch for independence keywords: "and also", "additionally", "separate", "plus"
+
+2. **If 3+ independent areas detected**, raise BEFORE detailed questions:
+
+   > "I see this request spans multiple independent areas:
+   > - [Area A] (subsystem description)
+   > - [Area B] (subsystem description)
+   > - [Area C] (subsystem description)
+   >
+   > For focused implementation, I'd recommend:
+   > A) Start with [core area] — ship it, then tackle the rest as phase 2
+   > B) Build all areas in priority order: [suggested sequence]
+   > C) A different split — tell me what makes sense for your situation"
+
+3. **Only proceed with detailed dialogue after scope is agreed upon.** If the request is focused (fewer than 3 independent areas), skip this step and move directly to dialogue.
+
+---
+
 ### 2. Adaptive Dialogue
 
 The dialogue should feel like a conversation with a senior engineer who has studied the codebase — not a requirements questionnaire going through a fixed checklist.

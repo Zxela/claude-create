@@ -203,6 +203,8 @@ Only reached if all hard gates pass. Score 0.0-1.0:
 
 **Approval threshold: >= 0.7**
 
+**Edge case calibration:** An edge case worth flagging is one that causes **silent wrong output** — data corruption, incorrect calculations, security bypass. Input that triggers an explicit error (exception, validation failure) is already handled. Don't flag missing null guards unless absence would cause a crash or silent corruption.
+
 ### Review Checklist (Tier 2)
 
 #### Acceptance Criteria (Required)

@@ -87,6 +87,15 @@ fi
 - Proceed normally — no injection needed
 - This is the common case for the first task in a session
 
+### Iteration Cap
+
+To prevent unbounded retry loops:
+
+- **Per-task cap:** Max 3 failed review cycles per individual task. After 3 rejections, mark the task as `needs_user_input` in tasks.json and escalate. Log: "Iteration cap reached for task [ID]. Escalating to user."
+- **Session cap:** Max 5 total retries across all tasks in a session. After hitting the cap, pause the dispatch loop and present current status to the user before continuing.
+
+These caps supersede any per-section retry limits below. When either cap is hit, do not retry — escalate.
+
 ### 3. Dispatch Loop
 
 Work through the DAG by dispatching implementers for ready tasks.
