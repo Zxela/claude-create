@@ -56,7 +56,7 @@ The `state.json` file lives at the worktree root and tracks the entire `/create`
     "max_identical_rejections": 3,
     "max_iterations_without_progress": 3,
     "retries": {
-      "same_agent": 2,
+      "same_agent": 1,
       "fresh_agent": 1
     }
   },
