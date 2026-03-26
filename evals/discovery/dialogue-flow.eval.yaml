@@ -32,7 +32,7 @@ evaluations:
       3. Covers multiple categories (0-2): Touches on at least 2 of: purpose, users, scope, constraints, edge cases
       4. Structured approach (0-2): Questions are organized rather than random
 
-      Note: Discovery asks one question at a time. With only 5 scripted responses,
+      Note: Discovery batches 2-4 questions per message. With only 5 scripted responses,
       the dialogue may not cover all 5 categories. Score based on quality of covered categories.
 
       Score 0-10. Pass threshold: 5

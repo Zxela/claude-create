@@ -1,6 +1,6 @@
 name: planning-model-routing
 description: "Verify planning assigns correct models (haiku/sonnet) to task types"
-workflow: homerun:planning
+workflow: homerun:task-decomposition
 tags: [planning, model-routing, homerun]
 timeout_seconds: 300
 
