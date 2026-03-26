@@ -1,6 +1,6 @@
 # Parallel Execution Scenarios
 
-Reference examples for conductor parallel execution patterns.
+Reference examples for team-lead parallel execution patterns.
 
 ## Concurrency Scenarios
 
@@ -8,11 +8,10 @@ Reference examples for conductor parallel execution patterns.
 
 **Config:**
 - `max_parallel_tasks: 3`
-- `max_parallel_by_model: { haiku: 5, sonnet: 3, opus: 1 }`
 
 **Current state:**
-- Running: 3 tasks (1 haiku, 2 sonnet)
-- Ready: 2 haiku tasks, 1 sonnet task
+- Running: 3 tasks
+- Ready: 2 tasks
 
 **Calculation:**
 ```
@@ -20,47 +19,39 @@ Global: 3 - 3 = 0 slots available
 Result: 0 slots (wait for completions)
 ```
 
-### Scenario 2: Model Limit Reached
+### Scenario 2: Dependency-Gated Parallelism
 
 **Config:**
 - `max_parallel_tasks: 5`
-- `max_parallel_by_model: { haiku: 5, sonnet: 3, opus: 1 }`
 
 **Current state:**
-- Running: 3 sonnet tasks
-- Ready: 2 sonnet tasks, 1 haiku task
+- Running: 3 tasks (no dependencies between them)
+- Ready: 2 tasks (both depend on running task 001)
 
 **Calculation:**
 ```
 Global: 5 - 3 = 2 slots available
-Sonnet: 3 - 3 = 0 slots (at limit)
-Haiku: 5 - 0 = 5 slots
-Result: Only haiku task can be spawned (1 slot used)
+But: ready tasks are blocked by dependency on task 001
+Result: 0 tasks can be spawned until 001 completes
 ```
 
-### Scenario 3: Mixed Model Spawning
+### Scenario 3: Mixed Readiness Spawning
 
 **Config:**
 - `max_parallel_tasks: 4`
-- `max_parallel_by_model: { haiku: 5, sonnet: 3, opus: 1 }`
 
 **Current state:**
-- Running: 1 sonnet task
-- Ready: 2 haiku, 2 sonnet, 1 opus
+- Running: 1 task
+- Ready: 3 tasks (no dependency conflicts)
 
 **Calculation:**
 ```
 Global: 4 - 1 = 3 slots available
-Haiku: 5 - 0 = 5 slots
-Sonnet: 3 - 1 = 2 slots
-Opus: 1 - 0 = 1 slot
 
-Spawn order (respecting model limits):
-1. First haiku task (3 slots -> 2)
-2. Second haiku task (2 slots -> 1)
-3. First sonnet task (1 slot -> 0)
-4. Second sonnet blocked (no global slots)
-5. Opus blocked (no global slots)
+Spawn order:
+1. First ready task (3 slots -> 2)
+2. Second ready task (2 slots -> 1)
+3. Third ready task (1 slot -> 0)
 ```
 
 ---
@@ -106,7 +97,7 @@ Task 002: Create Auth service (needs Task 001)
 003 blocked_by: [001]  <- Cycle!
 
 Result: No tasks ever become ready
-Conductor detects deadlock after 3 iterations without progress
+Team lead detects deadlock after 3 iterations without progress
 ```
 
 ### Retry Queue Priority
@@ -145,11 +136,11 @@ Effect:
 ### Task-Count Refresh
 
 ```
-conductor_refresh_interval: 5
+team_lead_refresh_interval: 5
 tasks_since_refresh: 5
 
 Trigger: tasks_since_refresh >= interval
-Action: Spawn fresh conductor, exit current
+Action: Spawn fresh team-lead session, exit current
 ```
 
 ### Token-Based Refresh

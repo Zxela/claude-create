@@ -15,7 +15,7 @@
 |-------|--------|---------|-----|
 | Discovery | 40K | 60K | 80K |
 | Planning | 30K | 45K | 60K |
-| Conductor | 20K | 30K | 40K |
+| Team Lead | 20K | 30K | 40K |
 | Implementer | 30K | N/A | N/A |
 | Reviewer | 30K | N/A | N/A |
 
@@ -69,8 +69,8 @@ function estimateTokens(state) {
     tasks_json: state.tasks_file ? estimateFileTokens(state.tasks_file) : 0
   };
 
-  // Conductor accumulates feedback
-  const feedbackTokens = state.parallel_state?.running_tasks
+  // Team lead accumulates feedback
+  const feedbackTokens = state.parallel_state?.active_tasks
     ?.reduce((sum, t) => sum + (t.feedback?.length || 0) * 500, 0) || 0;
 
   return base.skill_content + base.state_json + base.tasks_json + feedbackTokens;

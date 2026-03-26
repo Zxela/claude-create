@@ -1,6 +1,6 @@
 # Task Decomposition Examples
 
-Reference examples for decomposing tasks according to the rules in `skills/planning/SKILL.md`.
+Reference examples for decomposing tasks according to the rules in `skills/task-decomposition/SKILL.md`.
 
 ## Example 1: User Authentication Feature
 
