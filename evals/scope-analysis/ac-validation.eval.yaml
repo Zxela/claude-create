@@ -1,0 +1,58 @@
+name: scope-analysis-ac-validation
+description: "Verify scope analyzer validates acceptance criteria testability"
+workflow: homerun:scope-analysis
+tags: [scope-analysis, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: state.json
+    content: |
+      {
+        "phase": "scope_analysis",
+        "session_id": "eval-scope-003",
+        "spec_paths": {
+          "prd": "docs/specs/PRD.md",
+          "adr": "docs/specs/ADR.md",
+          "technical_design": "docs/specs/TECHNICAL_DESIGN.md"
+        }
+      }
+  - path: docs/specs/PRD.md
+    content: |
+      # PRD: Notification Service
+      ## Acceptance Criteria
+      - AC-001: When a new order is placed, the customer receives an email within 5 minutes (quantitative — testable)
+      - AC-002: The notification system should be fast (vague — not testable)
+      - AC-003: Sending a notification to an invalid email returns an error with code INVALID_RECIPIENT (behavioral — testable)
+      - AC-004: The system should feel responsive (subjective — not testable)
+  - path: docs/specs/ADR.md
+    content: |
+      # ADR: Notification Service
+      ## Decision: Queue-based delivery via SQS
+  - path: docs/specs/TECHNICAL_DESIGN.md
+    content: |
+      # Technical Design: Notification Service
+      ## Components
+      - NotificationQueue (service): SQS-backed message queue
+      - EmailSender (service): SMTP email delivery
+
+input:
+  prompt: |
+    Analyze the acceptance criteria in the specs. Validate each for testability
+    using the standard patterns: behavioral, assertion, quantitative.
+    Mark any that are vague or subjective as untestable.
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate acceptance criteria validation:
+
+      1. Testable identification (0-3): Correctly identified AC-001 and AC-003 as testable
+      2. Untestable identification (0-3): Correctly flagged AC-002 ("should be fast") and AC-004 ("feel responsive") as untestable
+      3. Pattern classification (0-2): Assigned correct patterns — AC-001 is quantitative, AC-003 is behavioral
+      4. Actionable feedback (0-2): Suggested how to make untestable criteria testable
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

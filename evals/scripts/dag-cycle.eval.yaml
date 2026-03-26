@@ -1,0 +1,56 @@
+name: scripts-dag-cycle
+description: "Verify DAG validation script detects circular dependencies"
+workflow: homerun:implement
+tags: [scripts, dag, negative, homerun]
+timeout_seconds: 120
+isolation: tempdir
+
+fixtures:
+  - path: docs/tasks.json
+    content: |
+      {
+        "tasks": [
+          {
+            "id": "001", "title": "Task A", "objective": "Do A",
+            "acceptance_criteria": [{"id": "AC-001"}], "status": "pending",
+            "depends_on": ["003"], "task_type": "create_model",
+            "test_file": "tests/a.test.ts"
+          },
+          {
+            "id": "002", "title": "Task B", "objective": "Do B",
+            "acceptance_criteria": [{"id": "AC-002"}], "status": "pending",
+            "depends_on": ["001"], "task_type": "create_service",
+            "test_file": "tests/b.test.ts"
+          },
+          {
+            "id": "003", "title": "Task C", "objective": "Do C",
+            "acceptance_criteria": [{"id": "AC-003"}], "status": "pending",
+            "depends_on": ["002"], "task_type": "create_api",
+            "test_file": "tests/c.test.ts"
+          }
+        ]
+      }
+
+input:
+  prompt: |
+    Run the DAG validation script on docs/tasks.json.
+    This task graph has a circular dependency (001→003→002→001).
+    Report what the script finds.
+
+evaluations:
+  - type: behavioral
+    checks:
+      - output_contains: "[Cc]ycle|[Cc]ircular"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate cycle detection:
+
+      1. Cycle detected (0-4): Correctly identified the circular dependency
+      2. Tasks identified (0-3): Named the tasks involved in the cycle (001, 002, 003)
+      3. Error severity (0-3): Reported this as a blocking error (not a warning)
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

@@ -1,0 +1,58 @@
+name: scripts-dag-valid
+description: "Verify DAG validation script passes on valid task graph"
+workflow: homerun:implement
+tags: [scripts, dag, smoke, homerun]
+timeout_seconds: 120
+isolation: tempdir
+
+fixtures:
+  - path: docs/tasks.json
+    content: |
+      {
+        "tasks": [
+          {
+            "id": "001", "title": "Create model", "objective": "Define schema",
+            "acceptance_criteria": [{"id": "AC-001"}], "status": "pending",
+            "depends_on": [], "task_type": "create_model",
+            "test_file": "tests/model.test.ts"
+          },
+          {
+            "id": "002", "title": "Create service", "objective": "Business logic",
+            "acceptance_criteria": [{"id": "AC-002"}], "status": "pending",
+            "depends_on": ["001"], "task_type": "create_service",
+            "test_file": "tests/service.test.ts"
+          },
+          {
+            "id": "003", "title": "Create API", "objective": "REST endpoints",
+            "acceptance_criteria": [{"id": "AC-003"}], "status": "pending",
+            "depends_on": ["002"], "task_type": "create_api",
+            "test_file": "tests/api.test.ts"
+          }
+        ]
+      }
+
+input:
+  prompt: |
+    Run the DAG validation script on docs/tasks.json.
+    The script is at the homerun plugin scripts directory.
+    Report whether the DAG is valid and what checks were performed.
+
+evaluations:
+  - type: behavioral
+    checks:
+      - output_contains: "valid|pass"
+      - output_contains: "dag|cycle|depend"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate DAG validation execution:
+
+      1. Script execution (0-3): Successfully ran the validation script (or equivalent validation)
+      2. Result interpretation (0-3): Correctly reported the DAG as valid with no cycles
+      3. Check coverage (0-2): Mentioned checks performed (required fields, cycles, test files, dependencies)
+      4. Task count (0-2): Reported 3 tasks with correct dependency chain
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

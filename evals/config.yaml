@@ -17,8 +17,20 @@ categories:
     skills: [homerun:task-decomposition]
 
   scope_analysis:
-    description: Tests for scope analysis skill
+    description: Tests for scope analysis skill (component extraction, AC validation)
     skills: [homerun:scope-analysis]
+
+  team_lead:
+    description: Tests for team-lead orchestration (dispatch loop, scale routing)
+    skills: [homerun:team-lead]
+
+  quality_check:
+    description: Tests for quality-check pipeline (phase ordering, signal output)
+    skills: [homerun:quality-check]
+
+  scripts:
+    description: Tests for shell scripts (DAG validation, hooks)
+    skills: []
 
   implement:
     description: Tests for implementer skill (TDD, code generation)

@@ -1,0 +1,66 @@
+name: scope-analysis-component-extraction
+description: "Verify scope analyzer extracts components with correct layer classification"
+workflow: homerun:scope-analysis
+tags: [scope-analysis, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: state.json
+    content: |
+      {
+        "phase": "scope_analysis",
+        "session_id": "eval-scope-002",
+        "spec_paths": {
+          "prd": "docs/specs/PRD.md",
+          "adr": "docs/specs/ADR.md",
+          "technical_design": "docs/specs/TECHNICAL_DESIGN.md"
+        }
+      }
+  - path: docs/specs/PRD.md
+    content: |
+      # PRD: User Authentication
+      ## Requirements
+      - R1: Users can register with email and password
+      - R2: Users can log in with credentials
+      - R3: System issues JWT tokens on successful login
+      ## Acceptance Criteria
+      - AC-001: Registration creates user record in database
+      - AC-002: Login returns valid JWT token
+      - AC-003: Invalid credentials return 401 error
+  - path: docs/specs/ADR.md
+    content: |
+      # ADR: User Authentication
+      ## Decision: JWT with bcrypt
+      Use bcrypt for password hashing, JWT for session tokens.
+  - path: docs/specs/TECHNICAL_DESIGN.md
+    content: |
+      # Technical Design: User Authentication
+      ## Components
+      - UserModel (data): database schema for users table
+      - AuthService (service): handles registration, login, token generation
+      - AuthController (api): REST endpoints for /register and /login
+      - LoginForm (ui): frontend login/registration form
+      ## Non-Scope
+      - OAuth, social login, password reset
+
+input:
+  prompt: |
+    Analyze the specifications and extract a structured scope analysis.
+    Classify each component by layer (data, service, api, ui).
+    Validate all acceptance criteria for testability.
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate component extraction accuracy:
+
+      1. Component identification (0-3): Found all 4 components (UserModel, AuthService, AuthController, LoginForm)
+      2. Layer classification (0-3): Correctly assigned layers — data, service, api, ui respectively
+      3. AC testability (0-2): Validated AC-001 through AC-003 as testable with specific assertions
+      4. Non-scope awareness (0-2): Identified OAuth, social login, password reset as out of scope
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5
