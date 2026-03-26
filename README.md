@@ -420,6 +420,7 @@ All inter-agent communication uses typed JSON signal envelopes. See `references/
 | `PLANNING_COMPLETE` | task-decomposer | Tasks decomposed, ready for implementation |
 | `TEST_SKELETONS_COMPLETE` | test-skeleton-generator | Test scaffolding generated |
 | `IMPLEMENTATION_COMPLETE` | implementer | Task done, ready for review |
+| `NEEDS_REWORK` | implementer | Self-review failed; implementer re-dispatched by team-lead |
 | `IMPLEMENTATION_BLOCKED` | implementer | Task blocked (missing dep, unclear reqs, duplication, tautological test) |
 | `REVIEW_DISPATCHED` | team-lead | Reviewer spawned for completed task |
 | `APPROVED` | reviewer | Task passed review |

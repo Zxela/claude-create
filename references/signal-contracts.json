@@ -124,7 +124,33 @@
               "implementation_file": "src/feature.ts:45",
               "test_location": "tests/feature.test.ts:23"
             }
-          ]
+          ],
+          "hard_gate_results": { "tests": 0, "types": 0, "lint": 0 },
+          "verification_level": "L2",
+          "verification_attempted": ["L1", "L2"]
+        },
+        "envelope_version": "1.0.0"
+      }
+    },
+
+    "NEEDS_REWORK": {
+      "producer": "homerun:implement",
+      "envelope_example": {
+        "signal": "NEEDS_REWORK",
+        "timestamp": "2026-01-25T11:00:00Z",
+        "source": {
+          "skill": "homerun:implement",
+          "task_id": "001",
+          "attempt": 1
+        },
+        "payload": {
+          "findings": [
+            {
+              "check": "placeholder_scan",
+              "issue": "TODO comment found in src/feature.ts:23"
+            }
+          ],
+          "hard_gate_results": { "tests": 0, "types": 0, "lint": 1 }
         },
         "envelope_version": "1.0.0"
       }
@@ -252,7 +278,7 @@
         "timestamp": "2026-01-25T10:35:00Z",
         "source": { "skill": "homerun:spec-review" },
         "payload": {
-          "verdict": "approved",
+          "verdict": "approved_with_scope_warning",
           "issues": { "high": 0, "medium": 1, "low": 2 },
           "details": [
             {
