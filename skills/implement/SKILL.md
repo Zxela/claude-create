@@ -647,7 +647,7 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
   "properties": {
     "signal": { "const": "IMPLEMENTATION_BLOCKED" },
     "reason": { "type": "string" },
-    "blocker_type": { "enum": ["missing_dependency", "unclear_requirements", "technical_constraint", "test_failure", "tautological_test"] },
+    "blocker_type": { "enum": ["missing_dependency", "unclear_requirements", "technical_constraint", "test_failure", "tautological_test", "duplication_detected"] },
     "details": { "type": "array", "items": { "type": "string" } },
     "suggested_resolution": { "type": "string" }
   }

@@ -30,7 +30,7 @@ Follow the `homerun:implement` skill using strict TDD methodology from `homerun:
 
 **Phase:** Implementing (assigned by team-lead)
 **Input:** Single task from tasks.json + spec documents
-**Output:** `TASK_COMPLETE` (approved) or `IMPLEMENTATION_BLOCKED` signal
+**Output:** `IMPLEMENTATION_COMPLETE`, `NEEDS_REWORK`, or `IMPLEMENTATION_BLOCKED` signal
 **Next:** Review by `reviewer` agent
 
 ## TDD Cycle
