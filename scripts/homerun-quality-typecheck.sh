@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Hook: PostToolUse (or standalone)
 # Purpose: Run type checking as standalone quality gate
 #
@@ -25,25 +25,15 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/pkg-manager.sh"
+
 # Resolve working directory
 WORKTREE_PATH="${CLAUDE_WORKTREE_PATH:-$(pwd)}"
 
 cd "$WORKTREE_PATH" || {
   echo "homerun-quality-typecheck: could not cd to $WORKTREE_PATH" >&2
   exit 0
-}
-
-# --- Detect package manager ---
-detect_pkg_manager() {
-  if [ -f bun.lockb ] || [ -f bun.lock ]; then
-    echo "bun"
-  elif [ -f pnpm-lock.yaml ]; then
-    echo "pnpm"
-  elif [ -f yarn.lock ]; then
-    echo "yarn"
-  else
-    echo "npm"
-  fi
 }
 
 # --- Type check ---

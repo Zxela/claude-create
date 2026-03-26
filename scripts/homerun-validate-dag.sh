@@ -18,7 +18,7 @@ if [[ -z "$TASKS_FILE" ]]; then
 fi
 
 if [[ ! -f "$TASKS_FILE" ]]; then
-  echo "{\"valid\":false,\"exit_code\":2,\"errors\":[\"Tasks file not found: $TASKS_FILE\"],\"warnings\":[]}" >&2
+  jq -n --arg f "$TASKS_FILE" '{"valid":false,"exit_code":2,"errors":["Tasks file not found: \($f)"],"warnings":[]}' >&2
   exit 2
 fi
 
@@ -30,7 +30,7 @@ fi
 
 # Validate JSON syntax
 if ! jq empty "$TASKS_FILE" 2>/dev/null; then
-  echo "{\"valid\":false,\"exit_code\":2,\"errors\":[\"Invalid JSON in $TASKS_FILE\"],\"warnings\":[]}" >&2
+  jq -n --arg f "$TASKS_FILE" '{"valid":false,"exit_code":2,"errors":["Invalid JSON in \($f)"],"warnings":[]}' >&2
   exit 2
 fi
 
@@ -74,13 +74,13 @@ if [[ -n "$ALL_IDS" ]]; then
     CHANGED=false
     for tid in $ALL_IDS; do
       # Skip already resolved
-      echo "$RESOLVED" | grep -qw "$tid" 2>/dev/null && continue
+      echo " $RESOLVED " | grep -qF " $tid " 2>/dev/null && continue
       # Get dependencies for this task
       DEPS=$(jq -r --arg id "$tid" '.tasks[] | select(.id == $id) | (.depends_on // [])[]' "$TASKS_FILE" 2>/dev/null || true)
       # Check if all deps are resolved
       ALL_MET=true
       for dep in $DEPS; do
-        if ! echo "$RESOLVED" | grep -qw "$dep" 2>/dev/null; then
+        if ! echo " $RESOLVED " | grep -qF " $dep " 2>/dev/null; then
           ALL_MET=false
           break
         fi
@@ -94,7 +94,7 @@ if [[ -n "$ALL_IDS" ]]; then
   # Check for unresolved tasks (involved in cycles)
   UNRESOLVED=""
   for tid in $ALL_IDS; do
-    if ! echo "$RESOLVED" | grep -qw "$tid" 2>/dev/null; then
+    if ! echo " $RESOLVED " | grep -qF " $tid " 2>/dev/null; then
       UNRESOLVED="$UNRESOLVED $tid"
     fi
   done
@@ -134,13 +134,14 @@ fi
 
 # --- 4. Dependency ordering (no task depends on higher-numbered task) ---
 DEP_ORDER_ISSUES=$(jq -r '
+  [.tasks[].id] as $all_ids |
   .tasks[] |
   .id as $tid |
-  ($tid | gsub("[^0-9]"; "")) as $tnum |
+  ($all_ids | to_entries[] | select(.value == $tid) | .key) as $tidx |
   (.depends_on // [])[] |
   . as $dep |
-  ($dep | gsub("[^0-9]"; "")) as $dnum |
-  if ($dnum | tonumber) >= ($tnum | tonumber) then
+  ($all_ids | to_entries[] | select(.value == $dep) | .key) as $didx |
+  if $didx >= $tidx then
     "Task \($tid) depends on \($dep) which comes later or is same in sequence"
   else empty end
 ' "$TASKS_FILE" 2>/dev/null || true)

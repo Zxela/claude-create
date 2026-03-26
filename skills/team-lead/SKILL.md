@@ -292,7 +292,7 @@ Task({
 
 ```bash
 # Update state.json
-jq '.phase = "completing" | .orchestration_completed_at = now' state.json | sponge state.json
+jq '.phase = "completing" | .orchestration_completed_at = now' state.json > state.json.tmp && mv state.json.tmp state.json
 
 # Or via Write tool:
 # Update state.json phase to "completing"
