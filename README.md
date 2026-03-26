@@ -357,21 +357,32 @@ homerun/
 │   ├── systematic-debugging/SKILL.md
 │   └── using-git-worktrees/SKILL.md
 ├── commands/                     # User-invocable commands
-│   ├── create.md
-│   ├── plan.md
 │   ├── build.md
-│   ├── review.md
+│   ├── create.md
 │   ├── diagnose.md
-│   └── reverse-engineer.md
+│   ├── plan.md
+│   ├── reverse-engineer.md
+│   ├── review.md
+│   └── status.md
 ├── references/                   # Configuration and contracts
-│   ├── signal-contracts.json     # Typed signal envelopes
-│   ├── model-routing.json        # Task-to-model assignments
-│   ├── hooks-configuration.md    # Hook setup guide
+│   ├── anti-patterns.md
+│   ├── archived-specs/
 │   ├── context-engineering.md
+│   ├── debugging-flowchart.md
 │   ├── discovery-questions.md
-│   ├── scale-determination.md
+│   ├── duplication-matrix.md
+│   ├── five-whys.md
+│   ├── hooks-configuration.md    # Hook setup guide
+│   ├── impact-analysis.md
+│   ├── model-routing.json        # Task-to-model assignments
+│   ├── quality-gates.md
 │   ├── retry-patterns.md
-│   └── retry-patterns.md
+│   ├── scale-determination.md
+│   ├── signal-contracts.json     # Typed signal envelopes
+│   ├── state-schema.md
+│   ├── test-assertion-rules.md
+│   ├── token-estimation.md
+│   └── validation-gates.md
 ├── scripts/                      # Hook scripts
 │   ├── homerun-pre-commit.sh     # PreToolUse: block commit on lint/type errors
 │   ├── homerun-auto-lint.sh      # PostToolUse: auto-format after edits
