@@ -130,7 +130,7 @@ Start an orchestrated workflow from idea through implementation.
 |------|-------------|
 | `--auto` | Skip all confirmations — dialogue, validation, phase transitions |
 | `--resume` | Resume interrupted session |
-| `--retries N,M` | Retry limits: N=same agent, M=fresh agent (default: 2,1) |
+| `--retries N,M` | Retry limits: N=fresh agent, M=same agent (default: 1,1) |
 
 ### `/plan` — Jump to Planning
 
@@ -436,16 +436,16 @@ All inter-agent communication uses typed JSON signal envelopes. See `references/
 ## Retry Logic & Circuit Breakers
 
 ```
-Task rejected
+Task rejected (attempt 1 failed)
       │
       ▼
-  attempts < fresh_agent_limit (default: 1)
-      │ YES → Spawn fresh agent (clean slate + failure summary)
+  fresh_agent retries remaining? (default: 1)
+      │ YES → Spawn fresh agent (clean slate + structured failure summary)
       │ NO ↓
-  attempts < fresh + same_agent_limit (default: 1)
-      │ YES → Retry with same agent + accumulated context
+  same_agent retries remaining? (default: 1)
+      │ YES → Retry with same agent + targeted guidance
       │ NO ↓
-  Escalate model (sonnet → opus)
+  Model is haiku? → Escalate to sonnet
       │ NO ↓
   Escalate to user
 ```

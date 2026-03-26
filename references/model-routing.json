@@ -77,16 +77,16 @@
     "maxTurns": {
       "discovery": 30,
       "spec_review": 10,
-      "scope_analyzer": 12,
-      "task_decomposer": 10,
+      "scope_analysis": 12,
+      "task_decomposition": 10,
       "implementer": 25,
       "reviewer": 15,
-      "quality_checker": 10,
+      "quality_check": 10,
       "team_lead": 50,
-      "diagnostician": 20,
+      "diagnose": 20,
       "reverse_engineer": 30,
-      "test_skeleton_generator": 15,
-      "walkthrough_generator": 15
+      "test_skeletons": 15,
+      "walkthrough": 15
     }
   },
 
@@ -102,6 +102,7 @@
     "medium": {
       "max_implementers": 2,
       "skip_spec_review": false,
+      "skip_scope_analysis": false,
       "skip_agent_teams": false,
       "skip_separate_reviewer": false,
       "preferred_model": "sonnet"
@@ -109,6 +110,7 @@
     "large": {
       "max_implementers": 5,
       "skip_spec_review": false,
+      "skip_scope_analysis": false,
       "skip_agent_teams": false,
       "skip_separate_reviewer": false,
       "preferred_model": null

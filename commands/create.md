@@ -84,7 +84,7 @@ When resuming an interrupted session:
    {
      "auto_mode": false,
      "retries": {
-       "same_agent": 2,
+       "same_agent": 1,
        "fresh_agent": 1
      }
    }

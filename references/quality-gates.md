@@ -15,9 +15,9 @@ Phase 1 ──0 errors──→ Phase 2 ──0 errors──→ Phase 3 ──0 
 
 | Phase | What | Tool | Blocking? |
 |-------|------|------|-----------|
-| **1. Lint + Format** | Code style, auto-fixable issues | Linter/formatter | Yes — fix before proceeding |
-| **2. Structure** | Unused exports, circular dependencies | Static analysis | Yes — architectural issues |
-| **3. Type Check + Build** | Type errors, compilation | TypeScript/compiler | Yes — broken code |
+| **1. Lint + Format** | Code style, auto-fixable issues | Linter/formatter (bash hook) | Yes — fix before proceeding |
+| **2. Type Check** | Type errors, compilation | TypeScript/compiler (bash hook) | Yes — broken code |
+| **3. Structure** | Unused exports, circular dependencies | LLM review | Yes — architectural issues |
 | **4. Tests** | All tests passing | Test runner | Yes — broken behavior |
 | **5. Code Recheck** | Final quality sweep | LLM review | Advisory — flag but don't block |
 
@@ -32,11 +32,12 @@ Phase 1 ──0 errors──→ Phase 2 ──0 errors──→ Phase 3 ──0 
 
 Phases 1-2 run via bash hooks at zero LLM cost:
 - `homerun-quality-lint.sh` → Phase 1
-- `homerun-quality-typecheck.sh` → Phase 3
+- `homerun-quality-typecheck.sh` → Phase 2
 
-Phases 4-5 require LLM turns:
+Phases 3-5 require LLM turns or test runner:
+- Phase 3: Structural review of implementation quality (LLM)
 - Phase 4: Run test suite, analyze failures
-- Phase 5: Structural review of implementation quality
+- Phase 5: Final code recheck (LLM)
 
 ## Statuses
 
