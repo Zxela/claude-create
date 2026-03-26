@@ -1,0 +1,55 @@
+name: quality-check-phase-ordering
+description: "Verify quality-check follows correct phase order: lint → types → structure → tests → recheck"
+workflow: homerun:quality-check
+tags: [quality-check, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": {
+          "lint": "echo 'lint ok'",
+          "typecheck": "echo 'types ok'",
+          "test": "echo 'tests ok'"
+        }
+      }
+  - path: src/index.ts
+    content: |
+      export function add(a: number, b: number): number {
+        return a + b;
+      }
+  - path: tests/index.test.ts
+    content: |
+      import { add } from '../src/index';
+      test('add works', () => { expect(add(1, 2)).toBe(3); });
+
+input:
+  prompt: |
+    Run the quality check pipeline on this project.
+    Execute each phase in order and report results.
+    Emit a QUALITY_CHECK_COMPLETE signal when done.
+
+evaluations:
+  - type: behavioral
+    checks:
+      - output_contains: "[Ll]int|[Ff]ormat"
+      - output_contains: "[Tt]ype|[Tt]ypecheck"
+      - output_contains: "[Tt]est"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate quality check execution:
+
+      1. Phase ordering (0-4): Followed correct order — lint first, then types, then structure, then tests, then recheck
+      2. Stop-on-failure awareness (0-2): Would stop at a failing phase before proceeding to next
+      3. Completeness (0-2): Executed or mentioned all 5 phases
+      4. Signal output (0-2): Emitted or described QUALITY_CHECK_COMPLETE signal with phase results
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

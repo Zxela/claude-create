@@ -1,0 +1,76 @@
+name: scope-analysis-signal-envelope
+description: "Verify scope analyzer emits valid SCOPE_ANALYSIS_COMPLETE signal"
+workflow: homerun:scope-analysis
+tags: [scope-analysis, signals, smoke, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: state.json
+    content: |
+      {
+        "phase": "scope_analysis",
+        "session_id": "eval-scope-001",
+        "spec_paths": {
+          "prd": "docs/specs/PRD.md",
+          "adr": "docs/specs/ADR.md",
+          "technical_design": "docs/specs/TECHNICAL_DESIGN.md"
+        }
+      }
+  - path: docs/specs/PRD.md
+    content: |
+      # PRD: Counter Widget
+      ## Requirements
+      - R1: Display current count value
+      - R2: Increment button increases count by 1
+      - R3: Decrement button decreases count by 1
+      ## Acceptance Criteria
+      - AC-001: Counter displays initial value of 0
+      - AC-002: Clicking increment changes display from N to N+1
+      - AC-003: Clicking decrement changes display from N to N-1
+  - path: docs/specs/ADR.md
+    content: |
+      # ADR: Counter Widget
+      ## Decision: Web Component
+      Use vanilla web component for framework independence.
+  - path: docs/specs/TECHNICAL_DESIGN.md
+    content: |
+      # Technical Design: Counter Widget
+      ## Components
+      - CounterDisplay (ui): renders the count value
+      - CounterControls (ui): increment/decrement buttons
+      ## Non-Scope
+      - Persistence, animations, API integration
+
+input:
+  prompt: |
+    Run scope analysis on the specification documents listed in state.json.
+    Extract components, validate acceptance criteria for testability,
+    and create JIT context references.
+
+    Output a SCOPE_ANALYSIS_COMPLETE signal when done.
+
+evaluations:
+  - type: behavioral
+    checks:
+      - signal_has:
+          field: "signal"
+          pattern: "SCOPE_ANALYSIS_COMPLETE"
+      - output_contains: "[Cc]omponent|[Cc]ounter"
+      - output_contains: "AC-00[123]|acceptance"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate scope analysis quality:
+
+      1. Component extraction (0-3): Identified CounterDisplay and CounterControls with layer classification
+      2. AC validation (0-3): All 3 acceptance criteria validated for testability
+      3. JIT context refs (0-2): Created pointers to spec locations rather than copying content
+      4. Signal completeness (0-2): Signal includes components_count, acceptance_criteria_count
+
+      Note: In eval context, file writing may not succeed. Focus on analysis quality.
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

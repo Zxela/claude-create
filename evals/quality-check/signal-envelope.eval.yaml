@@ -1,0 +1,49 @@
+name: quality-check-signal-envelope
+description: "Verify quality-check emits valid QUALITY_CHECK_COMPLETE signal"
+workflow: homerun:quality-check
+tags: [quality-check, signals, smoke, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": {
+          "lint": "echo 'ok'",
+          "test": "echo 'ok'"
+        }
+      }
+  - path: src/app.ts
+    content: |
+      export const greeting = "hello";
+
+input:
+  prompt: |
+    Run the quality check pipeline on this project.
+    When all phases pass, output a QUALITY_CHECK_COMPLETE signal
+    with the phase results summary.
+
+evaluations:
+  - type: behavioral
+    checks:
+      - signal_has:
+          field: "signal"
+          pattern: "QUALITY_CHECK_COMPLETE"
+      - output_contains: "pass|PASS|passed"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate signal correctness:
+
+      1. Signal type (0-3): Emitted QUALITY_CHECK_COMPLETE (not a generic completion message)
+      2. Phase results (0-3): Signal includes results for each phase (lint, types, structure, tests, recheck)
+      3. Verdict (0-2): Clear pass/fail verdict in the signal
+      4. Format (0-2): Valid JSON signal envelope structure
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

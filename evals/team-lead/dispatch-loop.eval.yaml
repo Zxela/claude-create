@@ -1,0 +1,72 @@
+name: team-lead-dispatch-loop
+description: "Verify team-lead reads tasks, identifies ready tasks, and dispatches implementers"
+workflow: homerun:team-lead
+tags: [team-lead, homerun]
+timeout_seconds: 600
+isolation: tempdir
+
+fixtures:
+  - path: state.json
+    content: |
+      {
+        "phase": "implementing",
+        "session_id": "eval-tl-001",
+        "tasks_file": "docs/tasks.json",
+        "orchestration_mode": "skill",
+        "config": {
+          "max_parallel_tasks": 2,
+          "retries": { "same_agent": 1, "fresh_agent": 1 }
+        }
+      }
+  - path: docs/tasks.json
+    content: |
+      {
+        "tasks": [
+          {
+            "id": "001",
+            "title": "Create User model",
+            "objective": "Define User class with email validation",
+            "task_type": "create_model",
+            "status": "pending",
+            "depends_on": [],
+            "acceptance_criteria": [
+              { "id": "AC-001", "criterion": "User model validates email format" }
+            ],
+            "test_file": "tests/user.test.ts"
+          },
+          {
+            "id": "002",
+            "title": "Create Auth service",
+            "objective": "Implement login with JWT",
+            "task_type": "create_service",
+            "status": "pending",
+            "depends_on": ["001"],
+            "acceptance_criteria": [
+              { "id": "AC-002", "criterion": "Login returns valid JWT" }
+            ],
+            "test_file": "tests/auth.test.ts"
+          }
+        ]
+      }
+
+input:
+  prompt: |
+    You are the team-lead. Read state.json and tasks.json.
+    Identify which tasks are ready (dependencies resolved) and describe
+    how you would dispatch them. Do NOT actually spawn subagents.
+    Explain the dispatch order and reasoning.
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate team-lead dispatch logic:
+
+      1. State reading (0-2): Correctly read state.json and tasks.json
+      2. Dependency analysis (0-3): Identified task 001 as ready (no deps) and task 002 as blocked (depends on 001)
+      3. Dispatch order (0-3): Would dispatch 001 first, then 002 after 001 completes
+      4. Config awareness (0-2): Referenced max_parallel_tasks or retry limits from config
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

@@ -1,0 +1,47 @@
+name: team-lead-scale-routing
+description: "Verify team-lead applies correct scale-based routing for task count"
+workflow: homerun:team-lead
+tags: [team-lead, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: state.json
+    content: |
+      {
+        "phase": "implementing",
+        "session_id": "eval-tl-002",
+        "tasks_file": "docs/tasks.json",
+        "orchestration_mode": "skill"
+      }
+  - path: docs/tasks.json
+    content: |
+      {
+        "tasks": [
+          { "id": "001", "title": "Single task", "objective": "Do one thing",
+            "task_type": "create_model", "status": "pending", "depends_on": [],
+            "acceptance_criteria": [{"id": "AC-001", "criterion": "Works correctly"}],
+            "test_file": "tests/single.test.ts" }
+        ]
+      }
+
+input:
+  prompt: |
+    You are the team-lead. Read the tasks and determine the scale-based routing.
+    With only 1 task, what strategy should you use?
+    Describe how the dispatch would differ for 1-2 tasks vs 3-5 vs 6+ tasks.
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate scale-based routing awareness:
+
+      1. Small scale (0-3): For 1-2 tasks, correctly identifies sequential dispatch without worktree isolation
+      2. Medium scale (0-3): For 3-5 tasks, mentions parallel dispatch with worktree isolation
+      3. Large scale (0-2): For 6+ tasks, mentions batching or higher parallelism
+      4. Current case (0-2): Correctly applies small-scale strategy for the single task
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5
