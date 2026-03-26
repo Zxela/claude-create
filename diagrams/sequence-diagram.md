@@ -21,9 +21,9 @@ sequenceDiagram
     M->>D: Task(discovery-agent)
     activate D
 
-    loop One question at a time
-        D->>U: Question (multiple choice)
-        U->>D: Answer
+    loop 2-4 questions per message
+        D->>U: Questions (multiple choice)
+        U->>D: Answers
     end
 
     D->>FS: Write PRD.md, ADR.md, TECHNICAL_DESIGN.md
@@ -72,14 +72,14 @@ sequenceDiagram
     Note over M: Read state.json → phase: implementing
 
     Note over U,FS: Phase 4: Implementation Loop (depth 1)
-    M->>TL: Task(team-lead)
+    M->>TL: Skill(team-lead)
     activate TL
 
     loop Until all tasks complete
         TL->>FS: Read state.json, tasks.json
         TL->>TL: Find ready tasks (deps resolved)
 
-        par Parallel Implementation (depth 2)
+        par Parallel Implementation (depth 1)
             TL->>I: Task(implementer, background: true)
             activate I
             I->>FS: Read extracted spec context
@@ -89,7 +89,7 @@ sequenceDiagram
             deactivate I
         end
 
-        loop Sequential Reviews (depth 2)
+        loop Sequential Reviews (depth 1)
             TL->>R: Task(reviewer)
             activate R
             R->>FS: Read implementation + specs

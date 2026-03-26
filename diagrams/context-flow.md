@@ -42,7 +42,7 @@ graph LR
         P4[Tasks output: 2K]
     end
 
-    subgraph Conductor["Conductor (~5K)"]
+    subgraph TeamLead["Team Lead (~5K)"]
         C1[Skill: 2K]
         C2[State: 1K]
         C3[Current tasks: 1K]
@@ -67,10 +67,10 @@ graph LR
         R5[Analysis: 2K]
     end
 
-    Discovery -->|"Task(opus)"| Planning
-    Planning -->|"Task(haiku)"| Conductor
-    Conductor -->|"Task(varies)"| Implementer
-    Conductor -->|"Task(sonnet)"| Reviewer
+    Discovery -->|"Task(inherit)"| Planning
+    Planning -->|"Skill(inherit)"| TeamLead
+    TeamLead -->|"Task(varies)"| Implementer
+    TeamLead -->|"Task(sonnet)"| Reviewer
 ```
 
 ## Observation Masking Flow
@@ -154,12 +154,12 @@ sequenceDiagram
     participant M as Main (User Context)
     participant D as Discovery Context
     participant P as Planning Context
-    participant C as Conductor Context
+    participant TL as Team Lead Context
     participant I as Implementer Context
 
     Note over M: User's conversation history<br/>Could be 50K+ tokens
 
-    M->>D: Task(model: opus)
+    M->>D: Task(model: inherit)
     Note over D: Fresh context: ~2K<br/>(skill + project scan)
 
     loop Dialogue
@@ -172,21 +172,21 @@ sequenceDiagram
 
     Note over P: Fresh context: ~10K<br/>(skill + specs + state)
 
-    P->>C: Task(model: haiku)
+    P->>TL: Skill(inline, model: inherit)
     Note over P: Context discarded
 
-    Note over C: Fresh context: ~5K<br/>(skill + state + tasks)
+    Note over TL: Fresh context: ~5K<br/>(skill + state + tasks)
 
     par Parallel Spawns
-        C->>I: Task(model: haiku, background)
+        TL->>I: Task(model: varies, background)
         Note over I: Fresh: ~15K<br/>(skill + task + extracted specs)
     end
 
-    Note over C: Context grows with<br/>completion tracking
+    Note over TL: Context grows with<br/>completion tracking
 
     opt Refresh at 5 tasks
-        C->>C: Spawn fresh conductor
-        Note over C: Reset to ~5K
+        TL->>TL: Spawn fresh team-lead
+        Note over TL: Reset to ~5K
     end
 ```
 
@@ -195,7 +195,7 @@ sequenceDiagram
 ```mermaid
 xychart-beta
     title "Context Usage Per Phase"
-    x-axis ["Start", "Mid-Discovery", "End-Discovery", "Planning", "Conductor Start", "After 3 Tasks", "After 5 Tasks", "Refresh"]
+    x-axis ["Start", "Mid-Discovery", "End-Discovery", "Planning", "Team-Lead Start", "After 3 Tasks", "After 5 Tasks", "Refresh"]
     y-axis "Tokens (K)" 0 --> 50
     bar [2, 10, 18, 10, 5, 12, 18, 5]
     line [100, 100, 100, 100, 100, 100, 100, 100]

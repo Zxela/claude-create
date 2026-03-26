@@ -6,13 +6,19 @@
 stateDiagram-v2
     [*] --> discovery: /create
 
-    discovery --> planning: DISCOVERY_COMPLETE
+    discovery --> spec_review: DISCOVERY_COMPLETE
     discovery --> discovery: User answers question
     discovery --> discovery: Validation failed
 
-    planning --> implementing: PLANNING_COMPLETE
-    planning --> planning: DAG cycle detected
-    planning --> discovery: Major revision needed
+    spec_review --> scope_analysis: SPEC_REVIEW_COMPLETE
+    spec_review --> discovery: Major issues found
+
+    scope_analysis --> task_decomposition: SCOPE_ANALYSIS_COMPLETE
+    scope_analysis --> scope_analysis: Validation failed
+
+    task_decomposition --> implementing: PLANNING_COMPLETE
+    task_decomposition --> task_decomposition: DAG cycle detected
+    task_decomposition --> discovery: Major revision needed
 
     implementing --> implementing: Task completed
     implementing --> implementing: Task failed (low/med)
@@ -20,7 +26,7 @@ stateDiagram-v2
     implementing --> completing: All tasks done
 
     blocked --> implementing: User: retry/skip
-    blocked --> planning: User: replan
+    blocked --> task_decomposition: User: replan
 
     completing --> done: Merge/PR created
     completing --> implementing: User: continue
@@ -34,7 +40,7 @@ stateDiagram-v2
 stateDiagram-v2
     [*] --> pending: Task created
 
-    pending --> in_progress: Selected by conductor
+    pending --> in_progress: Selected by team-lead
     pending --> blocked: Dependency failed
 
     in_progress --> pending_review: Implementation complete
@@ -70,21 +76,21 @@ stateDiagram-v2
         review --> rejected: REJECTED
     }
 
-    attempt_1 --> attempt_2: same_agent retry
+    attempt_1 --> attempt_2: fresh_agent retry
     attempt_1 --> success_state: success
 
     state attempt_2 {
-        [*] --> implementing_2: With feedback
+        [*] --> implementing_2: Fresh context
         implementing_2 --> review_2
         review_2 --> success: APPROVED
         review_2 --> rejected: REJECTED
     }
 
-    attempt_2 --> attempt_3: fresh_agent retry
+    attempt_2 --> attempt_3: same_agent retry
     attempt_2 --> success_state: success
 
     state attempt_3 {
-        [*] --> implementing_3: Fresh context
+        [*] --> implementing_3: With feedback
         implementing_3 --> review_3
         review_3 --> success: APPROVED
         review_3 --> rejected: REJECTED
@@ -104,11 +110,11 @@ stateDiagram-v2
     escalation --> attempt_1: retry_with_guidance
     escalation --> success_state: mark_fixed
     escalation --> skipped_state: skip_task
-    escalation --> planning_phase: return_to_planning
+    escalation --> task_decomposition_phase: return_to_planning
 
     success_state --> [*]
     skipped_state --> [*]
-    planning_phase --> [*]
+    task_decomposition_phase --> [*]
 ```
 
 ## Circuit Breaker State Machine
@@ -128,7 +134,7 @@ stateDiagram-v2
     half_open --> open: Next task fails
 ```
 
-## Conductor Loop State Machine
+## Team-Lead Loop State Machine
 
 ```mermaid
 stateDiagram-v2
@@ -175,7 +181,7 @@ stateDiagram-v2
     check_refresh --> spawn_fresh: Refresh needed
     check_refresh --> read_state: Continue loop
 
-    spawn_fresh --> [*]: New conductor takes over
+    spawn_fresh --> [*]: New team-lead takes over
 
     workflow_complete --> [*]: Done
 ```
@@ -184,7 +190,7 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> idle: Conductor starts
+    [*] --> idle: Team-lead starts
 
     state idle {
         [*] --> finding_tasks
