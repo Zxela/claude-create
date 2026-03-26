@@ -79,7 +79,7 @@ Skills load minimal context, with references to detailed docs:
 
 **Before (bloated):**
 ```markdown
-# Conductor Skill
+# Team Lead Skill
 
 ## Full Algorithm (500 lines of pseudocode inline)
 ...
@@ -87,10 +87,10 @@ Skills load minimal context, with references to detailed docs:
 
 **After (progressive):**
 ```markdown
-# Conductor Skill
+# Team Lead Skill
 
 ## Reference Documents
-- `references/state-machine.md` - Full algorithms
+- `references/token-estimation.md` - Token budgets and refresh triggers
 - `references/retry-patterns.md` - Retry logic details
 
 ## Summary

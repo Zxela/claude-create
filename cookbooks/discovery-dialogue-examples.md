@@ -98,17 +98,17 @@ E) Depends on the error type (let's discuss)
 
 ## Validation Dialogue Flow
 
-### Section-by-Section Confirmation
+### Document Review Confirmation
 
-After presenting each section (200-300 words):
+After presenting the complete document for review:
 
 ```
-Does this accurately capture your intent?
+Please review the complete document above. Does it accurately capture your intent?
 
 Options:
-- [Confirmed] - Move to next section
+- [Confirmed] - Looks good, proceed
 - [Minor edits] - I'll describe what to change
-- [Major revision] - Let's discuss this further
+- [Major revision] - Let's discuss specific sections further
 ```
 
 ### Handling Revisions
