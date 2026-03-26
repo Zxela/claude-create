@@ -15,6 +15,8 @@ traces_to:
 
 # {{TASK_TITLE}}
 
+> **Note:** Individual task markdown files are for reference. The authoritative task data is in `docs/tasks.json`.
+
 <!--
 INCLUDES: Objective, acceptance criteria, technical approach, files to modify, test requirements
 EXCLUDES: Business rationale, user stories (→ PRD)

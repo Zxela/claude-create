@@ -488,13 +488,13 @@ In this case, first verify that `src/validators/user.ts:23` now validates empty 
 
 **Bad:** "This doesn't look right"
 
-**Good:** "`docs/specs/TECHNICAL_DESIGN.md` specifies the response format as `{data: [], meta: {}}` but implementation returns `{items: [], pagination: {}}`"
+**Good:** "The technical design spec (`spec_paths.technical_design`) specifies the response format as `{data: [], meta: {}}` but implementation returns `{items: [], pagination: {}}`"
 
 ### Actionable Feedback
 
 **Bad:** "Needs more error handling"
 
-**Good:** "Add try/catch in `processPayment()` at line 45 to handle the `PaymentGatewayError` case defined in ADR.md section 4.2"
+**Good:** "Add try/catch in `processPayment()` at line 45 to handle the `PaymentGatewayError` case defined in the ADR section 4.2"
 
 ## Red Flags - REJECT
 
@@ -502,8 +502,8 @@ Immediately reject if any of these are present:
 
 - **Missing test**: An acceptance criterion has no corresponding test
 - **Test passes without implementation**: Test would pass even if the feature code were deleted
-- **Diverges from design**: Implementation contradicts `docs/specs/TECHNICAL_DESIGN.md` without documented reason
-- **Security concern**: Implementation violates security decisions in `docs/specs/ADR.md`
+- **Diverges from design**: Implementation contradicts the technical design spec (`spec_paths.technical_design`) without documented reason
+- **Security concern**: Implementation violates security decisions in the ADR (`spec_paths.adr`)
 
 ### Handling Tautological Test Blockers
 
