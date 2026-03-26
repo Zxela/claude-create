@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Hook: SubagentStop (matcher: implementer)
 # Purpose: Log progress after an implementer finishes
 #
@@ -21,34 +21,15 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/session-state.sh"
+
 WORKTREE_PATH="${CLAUDE_WORKTREE_PATH:-$(pwd)}"
 
 # --- Session-aware state.json lookup ---
-# First: check the current worktree directly
-STATE_FILE="$WORKTREE_PATH/state.json"
+find_session_state "$WORKTREE_PATH" || true
 
-if [ ! -f "$STATE_FILE" ]; then
-  # Implementer may run in a sub-worktree. Find the parent session's state.json
-  # by matching the branch prefix (create/<session-id>).
-  BRANCH=$(git -C "$WORKTREE_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-  SESSION_ID="${BRANCH#create/}"
-
-  if [ -n "$SESSION_ID" ] && [ "$SESSION_ID" != "$BRANCH" ]; then
-    # Branch is create/*, search for matching session
-    for wt in $(git -C "$WORKTREE_PATH" worktree list | awk '{print $1}'); do
-      [ "$wt" = "$WORKTREE_PATH" ] && continue
-      if [ -f "$wt/state.json" ]; then
-        FILE_SESSION_ID=$(jq -r '.session_id // empty' "$wt/state.json" 2>/dev/null)
-        if [ "$FILE_SESSION_ID" = "$SESSION_ID" ]; then
-          STATE_FILE="$wt/state.json"
-          break
-        fi
-      fi
-    done
-  fi
-fi
-
-if [ ! -f "$STATE_FILE" ]; then
+if [ -z "$STATE_FILE" ]; then
   echo "homerun-post-implement: No state.json found for this session, skipping" >&2
   exit 0
 fi
@@ -72,7 +53,6 @@ echo "homerun-post-implement: Progress — $COMPLETED/$TOTAL completed, $IN_PROG
 
 # --- Feedback pattern aggregation ---
 # Extract rejection patterns for session-level learning (non-blocking)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FEEDBACK_SCRIPT="$SCRIPT_DIR/lib/feedback-aggregator.sh"
 if [ -f "$FEEDBACK_SCRIPT" ]; then
   bash "$FEEDBACK_SCRIPT" "$(dirname "$STATE_FILE")" 2>/dev/null || true

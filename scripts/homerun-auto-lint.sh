@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Hook: PostToolUse (matcher: Edit|Write)
 # Purpose: Auto-lint changed files after every edit
 #

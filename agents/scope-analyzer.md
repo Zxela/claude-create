@@ -3,7 +3,7 @@ model: sonnet
 name: scope-analyzer
 color: cyan
 description: Extract scope analysis from spec documents — components, validated ACs, JIT context refs. Use after spec review passes.
-tools: Read, Grep, Glob, Bash
+tools: Read, Write, Grep, Glob, Bash
 skills: scope-analysis
 maxTurns: 12
 ---

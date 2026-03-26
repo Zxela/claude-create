@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Library: feedback-aggregator.sh
 # Purpose: Extract reviewer rejection patterns from tasks.json and write them
 #          to feedback_patterns.json in the worktree.

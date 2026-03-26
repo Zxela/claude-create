@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Hook: PreToolUse (matcher: Bash)
 # Purpose: Gate git commit/push on lint + typecheck passing
 #
@@ -23,6 +23,9 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/pkg-manager.sh"
+
 # Read hook input from stdin
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -36,19 +39,6 @@ fi
 cd "${CWD:-.}" || exit 0
 
 FAILED=()
-
-# --- Detect package manager ---
-detect_pkg_manager() {
-  if [ -f bun.lockb ] || [ -f bun.lock ]; then
-    echo "bun"
-  elif [ -f pnpm-lock.yaml ]; then
-    echo "pnpm"
-  elif [ -f yarn.lock ]; then
-    echo "yarn"
-  else
-    echo "npm"
-  fi
-}
 
 # --- Lint ---
 run_lint() {
