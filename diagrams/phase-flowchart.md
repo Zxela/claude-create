@@ -22,10 +22,14 @@ flowchart TB
         D13 --> D14[Commit state.json]
     end
 
-    subgraph Phase2[Phase 2: Planning]
+    subgraph Phase2a[Phase 2a: Scope Analysis]
         P1[Read specs] --> P2[Analyze scope]
-        P2 --> P3[Create dependency graph]
-        P3 --> P4[Decompose into tasks]
+        P2 --> P2a[Extract components, validate ACs]
+        P2a --> P2b[Write scope-analysis.json]
+    end
+
+    subgraph Phase2b[Phase 2b: Task Decomposition]
+        P3[Read scope analysis] --> P4[Decompose into tasks]
         P4 --> P5{Task too big?}
         P5 -->|Yes| P6[Split into subtasks]
         P6 --> P4
@@ -39,7 +43,7 @@ flowchart TB
     end
 
     subgraph Phase3[Phase 3: Implementation]
-        C1[Conductor starts] --> C2[Read state + tasks]
+        C1[Team-lead starts] --> C2[Read state + tasks]
         C2 --> C3{All complete?}
         C3 -->|Yes| C10[WORKFLOW_COMPLETE]
         C3 -->|No| C4[Find ready tasks]
@@ -48,7 +52,7 @@ flowchart TB
         C6 --> C7[Poll for completions]
         C7 --> C8[Process reviews]
         C8 --> C9{Refresh needed?}
-        C9 -->|Yes| C11[Spawn fresh conductor]
+        C9 -->|Yes| C11[Spawn fresh team-lead]
         C9 -->|No| C2
     end
 
@@ -59,8 +63,9 @@ flowchart TB
         F2 -->|Continue| F5[Keep worktree]
     end
 
-    Phase1 --> Phase2
-    Phase2 --> Phase3
+    Phase1 --> Phase2a
+    Phase2a --> Phase2b
+    Phase2b --> Phase3
     Phase3 --> Phase4
 ```
 
@@ -149,14 +154,14 @@ flowchart TB
     Cycle -->|Yes| Fix[Reorder tasks]
     Fix --> DAG
     Cycle -->|No| Write[Write tasks.json]
-    Write --> Done[PLANNING_COMPLETE]
+    Write --> Done[TASK_DECOMPOSITION_COMPLETE]
 ```
 
-## Conductor: Main Loop
+## Team-Lead: Main Loop
 
 ```mermaid
 flowchart TB
-    Start[Start conductor] --> Read[Read state.json + tasks.json]
+    Start[Start team-lead] --> Read[Read state.json + tasks.json]
     Read --> Check{All tasks<br/>complete?}
     Check -->|Yes| Done[WORKFLOW_COMPLETE]
 
@@ -165,7 +170,7 @@ flowchart TB
     Escalate --> Choice{User choice}
     Choice -->|Retry| Unblock[Clear blocked flag]
     Choice -->|Skip| Skip[Mark skipped]
-    Choice -->|Replan| Replan[Return to planning]
+    Choice -->|Replan| Replan[Return to task decomposition]
     Unblock --> Poll
     Skip --> Poll
 
@@ -194,7 +199,7 @@ flowchart TB
 
     Spawn -->|No| Update
     Update --> Refresh{Refresh<br/>needed?}
-    Refresh -->|Yes| NewConductor[Spawn fresh conductor]
+    Refresh -->|Yes| NewTeamLead[Spawn fresh team-lead]
     Refresh -->|No| Read
 ```
 

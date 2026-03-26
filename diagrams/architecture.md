@@ -44,7 +44,8 @@ graph TB
 
     CLI --> D
     D --> SD
-    D --> SA
+    D --> SRv
+    SRv --> SA
     SA --> SSA
     SA --> TD
     TD --> STD
