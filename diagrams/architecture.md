@@ -19,6 +19,7 @@ graph TB
 
     subgraph Skills["Skill Layer"]
         SD[homerun:discovery]
+        SSR[homerun:spec-review]
         SSA[homerun:scope-analysis]
         STD[homerun:task-decomposition]
         STL[homerun:team-lead]
@@ -45,6 +46,7 @@ graph TB
     CLI --> D
     D --> SD
     D --> SRv
+    SRv --> SSR
     SRv --> SA
     SA --> SSA
     SA --> TD

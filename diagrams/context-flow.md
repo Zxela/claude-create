@@ -153,7 +153,9 @@ graph TB
 sequenceDiagram
     participant M as Main (User Context)
     participant D as Discovery Context
-    participant P as Planning Context
+    participant SRv as Spec Review Context
+    participant SA as Scope Analysis Context
+    participant P as Task Decomposition Context
     participant TL as Team Lead Context
     participant I as Implementer Context
 
@@ -167,10 +169,20 @@ sequenceDiagram
     end
     Note over D: Final: ~15K tokens
 
-    D->>P: Task(model: opus)
+    D->>SRv: Task(model: sonnet)
     Note over D: Context discarded
 
-    Note over P: Fresh context: ~10K<br/>(skill + specs + state)
+    Note over SRv: Fresh context: ~8K<br/>(skill + specs)
+
+    SRv->>SA: Task(model: sonnet)
+    Note over SRv: Context discarded
+
+    Note over SA: Fresh context: ~10K<br/>(skill + specs + state)
+
+    SA->>P: Task(model: opus)
+    Note over SA: Context discarded
+
+    Note over P: Fresh context: ~10K<br/>(skill + scope-analysis + state)
 
     P->>TL: Skill(inline, model: inherit)
     Note over P: Context discarded
@@ -195,9 +207,9 @@ sequenceDiagram
 ```mermaid
 xychart-beta
     title "Context Usage Per Phase"
-    x-axis ["Start", "Mid-Discovery", "End-Discovery", "Planning", "Team-Lead Start", "After 3 Tasks", "After 5 Tasks", "Refresh"]
+    x-axis ["Start", "Mid-Discovery", "End-Discovery", "Spec Review", "Scope Analysis", "Task Decomp", "Team-Lead Start", "After 3 Tasks", "After 5 Tasks", "Refresh"]
     y-axis "Tokens (K)" 0 --> 50
-    bar [2, 10, 18, 10, 5, 12, 18, 5]
+    bar [2, 10, 18, 8, 10, 10, 5, 12, 18, 5]
     line [100, 100, 100, 100, 100, 100, 100, 100]
 ```
 
