@@ -41,11 +41,13 @@ if [ -z "$STATE_FILE" ]; then
   exit 0
 fi
 
-# Copy tasks.json if it exists in the source worktree
+# Ensure tasks directory exists (even if tasks.json hasn't been generated yet)
 TASKS_FILE=$(jq -r '.tasks_file // "docs/tasks.json"' "$STATE_FILE")
+mkdir -p "$WORKTREE_PATH/$(dirname "$TASKS_FILE")"
+
+# Copy tasks.json if it exists in the source worktree
 SOURCE_DIR=$(dirname "$STATE_FILE")
 if [ -f "$SOURCE_DIR/$TASKS_FILE" ]; then
-  mkdir -p "$WORKTREE_PATH/$(dirname "$TASKS_FILE")"
   cp "$SOURCE_DIR/$TASKS_FILE" "$WORKTREE_PATH/$TASKS_FILE"
 fi
 
