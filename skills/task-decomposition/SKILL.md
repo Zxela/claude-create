@@ -239,6 +239,40 @@ Add `risk_level` to each AC in the tasks.json output:
 }
 ```
 
+### Placeholder Rejection (Iron Law: No Vague ACs)
+
+Every acceptance criterion written into tasks.json MUST be concrete and implementable without interpretation. If you catch yourself writing a placeholder, STOP and fix it before proceeding.
+
+**Reject any AC matching these patterns:**
+
+| Pattern | Example | Why It Fails |
+|---------|---------|--------------|
+| Deferred language | "TBD", "TODO", "implement later", "fill in details" | Not an AC — it's a reminder to write one |
+| Generic quality hand-waves | "Add appropriate error handling", "add validation", "handle edge cases" | Describes WHAT without HOW — the implementer cannot verify completion |
+| Cross-references without substance | "Similar to Task N", "same as above" | Must repeat the concrete details — the implementer reads one task at a time |
+| Vague objectives | "Make it work correctly", "ensure good performance" | Describes intent without observable, testable behavior |
+
+**Detection rule:** If an AC does not suggest a specific test assertion, it is a placeholder. Every AC must answer: "What exact check would a test run to verify this?"
+
+**When placeholder ACs are detected** — whether in scope-analysis.json input or in your own draft — emit `VALIDATION_ERROR` and halt:
+
+```json
+{
+  "signal": "VALIDATION_ERROR",
+  "error_type": "semantic_error",
+  "errors": [
+    {
+      "path": "$.acceptance_criteria[N]",
+      "message": "Placeholder AC detected — not implementable without interpretation",
+      "expected": "Concrete criterion with testable assertion (e.g., 'Returns 401 when token is expired')",
+      "received": "Add appropriate error handling"
+    }
+  ]
+}
+```
+
+**Do NOT proceed to tasks.json output with placeholder ACs.** Fix them first by deriving concrete criteria from the scope analysis, or escalate if the source specs lack sufficient detail.
+
 ### Task Type Classification (Model Routing)
 
 See `references/model-routing.json` for the authoritative task type to model mapping.

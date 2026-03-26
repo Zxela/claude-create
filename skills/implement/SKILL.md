@@ -159,6 +159,35 @@ The team-lead provides input as a JSON object. **Validate input before proceedin
 
 If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
+### AC Placeholder Gate (All Task Types)
+
+**Before ANY implementation work — including haiku tasks that skip Step 0 — scan every acceptance criterion for placeholder language.** This gate has no exceptions.
+
+**Reject ACs matching these patterns:**
+- Deferred: "TBD", "TODO", "implement later", "fill in details"
+- Generic hand-waves: "Add appropriate error handling", "add validation", "handle edge cases" (no specifics)
+- Lazy cross-references: "Similar to Task N", "same as above" (must state concrete details)
+- Vague objectives: describes WHAT without HOW — no testable assertion possible
+
+**If ANY AC is a placeholder**, do not attempt implementation. Emit `VALIDATION_ERROR` immediately:
+
+```json
+{
+  "signal": "VALIDATION_ERROR",
+  "error_type": "semantic_error",
+  "errors": [
+    {
+      "path": "$.task.acceptance_criteria[N].criterion",
+      "message": "Placeholder AC — cannot implement without interpretation",
+      "expected": "Concrete, testable criterion (e.g., 'Returns 401 when token is expired')",
+      "received": "<the vague AC text>"
+    }
+  ]
+}
+```
+
+**Rationale:** Implementing against vague ACs produces code that cannot be verified, leading to rejection loops. Fail fast — push the problem back to decomposition where it belongs.
+
 ## Process
 
 ### 0. Pre-Implementation Analysis
@@ -478,6 +507,56 @@ This step catches tautological tests — tests that pass regardless of whether t
 
 **Scope limit:** Only mutate ONE line for ONE acceptance criterion (the most critical one). This is a quick sanity check, not full mutation testing.
 
+### 5.6. Self-Review Checklist
+
+Before signaling completion, run these inline checks to catch issues early and avoid wasting reviewer tokens.
+
+**1. Placeholder scan** — grep changed files for leftover debug artifacts:
+
+```bash
+cd "$WORKTREE_PATH"
+grep -rn "TODO\|FIXME\|console\.log\|debugger" ${FILES_CHANGED[@]} | grep -v "node_modules" | head -20
+# Also check for commented-out code blocks (3+ consecutive commented lines)
+grep -n "^[[:space:]]*//" ${FILES_CHANGED[@]} | awk -F: '{f=$1; n=$2} prev_f==f && n==prev_n+1 {count++} prev_f!=f || n!=prev_n+1 {if(count>=3) print prev_f":"(prev_n-count)"-"prev_n" ("count+1" consecutive commented lines)"; count=0} {prev_f=f; prev_n=n}'
+```
+
+**2. Scope check** — verify only expected files were changed:
+
+```bash
+# Compare git changes against task's expected file list
+CHANGED=$(git diff --name-only HEAD~1)
+echo "Files changed: $CHANGED"
+# Flag any file not mentioned in the task's context_refs or acceptance_criteria
+```
+
+If unexpected files were modified, verify they are necessary (e.g., shared types, imports). If not, revert them before proceeding.
+
+**3. AC coverage check** — for each acceptance criterion, confirm there is a corresponding test:
+
+For every `must_test` AC, verify a test exists that exercises it. For `verify_only` ACs, confirm coverage in a consolidated test. For `structural` ACs, confirm types/lint would catch violations.
+
+**4. Hard gate results** — run tests, types, and lint; capture exit codes:
+
+```bash
+cd "$WORKTREE_PATH"
+
+npm test 2>&1 | tail -5
+TEST_EXIT=$?
+
+npx tsc --noEmit 2>&1 | tail -5
+TYPE_EXIT=$?
+
+npx eslint --quiet ${FILES_CHANGED[@]} 2>&1 | tail -5
+LINT_EXIT=$?
+
+echo "hard_gate_results: tests=$TEST_EXIT types=$TYPE_EXIT lint=$LINT_EXIT"
+```
+
+**Decision:**
+
+- If **all checks pass** (no placeholders, no scope creep, all ACs covered, all exit codes 0): proceed to Step 6 and emit `IMPLEMENTATION_COMPLETE` with `hard_gate_results`.
+- If **any check fails**: emit `NEEDS_REWORK` instead, with specific findings. Fix the issues and re-run the self-review.
+
 ### 6. Signal Completion
 
 Output the completion signal in **JSON format** (required for team-lead parsing).
@@ -494,12 +573,24 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "files_changed", "test_file", "commit_hash", "acceptance_criteria_met"],
+  "required": ["signal", "files_changed", "test_file", "commit_hash", "acceptance_criteria_met", "verification_level", "verification_attempted", "hard_gate_results"],
   "properties": {
     "signal": { "const": "IMPLEMENTATION_COMPLETE" },
     "files_changed": { "type": "array", "items": { "type": "string" } },
     "test_file": { "type": "string" },
     "commit_hash": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
+    "hard_gate_results": {
+      "type": "object",
+      "required": ["tests", "types", "lint"],
+      "properties": {
+        "tests": { "type": "integer", "description": "Exit code from test runner (0 = pass)" },
+        "types": { "type": "integer", "description": "Exit code from type checker (0 = pass)" },
+        "lint": { "type": "integer", "description": "Exit code from linter (0 = pass)" }
+      }
+    },
+    "verification_level": { "type": "string", "enum": ["L1", "L2", "L3"], "description": "Highest verification level achieved" },
+    "verification_attempted": { "type": "array", "items": { "type": "string", "enum": ["L1", "L2", "L3"] }, "description": "All verification levels attempted, in order" },
+    "verification_details": { "type": "string", "description": "What was attempted and why higher levels were not achieved (required if verification_level is L3)" },
     "acceptance_criteria_met": {
       "type": "array",
       "items": {
@@ -524,6 +615,10 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
   "files_changed": ["src/models/user.ts", "src/services/auth.ts"],
   "test_file": "tests/services/auth.test.ts",
   "commit_hash": "abc1234",
+  "hard_gate_results": { "tests": 0, "types": 0, "lint": 0 },
+  "verification_level": "L2",
+  "verification_attempted": ["L1", "L2"],
+  "verification_details": "L1 attempted — no dev server available in worktree. L2 achieved — all acceptance criteria have passing unit tests.",
   "acceptance_criteria_met": [
     {
       "criterion": "AC-001",
@@ -579,6 +674,62 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 - `unclear_requirements` - Acceptance criteria are ambiguous
 - `technical_constraint` - Cannot implement as specified (e.g., API limitation)
 - `test_failure` - Tests fail and cannot be fixed within scope
+
+### Self-Review Failed: NEEDS_REWORK
+
+Emitted when the self-review checklist (Step 5.6) finds issues. The implementer should fix the issues and re-run the self-review before signaling completion. If dispatched by the team-lead, this signal is returned instead of IMPLEMENTATION_COMPLETE so the team-lead can re-dispatch without involving a reviewer.
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["signal", "findings", "hard_gate_results"],
+  "properties": {
+    "signal": { "const": "NEEDS_REWORK" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check", "description"],
+        "properties": {
+          "check": { "enum": ["placeholder_scan", "scope_check", "ac_coverage", "hard_gate"] },
+          "description": { "type": "string" },
+          "files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "hard_gate_results": {
+      "type": "object",
+      "properties": {
+        "tests": { "type": "integer" },
+        "types": { "type": "integer" },
+        "lint": { "type": "integer" }
+      }
+    }
+  }
+}
+```
+
+**Example:**
+
+```json
+{
+  "signal": "NEEDS_REWORK",
+  "findings": [
+    {
+      "check": "placeholder_scan",
+      "description": "Found console.log in src/services/auth.ts:34",
+      "files": ["src/services/auth.ts"]
+    },
+    {
+      "check": "hard_gate",
+      "description": "Lint failed with 2 errors in src/services/auth.ts",
+      "files": ["src/services/auth.ts"]
+    }
+  ],
+  "hard_gate_results": { "tests": 0, "types": 0, "lint": 1 }
+}
+```
 
 ### Validation Error: VALIDATION_ERROR
 
@@ -693,7 +844,7 @@ Tests must verify **what the code does**, not **how it does it**. A test that br
 
 ## Verification Levels
 
-Every completed task must report its highest achieved verification level. Attempt in priority order — L1 is most meaningful, L3 is minimum.
+Every completed task MUST attempt verification levels in strict order: L1 first, then L2, then L3. You may only fall back to a lower level when the higher level is genuinely impossible for this task — not merely inconvenient.
 
 | Level | Name | What It Proves | How to Verify |
 |-------|------|---------------|---------------|
@@ -701,14 +852,30 @@ Every completed task must report its highest achieved verification level. Attemp
 | **L2** | Test Operation | New tests added and passing | `npm test` (or equivalent) shows green for new tests |
 | **L3** | Build Success | Code compiles without errors | `npm run build` (or equivalent) exits 0 |
 
-**Priority:** Always attempt L1 first. If L1 isn't feasible (e.g., no running server), fall back to L2. L3 is the absolute minimum — a task that only achieves L3 should note why L1/L2 weren't possible.
+**Required attempt order:**
+1. **Attempt L1 first.** Only skip if genuinely infeasible (e.g., no UI to exercise, no running server, no integration test harness).
+2. **Attempt L2 next.** Only skip if no test runner is available or configured.
+3. **L3 is the absolute minimum.** If L3 is the only level achieved, you MUST include a brief explanation of why L1 and L2 were not possible.
 
-Include the verification level in the completion signal:
+**Claiming L3-only without justification is a review finding.** The reviewer will flag implementations that report only L3 without explaining why higher levels were impossible.
+
+Include the verification level and attempted levels in the completion signal:
 ```json
 {
   "signal": "IMPLEMENTATION_COMPLETE",
   "verification_level": "L2",
-  "verification_details": "All 3 acceptance criteria have passing unit tests. L1 not feasible (no dev server in worktree)."
+  "verification_attempted": ["L1", "L2"],
+  "verification_details": "L1 attempted — no dev server in worktree, could not exercise endpoint. L2 achieved — all 3 acceptance criteria have passing unit tests."
+}
+```
+
+If only L3 was achieved:
+```json
+{
+  "signal": "IMPLEMENTATION_COMPLETE",
+  "verification_level": "L3",
+  "verification_attempted": ["L1", "L2", "L3"],
+  "verification_details": "L1 not possible — config-only change with no UI surface. L2 not possible — no test runner configured in project. L3 achieved — build exits 0."
 }
 ```
 
@@ -729,7 +896,8 @@ Before signaling completion, verify this checklist:
 - [ ] Change verified to work as expected
 
 **For all methodologies:**
-- [ ] Verification level determined (L1 > L2 > L3) and reported
+- [ ] Verification levels attempted in order (L1 > L2 > L3), all attempts reported in `verification_attempted`
+- [ ] If only L3 achieved, `verification_details` explains why L1 and L2 were not possible
 - [ ] Code is committed with proper message format: `feat(<feature>): <task title>`
 - [ ] `IMPLEMENTATION_COMPLETE` signal sent with files, test file, commit hash, and verification level
 - [ ] No rejection feedback items remain unaddressed (if retry)

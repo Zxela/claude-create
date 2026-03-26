@@ -2,6 +2,12 @@
 
 This plugin incorporates patterns and ideas from the following sources:
 
+## Foundation
+
+- **Superpowers** by [@obra](https://github.com/obra)
+  - Repository: https://github.com/obra/superpowers
+  - The skill-based development methodology that homerun builds on. Core patterns: brainstorming → plan → execute workflow, TDD-driven skill authoring, verification-before-completion discipline, worktree isolation, and the "skills tell you HOW" philosophy.
+
 ## Context Engineering
 
 - **Agent Skills for Context Engineering** by [@muratcankoylan](https://github.com/muratcankoylan)

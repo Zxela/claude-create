@@ -57,7 +57,10 @@ The team-lead provides input as a JSON object. **Validate input before proceedin
       "properties": {
         "commit_hash": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
         "files_changed": { "type": "array", "items": { "type": "string" } },
-        "test_file": { "type": "string" }
+        "test_file": { "type": "string" },
+        "verification_level": { "type": "string", "enum": ["L1", "L2", "L3"], "description": "Highest verification level achieved by implementer" },
+        "verification_attempted": { "type": "array", "items": { "type": "string", "enum": ["L1", "L2", "L3"] }, "description": "All verification levels the implementer attempted" },
+        "verification_details": { "type": "string", "description": "Explanation of verification attempts and why higher levels were not achieved" }
       }
     },
     "spec_paths": {
@@ -90,7 +93,21 @@ The team-lead provides input as a JSON object. **Validate input before proceedin
         }
       }
     },
-    "worktree_path": { "type": "string" }
+    "worktree_path": { "type": "string" },
+    "skip_hard_gates": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, skip Tier 1 hard gate re-execution. Set by team-lead when implementer's hard_gate_results show all exit codes 0."
+    },
+    "hard_gate_results": {
+      "type": "object",
+      "description": "Cached hard gate exit codes from the implementer's self-review. Present when skip_hard_gates is true.",
+      "properties": {
+        "tests": { "type": "integer" },
+        "types": { "type": "integer" },
+        "lint": { "type": "integer" }
+      }
+    }
   }
 }
 ```
@@ -136,7 +153,9 @@ If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
 ### Tier 1: Hard Gate (Deterministic — run FIRST)
 
-Run these checks before any LLM analysis. These are pass/fail with no judgment needed:
+**Fast-path skip:** If the input includes `skip_hard_gates: true` and `hard_gate_results` with all exit codes 0, skip Tier 1 entirely and proceed to Tier 2. Log: "Hard gates cached from implementer — tests=0 types=0 lint=0. Skipping Tier 1." Use the cached results in the output `hard_gates` field (map exit code 0 to "pass").
+
+If `skip_hard_gates` is false, `hard_gate_results` is missing, or any exit code is non-zero, run Tier 1 normally:
 
 ```bash
 cd "$WORKTREE_PATH"
@@ -160,7 +179,16 @@ if [ $TEST_EXIT -ne 0 ] || [ $TYPE_EXIT -ne 0 ] || [ $LINT_EXIT -ne 0 ]; then
 fi
 ```
 
-**If any hard gate fails:** Reject immediately with the specific error output. Do not proceed to Tier 2. This saves the cost of LLM analysis on obviously broken implementations.
+**4. Verification level check:**
+
+Check the implementer's completion signal for adequate verification:
+
+- If `verification_level` is `L1` or `L2`: pass.
+- If `verification_level` is `L3` and `verification_details` provides a valid justification for why L1/L2 were not possible: pass (but note it as a Tier 2 finding for visibility).
+- If `verification_level` is `L3` with no justification or a weak justification (e.g., "didn't try"): flag as a **medium** severity finding in Tier 2. Do not auto-reject, but the finding will lower the Tier 2 score.
+- If `verification_level` or `verification_attempted` fields are missing from the completion signal: treat as L3-without-justification.
+
+**If any hard gate fails (tests, types, lint):** Reject immediately with the specific error output. Do not proceed to Tier 2. This saves the cost of LLM analysis on obviously broken implementations.
 
 ### Tier 2: Soft Review (LLM Judgment — score-based)
 
@@ -492,6 +520,7 @@ When an implementer emits `IMPLEMENTATION_BLOCKED` with `blocker_type: "tautolog
 Before completing your review, verify:
 
 - [ ] Every acceptance criterion has been checked against implementation and tests
+- [ ] Implementer's verification level checked (L3-only without justification flagged as finding)
 - [ ] You have provided either APPROVED or REJECTED status
 - [ ] If REJECTED, every issue has a specific file/line reference and required fix
 - [ ] If APPROVED, every criterion is listed with its implementation and test locations

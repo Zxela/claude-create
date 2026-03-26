@@ -128,7 +128,9 @@ Task({
 ```
 
 4. **After each implementer returns:**
-   - Mark the native task completed: `TaskUpdate({ taskId, status: "completed" })`
+   - **If `NEEDS_REWORK`:** Re-dispatch the implementer immediately with the self-review findings as `previous_feedback`. No reviewer is needed — the implementer caught its own issues. Include the `findings` array so the implementer knows exactly what to fix. This counts toward the retry limit (max 2 retries per task).
+   - **If `IMPLEMENTATION_COMPLETE` with `hard_gate_results`:** Mark the native task completed, then dispatch the reviewer with `skip_hard_gates: true` and the `hard_gate_results` from the implementer (see Section 3.5). This lets the reviewer skip Tier 1 re-execution when all exit codes are 0.
+   - **If `IMPLEMENTATION_COMPLETE` without `hard_gate_results`:** Mark the native task completed, dispatch the reviewer normally (no `skip_hard_gates`).
    - Update tasks.json if the implementer didn't already
    - Find next batch of ready tasks
    - Repeat until no pending tasks remain
@@ -172,6 +174,10 @@ Instead of waiting for all implementers to finish before reviewing, spawn review
 ```javascript
 // When implementer completes task X:
 const activeReviewers = countActiveReviewers(); // track spawned reviewer agents
+const hardGates = task.hard_gate_results; // from implementer's completion signal
+const canSkipHardGates = hardGates &&
+  hardGates.tests === 0 && hardGates.types === 0 && hardGates.lint === 0;
+
 if (activeReviewers < 2) {
   Task({
     description: `Review [${task.id}] ${task.title}`,
@@ -191,7 +197,12 @@ if (activeReviewers < 2) {
 
     Spec documents: ${JSON.stringify(specPaths)}
 
-    Run Tier 1 hard gates first, then Tier 2 soft review.
+    skip_hard_gates: ${canSkipHardGates}
+    hard_gate_results: ${JSON.stringify(hardGates || {})}
+
+    ${canSkipHardGates
+      ? 'Hard gates passed in implementer self-review. Skip Tier 1, go straight to Tier 2 soft review.'
+      : 'Run Tier 1 hard gates first, then Tier 2 soft review.'}
     Emit APPROVED or REJECTED signal.`
   });
 } else {
@@ -200,16 +211,28 @@ if (activeReviewers < 2) {
 }
 ```
 
-**Handling rejections:**
+**Handling NEEDS_REWORK (from implementer self-review):**
+
+When an implementer emits `NEEDS_REWORK` instead of `IMPLEMENTATION_COMPLETE`:
+1. Read the `findings` array from the signal
+2. Re-dispatch the implementer with findings as `previous_feedback` — no reviewer needed
+3. This counts toward the retry limit (max 2 retries per task)
+4. If the implementer still emits `NEEDS_REWORK` after max retries, skip the task and note it
+
+**Handling rejections (from reviewer):**
 
 When a reviewer emits `REJECTED`:
 1. Read the rejection feedback
 2. Load feedback_patterns.json (updated by the post-implement hook)
-3. Re-dispatch the implementer with:
+3. **Placeholder escalation check:** If >2 rejections for the same task (or across tasks) cite "incomplete", "vague", or "placeholder" in their reasons, the root cause is the AC — not the implementation. Do NOT retry the implementer. Instead:
+   - Mark the task as "blocked" in tasks.json with reason "placeholder_ac"
+   - Escalate to re-decomposition: re-invoke `homerun:task-decomposition` for the affected task(s), providing the rejection feedback as context
+   - Resume the dispatch loop only after decomposition produces concrete ACs
+4. Re-dispatch the implementer with:
    - The specific rejection issues from the reviewer
    - The accumulated session feedback patterns (from Section 2.5)
    - A retry counter (max 2 retries per task)
-4. The re-dispatched implementer runs alongside other active implementers/reviewers
+5. The re-dispatched implementer runs alongside other active implementers/reviewers
 
 **Handling approvals:**
 
@@ -249,7 +272,12 @@ Task({
 });
 ```
 
-If quality check fails with unresolved issues, report them and let the user decide.
+**Quality check is a blocking gate.** If the quality check returns a `verdict: "fail"`:
+
+1. **Do NOT proceed to merge or PR creation.** The failure blocks forward progress.
+2. Surface the unresolved issues to the user with full details.
+3. Ask the user to decide: (a) fix the issues and re-run quality check, (b) override and proceed anyway.
+4. **Escalation rule:** If quality check fails **twice on the same issues**, escalate to the user with a summary of the recurring failures and a recommendation. Do not attempt a third automatic fix cycle.
 
 ### 5. Complete
 
@@ -282,5 +310,5 @@ For 1-2 tasks, the overhead of worktree creation and merging exceeds the paralle
 - [ ] All tasks from tasks.json dispatched to implementers
 - [ ] All tasks completed or skipped with documented reasons
 - [ ] Native tasks updated to reflect final status
-- [ ] Quality check passed (or failures reported)
+- [ ] Quality check passed (or user explicitly overrode failures)
 - [ ] state.json phase set to "completing"
