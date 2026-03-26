@@ -1,6 +1,6 @@
 name: planning-task-decomposition
 description: "Verify planning creates properly decomposed, commit-sized tasks"
-workflow: homerun:planning
+workflow: homerun:task-decomposition
 tags: [planning, decomposition, homerun]
 timeout_seconds: 600
 

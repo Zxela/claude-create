@@ -1,6 +1,6 @@
 name: planning-circular-deps
 description: "Verify planning detects circular task dependencies and reports them"
-workflow: homerun:planning
+workflow: homerun:task-decomposition
 tags: [planning, negative, dag, homerun]
 timeout_seconds: 300
 

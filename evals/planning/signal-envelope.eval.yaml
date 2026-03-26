@@ -1,6 +1,6 @@
 name: planning-signal-envelope
 description: "Verify planning emits valid PLANNING_COMPLETE signal"
-workflow: homerun:planning
+workflow: homerun:task-decomposition
 tags: [planning, signals, smoke, homerun]
 timeout_seconds: 600
 isolation: tempdir

@@ -1,6 +1,6 @@
 name: planning-dag-validation
 description: "Verify planning produces valid DAG with no circular dependencies"
-workflow: homerun:planning
+workflow: homerun:task-decomposition
 tags: [planning, dag, homerun]
 timeout_seconds: 300
 

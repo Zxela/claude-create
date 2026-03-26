@@ -14,7 +14,11 @@ categories:
 
   planning:
     description: Tests for planning skill (task decomposition, DAG validation)
-    skills: [homerun:planning]
+    skills: [homerun:task-decomposition]
+
+  scope_analysis:
+    description: Tests for scope analysis skill
+    skills: [homerun:scope-analysis]
 
   implement:
     description: Tests for implementer skill (TDD, code generation)
