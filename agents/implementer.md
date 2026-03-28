@@ -62,10 +62,12 @@ After committing and before signaling completion, run a mutation test on the mos
 
 ## Context Budget
 
-| Section | Target |
-|---------|--------|
+Keep **input context lean** — load only what the current step needs:
+
+| Input Section | Target |
+|---------------|--------|
 | Task objective + criteria | ~2K tokens |
 | Spec excerpts (relevant sections only) | ~3K tokens |
-| Pre-implementation analysis (0a-0c) | ~2K tokens |
-| Implementation (TDD cycles) | ~4K tokens |
-| Review preparation | ~1K tokens |
+| Pre-implementation analysis (0a-0c) | ~2.5K tokens (sonnet/opus only) |
+
+These are targets for what you *load into context*, not limits on output. TDD cycles and implementation will consume additional turns as needed within your maxTurns (25) budget. Apply observation masking — drop spec excerpts from context once implementation begins.

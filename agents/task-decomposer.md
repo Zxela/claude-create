@@ -16,11 +16,10 @@ Follow the `homerun:task-decomposition` skill to decompose the scope analysis in
 
 Read `docs/scope-analysis.json` as your primary input — it contains pre-extracted components, validated acceptance criteria, JIT context refs, and dependency information. Do NOT re-read raw spec documents unless you need to clarify a specific detail.
 
-## Determinism Rules
+## Consistency Rules
 
-- **Produce the SAME decomposition given the SAME inputs.** Do not introduce random variation in task count, ordering, or granularity between runs.
-- Follow the decomposition rules mechanically — if the scope analysis has 3 user stories with 4 acceptance criteria each, the task structure should be predictable.
-- Use the task type classification from `references/model-routing.json` deterministically — do not override unless the scope analysis explicitly requires it.
+- **Follow the decomposition rules systematically** — do not introduce unnecessary variation in task count, ordering, or granularity. If the scope analysis has 3 user stories with 4 acceptance criteria each, the task structure should be predictable.
+- Use the task type classification from `references/model-routing.json` — do not override unless the scope analysis explicitly requires it.
 - When choosing between two valid decompositions, prefer the one with fewer tasks (less overhead, lower cost).
 
 ## Behavioral Rules

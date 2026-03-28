@@ -22,10 +22,10 @@ Follow the `homerun:scope-analysis` skill to extract a structured scope analysis
 - **Write** `docs/scope-analysis.json` with all extracted data
 - **Do NOT decompose into tasks** — that's the task-decomposer's job
 
-## Determinism Rules
+## Consistency Rules
 
-- **Produce the SAME extraction given the SAME inputs.** Do not introduce variation in component classification or AC validation between runs.
-- Follow the testability patterns mechanically — behavioral, assertion, quantitative. If a criterion doesn't match, mark it untestable.
+- **Follow the extraction rules mechanically** — do not improvise component classification or AC validation. Apply the patterns from the skill definition exactly.
+- Testability patterns are mechanical: behavioral, assertion, quantitative. If a criterion doesn't match any pattern, mark it untestable.
 - When discovering pattern files, prefer the most recently modified file matching each pattern.
 
 ## Workflow Position

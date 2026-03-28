@@ -1,16 +1,14 @@
 /**
- * tasks-bridge.js — Convert homerun tasks.json to native Claude Code tasks
+ * tasks-bridge.js — PSEUDOCODE REFERENCE (not executable)
  *
- * This is a reference implementation used by the team-lead skill.
- * It documents the two-pass algorithm for converting DAG dependencies.
+ * Documents the two-pass algorithm the team-lead skill uses to convert
+ * homerun tasks.json into native Claude Code tasks with DAG dependencies.
  *
- * Usage (pseudocode from team-lead skill):
+ * Functions like TaskCreate(), TaskUpdate(), TaskList(), readFile(), and
+ * writeFile() are Claude Code agent-context APIs — they do NOT exist as
+ * Node.js functions. The team-lead agent implements this logic inline.
  *
- *   const tasks = JSON.parse(readFile("docs/tasks.json")).tasks;
- *   const mapping = convertToNativeTasks(tasks);
- *
- * The team-lead agent implements this logic inline since it runs
- * within Claude Code's agent context with access to TaskCreate/TaskUpdate.
+ * This file exists as documentation, not as a runnable module.
  */
 
 /**
@@ -125,4 +123,5 @@ function syncNativeToHomerun(nativeTaskIdMap, tasksFilePath) {
   writeFile(tasksFilePath, JSON.stringify(homerunTasks, null, 2));
 }
 
-module.exports = { convertToNativeTasks, formatTaskDescription, syncNativeToHomerun };
+// NOT a real module — pseudocode reference only.
+// See team-lead/SKILL.md for the actual implementation instructions.

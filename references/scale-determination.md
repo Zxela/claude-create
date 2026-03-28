@@ -6,7 +6,7 @@ Determines which specification documents to generate based on estimated task sco
 
 | Scale | Estimated Files | Documents to Generate | Dialogue Turns | Planning | Execution Pipeline |
 |-------|----------------|----------------------|----------------|----------|--------------------|
-| **Small** | 1-2 files | TECHNICAL_DESIGN only (simplified) | 5-8 | Simplified task list (no DAG) | Single implementer, no Agent Teams, skip spec-review |
+| **Small** | 1-2 files | TECHNICAL_DESIGN only (simplified) | 5-8 | Simplified task list (no DAG) | Single implementer, no Agent Teams, skip spec-review + scope-analysis |
 | **Medium** | 3-5 files | PRD + TECHNICAL_DESIGN | 10-15 | Full task DAG | Standard pipeline, max 2 concurrent implementers |
 | **Large** | 6+ files | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 | Full task DAG | Full pipeline, up to 5 concurrent implementers |
 
@@ -16,6 +16,7 @@ The team-lead uses the scale from `state.json` to determine the execution pipeli
 
 ### Small Scale (1-2 files)
 - **Skip:** Spec review (trivial scope, not worth reviewing)
+- **Skip:** Scope analysis (no intermediate artifact needed — task decomposer reads specs directly)
 - **Skip:** Agent Teams / native task DAG (overhead > value)
 - **Skip:** Separate reviewer agent (implementer self-verifies)
 - **Use:** Single implementer with all tasks inlined in prompt

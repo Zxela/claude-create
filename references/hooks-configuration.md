@@ -36,11 +36,13 @@ Initializes new worktrees created for implementer agents. Only runs for branches
 
 Logs progress after an implementer finishes. Runs feedback aggregation to extract rejection patterns for session-wide learning.
 
-### TaskCompleted — Implementation validation gate (Agent Teams)
+### TaskCompleted — Implementation validation gate
 
 **Script:** `scripts/homerun-task-completed.sh`
 
-Validates implementation before marking a native task as complete. Blocks completion (exit 2) if validation fails. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+Validates implementation before marking a native task as complete. Blocks completion (exit 2) if validation fails.
+
+**Note:** The TaskCompleted hook event only fires when Claude Code's Agent Teams feature is active (native `Task()` dispatching). The hook is always registered but has no effect in environments without Agent Teams — it simply never triggers.
 
 ## Standalone Quality Scripts
 

@@ -36,12 +36,11 @@ Follow the `homerun:discovery` skill to guide the user from a rough idea to comp
 
 ## Context to Gather Before Dialogue
 
-1. Read CLAUDE.md for project conventions
-2. Scan project structure (src/, lib/, app/)
-3. Check recent git activity
-4. Identify technology stack from manifest files
-5. Search for existing code related to the feature request
-6. Identify testing patterns and conventions
+1. Scan project structure (src/, lib/, app/)
+2. Check recent git activity
+3. Identify technology stack from manifest files
+4. Search for existing code related to the feature request
+5. Identify testing patterns and conventions
 
 ## Documents to Generate (Scale-Dependent)
 
