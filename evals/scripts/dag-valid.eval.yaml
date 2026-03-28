@@ -1,6 +1,6 @@
 name: scripts-dag-valid
 description: "Verify DAG validation script passes on valid task graph"
-workflow: homerun:implement
+workflow: scripts
 tags: [scripts, dag, smoke, homerun]
 timeout_seconds: 120
 isolation: tempdir

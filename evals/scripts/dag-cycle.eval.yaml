@@ -1,6 +1,6 @@
 name: scripts-dag-cycle
 description: "Verify DAG validation script detects circular dependencies"
-workflow: homerun:implement
+workflow: scripts
 tags: [scripts, dag, negative, homerun]
 timeout_seconds: 120
 isolation: tempdir
