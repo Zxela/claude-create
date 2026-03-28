@@ -20,6 +20,9 @@
 
 set -uo pipefail
 
+# jq is required to parse tasks.json and build feedback patterns
+if ! command -v jq &>/dev/null; then exit 0; fi
+
 WORKTREE_PATH="${1:-${CLAUDE_WORKTREE_PATH:-$(pwd)}}"
 
 TASKS_FILE="$WORKTREE_PATH/docs/tasks.json"

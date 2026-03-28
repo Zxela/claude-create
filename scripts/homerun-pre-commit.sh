@@ -23,6 +23,9 @@
 
 set -uo pipefail
 
+# jq is required to parse hook input
+if ! command -v jq &>/dev/null; then exit 0; fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/pkg-manager.sh"
 

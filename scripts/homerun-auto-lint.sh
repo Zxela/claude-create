@@ -22,6 +22,9 @@
 
 set -uo pipefail
 
+# jq is required to parse hook input
+if ! command -v jq &>/dev/null; then exit 0; fi
+
 # Read hook input from stdin
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')

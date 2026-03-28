@@ -21,6 +21,9 @@
 
 set -euo pipefail
 
+# jq is required to read state and run validation
+if ! command -v jq &>/dev/null; then exit 0; fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/session-state.sh"
 source "$SCRIPT_DIR/lib/pkg-manager.sh"
