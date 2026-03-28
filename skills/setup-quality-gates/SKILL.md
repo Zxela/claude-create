@@ -11,16 +11,19 @@ color: orange
 
 - Hook scripts: `scripts/homerun-pre-commit.sh`, `scripts/homerun-auto-lint.sh`
 - Hooks configuration: `references/hooks-configuration.md`
+- Auto-registered hooks: `hooks/hooks.json`
 
 ## Overview
 
-You are a **setup agent**. Your job: configure Claude Code hooks in the target project so that lint and typecheck are enforced automatically on every commit — without any agent needing to remember to run them.
+You are a **setup agent**. Your job: verify that quality gate hooks are active and explain what they enforce automatically on every commit — without any agent needing to remember to run them.
 
-This skill is **idempotent**. Safe to run multiple times. It detects existing configuration and only adds what's missing.
+**Hooks are auto-registered** via `hooks/hooks.json` when the homerun plugin is installed. There is no manual configuration in `.claude/settings.json` required.
 
-**Model Selection:** Haiku — this is mechanical detection and configuration, no reasoning needed.
+This skill is **idempotent**. Safe to run multiple times. It detects what quality tools are available and verifies hooks are working.
 
-**Announce at start:** "I'm setting up quality gate hooks for this project."
+**Model Selection:** Haiku — this is mechanical detection and verification, no reasoning needed.
+
+**Announce at start:** "I'm verifying quality gate hooks for this project."
 
 ---
 
@@ -38,6 +41,19 @@ This skill is **idempotent**. Safe to run multiple times. It detects existing co
   }
 }
 ```
+
+---
+
+## What Each Hook Does
+
+The homerun plugin auto-registers these quality gate hooks via `hooks/hooks.json`:
+
+| Hook Event | Trigger | What It Does |
+|---|---|---|
+| **PreToolUse (Bash)** | Before any `git commit` or `git push` command | Runs lint + typecheck; blocks the commit if either fails |
+| **PostToolUse (Edit\|Write)** | After every file edit or write | Auto-lints/formats the modified file |
+
+These hooks run via `hooks/run-hook.cmd` and delegate to the appropriate scripts in `scripts/`.
 
 ---
 
@@ -92,9 +108,9 @@ fi
 
 **If both LINT and TYPECHECK are "none":** Report that no quality tools were detected. Suggest the user install a linter/typechecker and re-run. Exit.
 
-### Step 2.5: Detect Existing Git Hook Frameworks
+### Step 2: Detect Existing Git Hook Frameworks
 
-Before configuring Claude Code hooks, check if the project already uses a git hook framework. If so, integrate with it rather than duplicating:
+Before verifying Claude Code hooks, check if the project already uses a git hook framework:
 
 ```bash
 cd "$PROJECT_PATH"
@@ -130,84 +146,57 @@ echo "Result: $HOOK_FRAMEWORK"
 | Python (pyproject.toml) | `pre-commit` with ruff/mypy | `pip install pre-commit && pre-commit install` |
 | Other | Direct `.git/hooks/pre-commit` script | Write script manually |
 
-**If framework found:** Report it and skip framework installation. The Claude Code hooks (Step 3) complement git hooks — they enforce quality at the LLM tool level, while git hooks enforce at the git level.
+**If framework found:** Report it. The Claude Code hooks complement git hooks — they enforce quality at the LLM tool level, while git hooks enforce at the git level.
 
-### Step 2: Check Existing Configuration
+### Step 3: Verify Hooks Are Active
+
+The quality gate hooks are auto-registered by the homerun plugin. Verify the hook scripts are reachable:
 
 ```bash
-SETTINGS_FILE="$PROJECT_PATH/.claude/settings.json"
+echo "=== Verifying homerun hooks ==="
 
-if [ -f "$SETTINGS_FILE" ]; then
-  echo "=== Existing .claude/settings.json found ==="
-  # Check for existing hooks
-  HAS_PRE_COMMIT=$(jq 'any(.hooks.PreToolUse[]?; .hooks[]?.command | test("pre-commit"))' "$SETTINGS_FILE" 2>/dev/null)
-  HAS_AUTO_LINT=$(jq 'any(.hooks.PostToolUse[]?; .hooks[]?.command | test("auto-lint"))' "$SETTINGS_FILE" 2>/dev/null)
+# Check the hook runner exists
+if [ -x "$CLAUDE_PLUGIN_ROOT/hooks/run-hook.cmd" ]; then
+  echo "Hook runner: OK ($CLAUDE_PLUGIN_ROOT/hooks/run-hook.cmd)"
+else
+  echo "ERROR: Hook runner not found at $CLAUDE_PLUGIN_ROOT/hooks/run-hook.cmd"
 fi
-```
 
-### Step 3: Configure Hooks
+# Check individual hook scripts
+if [ -x "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh" ]; then
+  echo "Pre-commit script: OK"
+else
+  echo "WARNING: homerun-pre-commit.sh not found"
+fi
 
-Create or update `.claude/settings.json` to include the quality gate hooks.
-
-**Required hooks to configure:**
-
-1. **PreToolUse (Bash)** — Blocks `git commit`/`git push` if lint or typecheck fails:
-```json
-{
-  "matcher": "Bash",
-  "hooks": [{
-    "type": "command",
-    "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh"
-  }]
-}
-```
-
-2. **PostToolUse (Edit|Write)** — Auto-lints files after every edit:
-```json
-{
-  "matcher": "Edit|Write",
-  "hooks": [{
-    "type": "command",
-    "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-auto-lint.sh"
-  }]
-}
-```
-
-**Merge rules:**
-- If `.claude/settings.json` doesn't exist: create it with both hooks
-- If it exists but hooks are missing: add them (preserve existing hooks)
-- If hooks already present: skip (idempotent)
-- Always ensure `.claude/` directory exists: `mkdir -p "$PROJECT_PATH/.claude"`
-
-### Step 4: Verify Setup
-
-```bash
-echo "=== Verifying setup ==="
-
-# Check settings file is valid JSON
-jq . "$SETTINGS_FILE" >/dev/null 2>&1 || echo "ERROR: Invalid JSON in settings"
-
-# Check hooks are present
-jq '.hooks.PreToolUse' "$SETTINGS_FILE"
-jq '.hooks.PostToolUse' "$SETTINGS_FILE"
+if [ -x "$CLAUDE_PLUGIN_ROOT/scripts/homerun-auto-lint.sh" ]; then
+  echo "Auto-lint script: OK"
+else
+  echo "WARNING: homerun-auto-lint.sh not found"
+fi
 
 # Dry-run the pre-commit script (should exit 0 when not intercepting a commit)
 echo '{"tool_input":{"command":"git status"},"cwd":"'$PROJECT_PATH'"}' | \
   "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh"
-echo "Pre-commit hook: OK (exit $?)"
+echo "Pre-commit hook dry-run: OK (exit $?)"
 ```
 
-### Step 5: Report
+**If CLAUDE_PLUGIN_ROOT is not set:** Inform the user that the homerun plugin may not be loaded. The hooks auto-register when the plugin is active — no manual settings.json edits are needed.
+
+### Step 4: Report
 
 ```
-Quality gates configured:
+Quality gates are active (auto-registered by homerun plugin):
 
 ✓ Pre-commit gate: lint + typecheck before every git commit/push
   - Lint: <detected tool>
   - Typecheck: <detected tool>
 ✓ Auto-lint: format files on every Edit/Write
+  - Formatter: <detected tool or "none detected">
 
-Settings: <path to .claude/settings.json>
+Hook scripts verified at: $CLAUDE_PLUGIN_ROOT/hooks/run-hook.cmd
+
+No manual configuration in .claude/settings.json is required.
 ```
 
 ---
@@ -221,7 +210,7 @@ Settings: <path to .claude/settings.json>
   "required": ["signal", "status"],
   "properties": {
     "signal": { "const": "QUALITY_GATES_CONFIGURED" },
-    "status": { "enum": ["configured", "already_configured", "no_tools_found"] },
+    "status": { "enum": ["verified", "hooks_missing", "no_tools_found"] },
     "tools_detected": {
       "type": "object",
       "properties": {
@@ -230,11 +219,10 @@ Settings: <path to .claude/settings.json>
         "formatter": { "type": "string" }
       }
     },
-    "hooks_added": {
+    "hooks_verified": {
       "type": "array",
       "items": { "type": "string" }
-    },
-    "settings_path": { "type": "string" }
+    }
   }
 }
 ```
@@ -244,14 +232,13 @@ Settings: <path to .claude/settings.json>
 ```json
 {
   "signal": "QUALITY_GATES_CONFIGURED",
-  "status": "configured",
+  "status": "verified",
   "tools_detected": {
     "lint": "biome",
     "typecheck": "tsc",
     "formatter": "biome"
   },
-  "hooks_added": ["PreToolUse:Bash", "PostToolUse:Edit|Write"],
-  "settings_path": "/home/user/myapp/.claude/settings.json"
+  "hooks_verified": ["pre-commit", "auto-lint"]
 }
 ```
 
@@ -260,9 +247,7 @@ Settings: <path to .claude/settings.json>
 ## Exit Criteria
 
 - [ ] Quality tools detected (or reported as missing)
-- [ ] `.claude/settings.json` exists with correct hook configuration
-- [ ] Hooks reference plugin scripts via `$CLAUDE_PLUGIN_ROOT`
-- [ ] Existing configuration preserved (no destructive overwrites)
+- [ ] Hook runner script confirmed reachable at `$CLAUDE_PLUGIN_ROOT/hooks/run-hook.cmd`
 - [ ] Dry-run verification passed
 - [ ] Signal emitted
 
@@ -271,7 +256,7 @@ Settings: <path to .claude/settings.json>
 ## Integration
 
 **Called by:**
-- **using-git-worktrees** — After worktree setup, configure hooks
+- **using-git-worktrees** — After worktree setup, verify hooks are active
 - **team-lead** — At start of orchestration, ensure gates are in place
 - Manual invocation at any time
 

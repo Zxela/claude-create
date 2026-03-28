@@ -1,201 +1,58 @@
 # Hooks Configuration Reference
 
-Homerun provides hook scripts that integrate with Claude Code's hook system. Add these to your project's `.claude/settings.json` or user-level settings.
+Homerun's hooks auto-register via `hooks/hooks.json` when the plugin is installed. No manual configuration in `.claude/settings.json` is needed.
 
-## Required Hooks
+## Registered Hooks
 
-### WorktreeCreate — Worktree initialization
+### PreToolUse — Quality gate on git commit/push
 
-Initializes new worktrees created for implementer agents.
+**Matcher:** `Bash`
+**Script:** `scripts/homerun-pre-commit.sh`
 
-```json
-{
-  "hooks": {
-    "WorktreeCreate": [{
-      "hooks": [{
-        "type": "command",
-        "command": "./scripts/homerun-worktree-setup.sh"
-      }]
-    }]
-  }
-}
-```
-
-### SubagentStop — Post-implementation progress tracking
-
-Logs progress after an implementer finishes.
-
-```json
-{
-  "hooks": {
-    "SubagentStop": [{
-      "matcher": "implementer",
-      "hooks": [{
-        "type": "command",
-        "command": "./scripts/homerun-post-implement.sh"
-      }]
-    }]
-  }
-}
-```
-
-## Agent Teams Hooks (Level 2 — requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`)
-
-### TaskCompleted — Implementation validation gate
-
-Runs tests before allowing a native task to complete. Exit code 2 blocks completion.
-
-```json
-{
-  "hooks": {
-    "TaskCompleted": [{
-      "hooks": [{
-        "type": "command",
-        "command": "./scripts/homerun-task-completed.sh"
-      }]
-    }]
-  }
-}
-```
-
-## Deterministic Quality Gate Hooks (v4.0)
-
-These hooks replace LLM judgment for phases 1, 2, and 4 of the quality pipeline. They run deterministic CLI checks automatically, providing zero-cost, reproducible quality gates.
-
-### PreToolUse — Block commits if lint/typecheck fails
-
-**This is the primary quality gate.** Intercepts `git commit` and `git push` commands and runs the project's lint and typecheck tools first. Blocks the command (exit 2) if either fails, with error output on stderr so Claude can fix the issues.
+Intercepts `git commit` and `git push` commands. Runs the project's lint and typecheck tools first. Blocks with exit 2 if either fails, providing error output on stderr for Claude to fix.
 
 Auto-detects quality tools in this order:
 1. `package.json` scripts (`lint`, `typecheck`, `type-check`, `check-types`)
 2. Config files (biome.json, eslint.config.js, tsconfig.json, pyproject.toml)
 3. CLI tools (ruff, mypy)
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh"
-      }]
-    }]
-  }
-}
-```
-
-See `scripts/homerun-pre-commit.sh` for the full implementation.
-
 ### PostToolUse — Auto-lint after file edits
 
-Runs linter with auto-fix after every Edit/Write operation. Non-blocking (always exit 0). Zero LLM tokens consumed. Skips non-source files (markdown, JSON, YAML, lock files).
+**Matcher:** `Edit|Write`
+**Script:** `scripts/homerun-auto-lint.sh`
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-auto-lint.sh"
-      }]
-    }]
-  }
-}
-```
+Runs linter with auto-fix after every Edit/Write operation. Non-blocking (always exit 0). Skips non-source files (markdown, JSON, YAML, lock files).
 
-See `scripts/homerun-auto-lint.sh` for the full implementation.
+### WorktreeCreate — Worktree initialization
 
-### Standalone Quality Scripts (v5.2)
+**Script:** `scripts/homerun-worktree-setup.sh`
 
-These scripts handle lint and typecheck as standalone hooks at zero LLM cost. They can be called independently or used by the quality-checker agent.
+Initializes new worktrees created for implementer agents. Only runs for branches starting with `create/`.
 
-#### Lint auto-fix
+### SubagentStop — Post-implementation progress tracking
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-quality-lint.sh"
-      }]
-    }]
-  }
-}
-```
+**Matcher:** `implementer`
+**Script:** `scripts/homerun-post-implement.sh`
 
-See `scripts/homerun-quality-lint.sh`. Auto-detects: package.json scripts → biome → eslint → prettier → ruff.
+Logs progress after an implementer finishes. Runs feedback aggregation to extract rejection patterns for session-wide learning.
 
-#### Type check
+### TaskCompleted — Implementation validation gate (Agent Teams)
 
-```json
-{
-  "hooks": {
-    "SubagentStop": [{
-      "matcher": "implementer",
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-quality-typecheck.sh"
-      }]
-    }]
-  }
-}
-```
+**Script:** `scripts/homerun-task-completed.sh`
 
-See `scripts/homerun-quality-typecheck.sh`. Auto-detects: package.json scripts → tsc --noEmit → mypy.
+Validates implementation before marking a native task as complete. Blocks completion (exit 2) if validation fails. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
 
-### Feedback Aggregation (v5.2)
+## Standalone Quality Scripts
 
-Extracts rejection patterns from tasks.json after each implementer finishes. Non-blocking.
+These scripts are not registered as hooks but can be called directly or by other hooks:
 
-Built into `homerun-post-implement.sh` — calls `lib/feedback-aggregator.sh` after logging progress. Writes `feedback_patterns.json` with common rejection patterns for session-wide learning.
+- `scripts/homerun-quality-lint.sh` — Run lint with auto-fix (auto-detects: package.json scripts, biome, eslint, prettier, ruff)
+- `scripts/homerun-quality-typecheck.sh` — Run type checking (auto-detects: package.json scripts, tsc --noEmit, mypy)
+- `scripts/homerun-validate-dag.sh` — Pure algorithmic DAG validation
 
-## Combined Configuration
+## Overriding Hooks
 
-Add all hooks together in `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh"
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-auto-lint.sh"
-      }]
-    }],
-    "WorktreeCreate": [{
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-worktree-setup.sh"
-      }]
-    }],
-    "SubagentStop": [{
-      "matcher": "implementer",
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-post-implement.sh"
-      }]
-    }],
-    "TaskCompleted": [{
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-task-completed.sh"
-      }]
-    }]
-  }
-}
-```
+To disable or override an auto-registered hook, add your own entry for the same event in `.claude/settings.json`. Project-level settings take precedence over plugin hooks.
 
 ## Hook Exit Codes
 
