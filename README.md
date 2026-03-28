@@ -132,6 +132,8 @@ Start an orchestrated workflow from idea through implementation.
 | `--resume` | Resume interrupted session |
 | `--retries N,M` | Retry limits: N=fresh agent, M=same agent (default: 1,1) |
 
+**Plan-then-stop (default):** In interactive mode, `/create` stops after DAG validation and prints a task summary. Run `/build <worktree>` to start implementation. In `--auto` mode, execution continues immediately.
+
 ### `/plan` — Jump to Planning
 
 Skip discovery and plan directly from existing specs. Runs the 3-layer pipeline: scope analysis → task decomposition → DAG validation.
@@ -176,6 +178,15 @@ Analyze existing codebase and generate PRD, ADR, TECHNICAL_DESIGN.
 /reverse-engineer [project-path] [--scope full|module|feature] [--target <name>]
 ```
 
+### `/status` — View Workflow Progress
+
+List homerun worktrees with phase, feature, scale, and task progress.
+
+```bash
+/status              # Summary of all sessions
+/status --detailed   # Per-task status and feedback patterns
+```
+
 ## Agent Architecture
 
 Homerun uses **11 native Claude Code subagents** defined in `agents/*.md`. Each agent has enforced tool restrictions, a dedicated model, and references one or more skills. The team-lead runs as an **inline skill** (not a spawned agent) for reliable orchestration.
@@ -209,9 +220,10 @@ Homerun uses **11 native Claude Code subagents** defined in `agents/*.md`. Each 
 │                                                                           │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐       │
 │  │ implementer      │  │ reviewer          │  │ quality-checker   │       │
-│  │ Model: sonnet    │  │ Model: sonnet     │  │ Model: sonnet     │       │
-│  │ Skills: implement│  │ Skills: review    │  │ Skills: quality   │       │
-│  │ × 1-3 parallel   │  │ × 1-2 concurrent │  │ × 1 (final gate)  │       │
+│  │ Model: haiku/    │  │ Model: sonnet     │  │ Model: sonnet     │       │
+│  │   sonnet (by     │  │ Skills: review    │  │ Skills: quality   │       │
+│  │   task type)     │  │ × 1-2 concurrent │  │ × 1 (final gate)  │       │
+│  │ × 1-3 parallel   │  │                   │  │                   │       │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘       │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -265,7 +277,7 @@ Tasks are automatically assigned to the appropriate model based on complexity:
 | DAG Validation | `validate-dag.sh` | bash | Zero LLM cost |
 | Test Skeletons | `test-skeleton-generator` | sonnet | Spec comprehension |
 | Execution | team-lead skill | inherit | Inline coordination |
-| Implementation | `implementer` | sonnet | TDD + similar function discovery |
+| Implementation | `implementer` | haiku/sonnet | Model set by team-lead per task type |
 | Review | `reviewer` | sonnet | Quality judgment |
 | Quality Check | `quality-checker` | sonnet | Fix reasoning |
 | Diagnose | `diagnostician` | sonnet | Evidence analysis |
@@ -274,9 +286,14 @@ Tasks are automatically assigned to the appropriate model based on complexity:
 
 **Escalation:** Task rejected with high severity → retry with sonnet. Sonnet fails 3x → escalate to user.
 
+## Prerequisites
+
+- **jq** — Required by all hook scripts for JSON parsing. Install via `apt install jq`, `brew install jq`, or equivalent.
+- **A linter and/or typechecker** — Hooks auto-detect project tools (biome, eslint, prettier, ruff, tsc, mypy). Without one, quality gates pass silently.
+
 ## Hooks
 
-Homerun provides hook scripts for Claude Code integration. See `references/hooks-configuration.md` for full setup.
+Hooks auto-register via `hooks/hooks.json` when the homerun plugin is installed. No manual `.claude/settings.json` configuration needed.
 
 | Hook | Script | Purpose |
 |------|--------|---------|
@@ -394,7 +411,12 @@ homerun/
 │   ├── homerun-task-completed.sh # TaskCompleted validation gate
 │   └── lib/
 │       ├── tasks-bridge.js       # tasks.json → native TaskCreate reference
-│       └── feedback-aggregator.sh # Extract rejection patterns for session learning
+│       ├── feedback-aggregator.sh # Extract rejection patterns for session learning
+│       ├── session-state.sh      # Session-aware state.json lookup
+│       └── pkg-manager.sh        # Auto-detect npm/yarn/pnpm/bun
+├── hooks/                        # Auto-registered hook configuration
+│   ├── hooks.json                # Hook declarations (auto-registered on install)
+│   └── run-hook.cmd              # Cross-platform hook dispatcher (Windows + Unix)
 ├── templates/                    # Document templates
 ├── evals/                        # Skill evaluation suites
 └── cookbooks/                    # Example dialogues and patterns
@@ -462,6 +484,23 @@ Task rejected (attempt 1 failed)
 ```
 
 **Circuit breaker:** 3 consecutive failures or same feedback 3x → stop spawning, escalate.
+
+## Evals
+
+27 evaluation files across 8 categories in `evals/`:
+
+| Category | Evals | Coverage |
+|----------|-------|----------|
+| discovery | 5 | Dialogue flow, document generation, signal envelope |
+| planning | 5 | Task decomposition, DAG validation, model routing |
+| scope-analysis | 3 | AC validation, component extraction |
+| team-lead | 2 | Dispatch loop, scale-based routing |
+| implement | 3 | TDD workflow, signal completion, blocked signals |
+| review | 5 | Approve/reject scenarios, re-review flows |
+| quality-check | 2 | Phase ordering, signal envelope |
+| scripts | 2 | DAG validation (valid + cycle detection) |
+
+LLM judge evals use haiku for cost control (max 500 tokens per call).
 
 ## Credits
 
