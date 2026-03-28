@@ -10,16 +10,7 @@
 #   0 — Allow the command
 #   2 — Block the command (quality check failed)
 #
-# Usage: Add to .claude/settings.json:
-#   "hooks": {
-#     "PreToolUse": [{
-#       "matcher": "Bash",
-#       "hooks": [{
-#         "type": "command",
-#         "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-pre-commit.sh"
-#       }]
-#     }]
-#   }
+# Auto-registered via hooks/hooks.json when the homerun plugin is installed.
 
 set -uo pipefail
 

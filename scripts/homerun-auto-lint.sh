@@ -9,16 +9,7 @@
 # Exit codes:
 #   0 — Always (non-blocking)
 #
-# Usage: Add to .claude/settings.json:
-#   "hooks": {
-#     "PostToolUse": [{
-#       "matcher": "Edit|Write",
-#       "hooks": [{
-#         "type": "command",
-#         "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-auto-lint.sh"
-#       }]
-#     }]
-#   }
+# Auto-registered via hooks/hooks.json when the homerun plugin is installed.
 
 set -uo pipefail
 

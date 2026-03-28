@@ -8,16 +8,7 @@
 # IMPORTANT: Uses session-aware state lookup to avoid reading another
 # parallel session's state.json.
 #
-# Usage: Add to .claude/settings.json:
-#   "hooks": {
-#     "SubagentStop": [{
-#       "matcher": "implementer",
-#       "hooks": [{
-#         "type": "command",
-#         "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-post-implement.sh"
-#       }]
-#     }]
-#   }
+# Auto-registered via hooks/hooks.json when the homerun plugin is installed.
 
 set -euo pipefail
 

@@ -9,15 +9,7 @@
 # state.json, avoiding cross-session contamination when multiple homerun
 # sessions run in parallel.
 #
-# Usage: Add to .claude/settings.json:
-#   "hooks": {
-#     "WorktreeCreate": [{
-#       "hooks": [{
-#         "type": "command",
-#         "command": "$CLAUDE_PLUGIN_ROOT/scripts/homerun-worktree-setup.sh"
-#       }]
-#     }]
-#   }
+# Auto-registered via hooks/hooks.json when the homerun plugin is installed.
 
 set -euo pipefail
 
