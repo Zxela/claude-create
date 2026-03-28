@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.7.0] - 2026-03-27
+
+### Added
+- **Hooks auto-registration** — `hooks/hooks.json` and `hooks/run-hook.cmd` register all hooks automatically when the plugin is installed. No manual `.claude/settings.json` configuration needed.
+- **Cross-platform hook runner** — `hooks/run-hook.cmd` is a polyglot wrapper that works on both Windows (cmd.exe with Git Bash) and Unix.
+- **Eval expansion** — New evals for scope-analysis (3), team-lead (2), quality-check (2), and DAG validation scripts (2). Total eval count: 27 across 8 categories.
+- **Review calibration** — Scope decomposition gates and placeholder prevention for acceptance criteria.
+- **Verification enforcement** — Self-review fast-path for implementers; placeholder scan before completion signal.
+- **NEEDS_REWORK signal** — Registered in signal-contracts.json with full envelope example.
+
+### Fixed
+- **Conductor → team-lead migration** — Replaced all conductor references across diagrams, cookbooks, references, and templates with team-lead (#8-#11).
+- **Script hardening** — DAG validator, pkg manager detection, sponge dependency removal, scope-analyzer edge cases (#15).
+- **Diagram corrections** — Retry order, missing phases, spec-review skill placement (#18).
+- **Worktree setup** — Restored unconditional `mkdir` to prevent race condition on fresh worktrees (#17).
+- **Signal alignment** — Agent signal names now match signal-contracts.json exactly (#14).
+- **Stale references** — Removed dead skill references and stale paths in templates and skills (#9).
+- **Quality-gates** — Corrected phase ordering and retry defaults (#10).
+- **Eval config** — Updated `homerun:planning` to `homerun:task-decomposition` (#12).
+- **README** — Fixed file structure listing, added missing refs (#13).
+- **Templates** — Bumped remaining templates to v1.1, added risk_level to task-decomposition example.
+- **.gitignore** — Added `.claude/` to prevent orphaned worktrees from appearing as untracked files.
+
+### Changed
+- **Hooks documentation rewrite** — `references/hooks-configuration.md` and `skills/setup-quality-gates/SKILL.md` updated to reflect auto-registration model instead of manual setup instructions.
+
 ## [5.6.1] - 2026-02-28
 
 ### Added
