@@ -309,11 +309,6 @@ Invoke the finishing skill in the current context to present merge/PR/continue o
      │
      ▼
 ┌─────────────────┐
-│ Test Skeletons  │  ← (optional) Generate ROI-prioritized test scaffolding
-└─────────────────┘
-     │
-     ▼
-┌─────────────────┐
 │   Execution     │  ← Team lead orchestrates parallel implementation
 └─────────────────┘
      │
