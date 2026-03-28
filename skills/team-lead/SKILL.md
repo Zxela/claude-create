@@ -107,12 +107,19 @@ Work through the DAG by dispatching implementers for ready tasks.
    - Independent tasks (no shared files, no dependency) → dispatch in parallel using `run_in_background: true` with `isolation: "worktree"`
    - Dependent tasks → dispatch sequentially (wait for result before next)
    - Cap at 3 concurrent implementers
-3. **Dispatch implementer(s):**
+3. **Select model by task type** — Read `references/model-routing.json` to determine the correct model. Haiku tasks (`add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`) use haiku. Sonnet tasks (`create_model`, `create_service`, `add_endpoint_complex`, `create_middleware`, `bug_fix`, `integration_test`) use sonnet. Architectural tasks use opus. **Always pass `model:` in the Task call** — the implementer agent defaults to sonnet, so haiku tasks will waste cost without the override.
+
+4. **Dispatch implementer(s):**
 
 ```javascript
+// Determine model from task_type (see references/model-routing.json)
+const HAIKU_TYPES = ["add_field", "add_method", "add_validation", "rename_refactor", "add_test", "add_config", "add_endpoint"];
+const taskModel = HAIKU_TYPES.includes(task.task_type) ? "haiku" : "sonnet";
+
 Task({
   description: `Implement [${task.id}] ${task.title}`,
   subagent_type: "homerun:implementer",
+  model: taskModel,
   isolation: "worktree",  // Only needed for parallel dispatch
   prompt: `Implement this task using TDD.
 
@@ -136,7 +143,7 @@ Task({
 });
 ```
 
-4. **After each implementer returns:**
+5. **After each implementer returns:**
    - **If `NEEDS_REWORK`:** Re-dispatch the implementer immediately with the self-review findings as `previous_feedback`. No reviewer is needed — the implementer caught its own issues. Include the `findings` array so the implementer knows exactly what to fix. This counts toward the retry limit (max 2 retries per task).
    - **If `IMPLEMENTATION_COMPLETE` with `hard_gate_results`:** Mark the native task completed, then dispatch the reviewer with `skip_hard_gates: true` and the `hard_gate_results` from the implementer (see Section 3.5). This lets the reviewer skip Tier 1 re-execution when all exit codes are 0.
    - **If `IMPLEMENTATION_COMPLETE` without `hard_gate_results`:** Mark the native task completed, dispatch the reviewer normally (no `skip_hard_gates`).
