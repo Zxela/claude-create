@@ -37,27 +37,7 @@ Scan every AC for placeholder language. Reject: "TBD/TODO", "add appropriate err
 
 ### 0. Pre-Implementation Analysis
 
-**Skip for haiku tasks** (add_field, add_method, add_validation, rename_refactor, add_test, add_config, add_endpoint) → jump to Step 1. **Sonnet/opus tasks only.** Budget: ~2.5K tokens.
-
-#### 0a. Strategy Selection
-Pick one: vertical-slice | horizontal-layer | outside-in | inside-out | risk-first. Document rationale in 2-3 sentences. Risk-first if uncertain, horizontal if extending patterns, vertical-slice if greenfield.
-
-#### 0b. Metacognitive Questions
-3-5 self-interrogation questions by task type. Answer briefly. "I don't know" → investigate via targeted grep before coding.
-
-- create_model/add_field: existing references? migrations? serialization breaks?
-- create_service/add_method: call chain? consumers? error states?
-- add_endpoint: middleware? auth? response contract?
-- bug_fix: reproducible? root cause vs symptom? regression test?
-- create_middleware: execution order? downstream data? failure modes?
-
-#### 0c. Impact Analysis (3-Stage)
-1. **Discovery** — grep for related functions/classes/constants in src/ and tests/
-2. **Understanding** — classify each match: Calls/Called-by/Shares-state/Tests
-3. **Identification** — label files: Direct (must modify) / Indirect (verify) / Unaffected (ignore)
-
-#### 0d. Duplication Check (Rule of Three)
-1st occurrence → implement inline. 2nd → note similarity. 3rd+ → must consolidate (extract shared logic). Exception: different bounded contexts or superficial similarity. If 3+ real matches with same semantics → emit `IMPLEMENTATION_BLOCKED` with `blocker_type: "duplication_detected"`.
+**Skip for haiku tasks** → jump to Step 1. **Sonnet/opus tasks only:** Read `skills/implement/pre-implementation-analysis.md` and complete steps 0a-0d (strategy, metacognitive questions, impact analysis, duplication check). Budget: ~2.5K tokens.
 
 ---
 
@@ -79,9 +59,10 @@ Extract only relevant spec sections via grep. By task type: create_model → "##
 
 #### TDD (default): RED → GREEN → REFACTOR → REPEAT per AC
 - Write test BEFORE implementation. Each test must initially FAIL.
-- Simple tasks (add_field, etc.) may use `direct` methodology instead.
+- For full TDD guide and anti-patterns, read `skills/test-driven-development/SKILL.md`
+- Haiku tasks use `direct` methodology instead — no TDD ceremony needed.
 
-#### Direct: Implement → verify. For config/docs with `test_file: null`.
+#### Direct: Implement → verify. For haiku tasks and config/docs with `test_file: null`.
 
 **Test output masking** (saves 5-10K tokens/run): `npm test -- --reporter=dot 2>&1 | tail -30`. Keep: pass/fail summary + first failure. Discard: passing details, duplicates, coverage reports.
 
