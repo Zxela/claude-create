@@ -20,12 +20,12 @@ evaluations:
     checks:
       # Verify signal envelope is present and has required fields
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "DISCOVERY_COMPLETE"
       - signal_has:
-          field: "payload.worktree_path"
+          field: "p.worktree_path"
       - signal_has:
-          field: "payload.spec_paths.prd"
+          field: "p.spec_paths.prd"
       # Check output mentions traceability initialization
       - output_contains: "traceability"
       - output_contains: "state.json"

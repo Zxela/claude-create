@@ -30,7 +30,7 @@ evaluations:
   - type: behavioral
     checks:
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "QUALITY_CHECK_COMPLETE"
       - output_contains: "pass|PASS|passed"
 

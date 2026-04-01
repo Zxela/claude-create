@@ -406,10 +406,10 @@ Output the `DISCOVERY_COMPLETE` signal and return. **Do NOT spawn the next phase
 
 ```json
 {
-  "signal": "DISCOVERY_COMPLETE",
-  "timestamp": "<ISO8601>",
-  "source": { "skill": "homerun:discovery" },
-  "payload": {
+  "s": "DISCOVERY_COMPLETE",
+  "ts": "<ISO8601>",
+  "src": { "skill": "discovery" },
+  "p": {
     "session_id": "...",
     "worktree_path": "...",
     "branch": "...",
@@ -420,8 +420,7 @@ Output the `DISCOVERY_COMPLETE` signal and return. **Do NOT spawn the next phase
       "topics_covered": ["purpose", "scope", "edge_cases"],
       "auto_completed": false
     }
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 

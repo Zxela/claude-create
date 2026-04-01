@@ -53,13 +53,13 @@ evaluations:
     checks:
       # Verify rejection signal
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "REJECTED"
       - signal_has:
-          field: "source.skill"
-          pattern: "homerun:review"
+          field: "src.skill"
+          pattern: "review"
       - signal_has:
-          field: "payload.issues"
+          field: "p.issues"
 
   - type: llm_judge
     model: haiku

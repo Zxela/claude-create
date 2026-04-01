@@ -46,13 +46,13 @@ evaluations:
     checks:
       # Verify signal envelope for completion
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "IMPLEMENTATION_COMPLETE"
       - signal_has:
-          field: "source.task_id"
+          field: "src.task_id"
           pattern: "001"
       - signal_has:
-          field: "payload.files_changed"
+          field: "p.files_changed"
       # Check output mentions TDD steps
       - output_contains: "test"
       - output_contains: "user"

@@ -16,7 +16,7 @@ evaluations:
     checks:
       # Verify signal contains model information
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "PLANNING_COMPLETE"
       - output_contains: "model"
       - output_contains: "haiku|sonnet"

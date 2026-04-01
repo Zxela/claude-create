@@ -84,7 +84,7 @@ evaluations:
     checks:
       # Should approve since the fix was applied correctly
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "APPROVED"
 
   - type: llm_judge

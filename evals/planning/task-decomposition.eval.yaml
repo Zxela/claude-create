@@ -24,12 +24,12 @@ evaluations:
     checks:
       # Verify signal envelope
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "PLANNING_COMPLETE"
       - signal_has:
-          field: "payload.tasks_count"
+          field: "p.tasks_count"
       - signal_has:
-          field: "payload.tasks_file"
+          field: "p.tasks_file"
       # Check output mentions task creation
       - output_contains: "tasks"
       - output_contains: "depends_on"

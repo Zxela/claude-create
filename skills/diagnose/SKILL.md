@@ -233,9 +233,9 @@ Choose the solution that is:
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "root_cause", "confidence", "solutions", "recommendation"],
+  "required": ["s", "root_cause", "confidence", "solutions", "recommendation"],
   "properties": {
-    "signal": { "const": "DIAGNOSIS_COMPLETE" },
+    "s": { "const": "DIAGNOSIS_COMPLETE" },
     "root_cause": {
       "type": "object",
       "required": ["hypothesis", "evidence", "verified"],
@@ -299,7 +299,7 @@ Choose the solution that is:
 
 ```json
 {
-  "signal": "DIAGNOSIS_COMPLETE",
+  "s": "DIAGNOSIS_COMPLETE",
   "root_cause": {
     "hypothesis": "Validation middleware strips password field before it reaches auth service",
     "evidence": [
@@ -359,7 +359,7 @@ Return when root cause cannot be confirmed:
 
 ```json
 {
-  "signal": "DIAGNOSIS_INCONCLUSIVE",
+  "s": "DIAGNOSIS_INCONCLUSIVE",
   "investigated": {
     "hypotheses_tested": 3,
     "evidence_collected": 5,

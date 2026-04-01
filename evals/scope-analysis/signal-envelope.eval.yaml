@@ -54,7 +54,7 @@ evaluations:
   - type: behavioral
     checks:
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "SCOPE_ANALYSIS_COMPLETE"
       - output_contains: "[Cc]omponent|[Cc]ounter"
       - output_contains: "AC-00[123]|acceptance"

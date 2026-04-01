@@ -231,7 +231,7 @@ No manual configuration in .claude/settings.json is required.
 
 ```json
 {
-  "signal": "QUALITY_GATES_CONFIGURED",
+  "s": "QUALITY_GATES_CONFIGURED",
   "status": "verified",
   "tools_detected": {
     "lint": "biome",

@@ -198,9 +198,9 @@ Mark each section with confidence level based on evidence quality:
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "output_dir", "documents", "coverage"],
+  "required": ["s", "output_dir", "documents", "coverage"],
   "properties": {
-    "signal": { "const": "REVERSE_ENGINEER_COMPLETE" },
+    "s": { "const": "REVERSE_ENGINEER_COMPLETE" },
     "output_dir": { "type": "string" },
     "documents": {
       "type": "object",

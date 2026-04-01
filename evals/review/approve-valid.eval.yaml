@@ -61,7 +61,7 @@ evaluations:
     checks:
       # Verify approval signal
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "APPROVED"
 
   - type: llm_judge

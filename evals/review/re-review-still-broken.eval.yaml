@@ -80,12 +80,12 @@ evaluations:
     checks:
       # Must reject since the previous issue was not fixed
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "REJECTED"
       - signal_has:
-          field: "payload.issues"
+          field: "p.issues"
       - signal_has:
-          field: "payload.issues.severity"
+          field: "p.issues.severity"
           pattern: "high"
 
   - type: llm_judge

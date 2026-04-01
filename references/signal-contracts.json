@@ -1,28 +1,28 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": "1.0.0",
-  "description": "Signal envelope schema and contracts for homerun skills",
+  "version": "2.0.0",
+  "description": "Compact signal envelope schema and contracts for homerun skills. Keys: s=signal, ts=timestamp, src=source, p=payload. The homerun: prefix is omitted from src.skill.",
 
   "envelope_schema": {
     "type": "object",
-    "required": ["signal", "timestamp", "source", "payload"],
+    "required": ["s", "ts", "src", "p"],
     "properties": {
-      "signal": {
+      "s": {
         "type": "string",
         "description": "Signal name (DISCOVERY_COMPLETE, APPROVED, etc.)"
       },
-      "timestamp": {
+      "ts": {
         "type": "string",
         "format": "date-time",
         "description": "ISO8601 timestamp of signal emission"
       },
-      "source": {
+      "src": {
         "type": "object",
         "required": ["skill"],
         "properties": {
           "skill": {
             "type": "string",
-            "description": "Skill that emitted the signal"
+            "description": "Skill that emitted the signal (without homerun: prefix)"
           },
           "task_id": {
             "type": "string",
@@ -34,25 +34,21 @@
           }
         }
       },
-      "payload": {
+      "p": {
         "type": "object",
         "description": "Signal-specific data"
-      },
-      "envelope_version": {
-        "type": "string",
-        "default": "1.0.0"
       }
     }
   },
 
   "signals": {
     "DISCOVERY_COMPLETE": {
-      "producer": "homerun:discovery",
+      "producer": "discovery",
       "envelope_example": {
-        "signal": "DISCOVERY_COMPLETE",
-        "timestamp": "2026-01-25T10:30:00Z",
-        "source": { "skill": "homerun:discovery" },
-        "payload": {
+        "s": "DISCOVERY_COMPLETE",
+        "ts": "2026-01-25T10:30:00Z",
+        "src": { "skill": "discovery" },
+        "p": {
           "worktree_path": "/path/to/worktree",
           "branch": "create/feature-uuid",
           "spec_paths": {
@@ -63,35 +59,33 @@
           },
           "user_stories_count": 3,
           "acceptance_criteria_count": 8
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "SCOPE_ANALYSIS_COMPLETE": {
-      "producer": "homerun:scope-analysis",
+      "producer": "scope-analysis",
       "envelope_example": {
-        "signal": "SCOPE_ANALYSIS_COMPLETE",
-        "timestamp": "2026-02-27T10:30:00Z",
-        "source": { "skill": "homerun:scope-analysis" },
-        "payload": {
+        "s": "SCOPE_ANALYSIS_COMPLETE",
+        "ts": "2026-02-27T10:30:00Z",
+        "src": { "skill": "scope-analysis" },
+        "p": {
           "scope_file": "docs/scope-analysis.json",
           "components_count": 5,
           "acceptance_criteria_count": 12,
           "all_criteria_testable": true,
           "untestable_criteria": []
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "PLANNING_COMPLETE": {
-      "producer": "homerun:task-decomposition",
+      "producer": "task-decomposition",
       "envelope_example": {
-        "signal": "PLANNING_COMPLETE",
-        "timestamp": "2026-02-27T10:45:00Z",
-        "source": { "skill": "homerun:task-decomposition" },
-        "payload": {
+        "s": "PLANNING_COMPLETE",
+        "ts": "2026-02-27T10:45:00Z",
+        "src": { "skill": "task-decomposition" },
+        "p": {
           "tasks_count": 8,
           "tasks_file": "docs/tasks.json",
           "dependency_graph_valid": true,
@@ -99,22 +93,21 @@
             "user_stories": 3,
             "acceptance_criteria": 12
           }
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "IMPLEMENTATION_COMPLETE": {
-      "producer": "homerun:implement",
+      "producer": "implement",
       "envelope_example": {
-        "signal": "IMPLEMENTATION_COMPLETE",
-        "timestamp": "2026-01-25T11:00:00Z",
-        "source": {
-          "skill": "homerun:implement",
+        "s": "IMPLEMENTATION_COMPLETE",
+        "ts": "2026-01-25T11:00:00Z",
+        "src": {
+          "skill": "implement",
           "task_id": "001",
           "attempt": 1
         },
-        "payload": {
+        "p": {
           "files_changed": ["src/feature.ts"],
           "test_file": "tests/feature.test.ts",
           "commit_hash": "abc1234",
@@ -128,22 +121,21 @@
           "hard_gate_results": { "tests": 0, "types": 0, "lint": 0 },
           "verification_level": "L2",
           "verification_attempted": ["L1", "L2"]
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "NEEDS_REWORK": {
-      "producer": "homerun:implement",
+      "producer": "implement",
       "envelope_example": {
-        "signal": "NEEDS_REWORK",
-        "timestamp": "2026-01-25T11:00:00Z",
-        "source": {
-          "skill": "homerun:implement",
+        "s": "NEEDS_REWORK",
+        "ts": "2026-01-25T11:00:00Z",
+        "src": {
+          "skill": "implement",
           "task_id": "001",
           "attempt": 1
         },
-        "payload": {
+        "p": {
           "findings": [
             {
               "check": "placeholder_scan",
@@ -151,42 +143,40 @@
             }
           ],
           "hard_gate_results": { "tests": 0, "types": 0, "lint": 1 }
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "IMPLEMENTATION_BLOCKED": {
-      "producer": "homerun:implement",
+      "producer": "implement",
       "envelope_example": {
-        "signal": "IMPLEMENTATION_BLOCKED",
-        "timestamp": "2026-01-25T11:00:00Z",
-        "source": {
-          "skill": "homerun:implement",
+        "s": "IMPLEMENTATION_BLOCKED",
+        "ts": "2026-01-25T11:00:00Z",
+        "src": {
+          "skill": "implement",
           "task_id": "001",
           "attempt": 1
         },
-        "payload": {
+        "p": {
           "reason": "Cannot find the User model referenced in TECHNICAL_DESIGN.md",
           "blocker_type": "missing_dependency",
           "blocker_type_options": ["missing_dependency", "unclear_requirements", "technical_constraint", "test_failure", "tautological_test"],
           "details": ["Task 001 should have created src/models/user.ts"],
           "suggested_resolution": "Run task 001 first or verify task ordering"
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "APPROVED": {
-      "producer": "homerun:review",
+      "producer": "review",
       "envelope_example": {
-        "signal": "APPROVED",
-        "timestamp": "2026-01-25T11:15:00Z",
-        "source": {
-          "skill": "homerun:review",
+        "s": "APPROVED",
+        "ts": "2026-01-25T11:15:00Z",
+        "src": {
+          "skill": "review",
           "task_id": "001"
         },
-        "payload": {
+        "p": {
           "summary": "User authentication service implemented with password hashing",
           "verified": [
             {
@@ -196,21 +186,20 @@
               "test_file": "tests/services/auth.test.ts:12"
             }
           ]
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "REJECTED": {
-      "producer": "homerun:review",
+      "producer": "review",
       "envelope_example": {
-        "signal": "REJECTED",
-        "timestamp": "2026-01-25T11:15:00Z",
-        "source": {
-          "skill": "homerun:review",
+        "s": "REJECTED",
+        "ts": "2026-01-25T11:15:00Z",
+        "src": {
+          "skill": "review",
           "task_id": "001"
         },
-        "payload": {
+        "p": {
           "summary": "Missing test for AC-002",
           "issues": [
             {
@@ -222,18 +211,17 @@
             }
           ],
           "required_fixes": ["Add test for error handling"]
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "VALIDATION_ERROR": {
       "producer": "any",
       "envelope_example": {
-        "signal": "VALIDATION_ERROR",
-        "timestamp": "2026-01-25T11:00:00Z",
-        "source": { "skill": "homerun:implement" },
-        "payload": {
+        "s": "VALIDATION_ERROR",
+        "ts": "2026-01-25T11:00:00Z",
+        "src": { "skill": "implement" },
+        "p": {
           "error_type": "invalid_input",
           "errors": [
             {
@@ -243,18 +231,17 @@
               "received": "[]"
             }
           ]
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "COVERAGE_GAPS_DETECTED": {
-      "producer": "homerun:team-lead",
+      "producer": "team-lead",
       "envelope_example": {
-        "signal": "COVERAGE_GAPS_DETECTED",
-        "timestamp": "2026-01-25T12:00:00Z",
-        "source": { "skill": "homerun:team-lead" },
-        "payload": {
+        "s": "COVERAGE_GAPS_DETECTED",
+        "ts": "2026-01-25T12:00:00Z",
+        "src": { "skill": "team-lead" },
+        "p": {
           "errors": [
             {
               "type": "ac_uncovered",
@@ -266,18 +253,17 @@
             "user_stories": { "total": 3, "covered": 3 },
             "acceptance_criteria": { "total": 8, "covered": 7 }
           }
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "SPEC_REVIEW_COMPLETE": {
-      "producer": "homerun:spec-review",
+      "producer": "spec-review",
       "envelope_example": {
-        "signal": "SPEC_REVIEW_COMPLETE",
-        "timestamp": "2026-01-25T10:35:00Z",
-        "source": { "skill": "homerun:spec-review" },
-        "payload": {
+        "s": "SPEC_REVIEW_COMPLETE",
+        "ts": "2026-01-25T10:35:00Z",
+        "src": { "skill": "spec-review" },
+        "p": {
           "verdict": "approved_with_scope_warning",
           "issues": { "high": 0, "medium": 1, "low": 2 },
           "details": [
@@ -289,18 +275,17 @@
               "fix": "Add error responses table"
             }
           ]
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "DIAGNOSIS_COMPLETE": {
-      "producer": "homerun:diagnose",
+      "producer": "diagnose",
       "envelope_example": {
-        "signal": "DIAGNOSIS_COMPLETE",
-        "timestamp": "2026-01-25T11:30:00Z",
-        "source": { "skill": "homerun:diagnose" },
-        "payload": {
+        "s": "DIAGNOSIS_COMPLETE",
+        "ts": "2026-01-25T11:30:00Z",
+        "src": { "skill": "diagnose" },
+        "p": {
           "root_cause": {
             "hypothesis": "Validation middleware strips password field before auth service",
             "evidence": [
@@ -331,18 +316,17 @@
             "solution_index": 0,
             "rationale": "Direct fix at root cause, minimal change"
           }
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "DIAGNOSIS_INCONCLUSIVE": {
-      "producer": "homerun:diagnose",
+      "producer": "diagnose",
       "envelope_example": {
-        "signal": "DIAGNOSIS_INCONCLUSIVE",
-        "timestamp": "2026-01-25T11:30:00Z",
-        "source": { "skill": "homerun:diagnose" },
-        "payload": {
+        "s": "DIAGNOSIS_INCONCLUSIVE",
+        "ts": "2026-01-25T11:30:00Z",
+        "src": { "skill": "diagnose" },
+        "p": {
           "investigated": {
             "hypotheses_tested": 3,
             "evidence_collected": 5,
@@ -353,18 +337,17 @@
             "Run under load to reproduce"
           ],
           "confidence": "low"
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "QUALITY_CHECK_COMPLETE": {
-      "producer": "homerun:quality-check",
+      "producer": "quality-check",
       "envelope_example": {
-        "signal": "QUALITY_CHECK_COMPLETE",
-        "timestamp": "2026-01-25T11:20:00Z",
-        "source": { "skill": "homerun:quality-check", "task_id": "002" },
-        "payload": {
+        "s": "QUALITY_CHECK_COMPLETE",
+        "ts": "2026-01-25T11:20:00Z",
+        "src": { "skill": "quality-check", "task_id": "002" },
+        "p": {
           "verdict": "pass_with_fixes",
           "phases": {
             "lint": { "status": "fixed", "issues_found": 3, "issues_fixed": 3 },
@@ -377,18 +360,17 @@
             { "phase": "lint", "description": "Fixed formatting", "file": "src/services/auth.ts" }
           ],
           "unresolved": []
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "REVERSE_ENGINEER_COMPLETE": {
-      "producer": "homerun:reverse-engineer",
+      "producer": "reverse-engineer",
       "envelope_example": {
-        "signal": "REVERSE_ENGINEER_COMPLETE",
-        "timestamp": "2026-01-25T12:00:00Z",
-        "source": { "skill": "homerun:reverse-engineer" },
-        "payload": {
+        "s": "REVERSE_ENGINEER_COMPLETE",
+        "ts": "2026-01-25T12:00:00Z",
+        "src": { "skill": "reverse-engineer" },
+        "p": {
           "output_dir": "/home/user/.claude/homerun/a1b2c3d4/myapp-reverse-engineered",
           "documents": {
             "prd": "/home/user/.claude/homerun/a1b2c3d4/myapp-reverse-engineered/PRD.md",
@@ -408,18 +390,17 @@
             "api_contracts": "medium",
             "business_logic": "medium"
           }
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "TEST_SKELETONS_COMPLETE": {
-      "producer": "homerun:generate-test-skeletons",
+      "producer": "generate-test-skeletons",
       "envelope_example": {
-        "signal": "TEST_SKELETONS_COMPLETE",
-        "timestamp": "2026-01-25T10:50:00Z",
-        "source": { "skill": "homerun:generate-test-skeletons" },
-        "payload": {
+        "s": "TEST_SKELETONS_COMPLETE",
+        "ts": "2026-01-25T10:50:00Z",
+        "src": { "skill": "generate-test-skeletons" },
+        "p": {
           "skeletons_generated": 15,
           "test_files_created": [
             "tests/models/user.test.ts",
@@ -435,18 +416,17 @@
             "should_test": 2,
             "could_test": 2
           }
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "WALKTHROUGH_COMPLETE": {
-      "producer": "homerun:walkthrough",
+      "producer": "walkthrough",
       "envelope_example": {
-        "signal": "WALKTHROUGH_COMPLETE",
-        "timestamp": "2026-01-25T12:30:00Z",
-        "source": { "skill": "homerun:walkthrough" },
-        "payload": {
+        "s": "WALKTHROUGH_COMPLETE",
+        "ts": "2026-01-25T12:30:00Z",
+        "src": { "skill": "walkthrough" },
+        "p": {
           "walkthroughs": [
             {
               "user_story": "US-001",
@@ -457,50 +437,48 @@
           ],
           "config_path": "playwright.walkthrough.config.ts",
           "run_command": "npx playwright test --config=playwright.walkthrough.config.ts"
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "TEAM_LEAD_COMPLETE": {
-      "producer": "homerun:team-lead",
+      "producer": "team-lead",
       "envelope_example": {
-        "signal": "TEAM_LEAD_COMPLETE",
-        "timestamp": "2026-02-24T15:00:00Z",
-        "source": { "skill": "homerun:team-lead" },
-        "payload": {
+        "s": "TEAM_LEAD_COMPLETE",
+        "ts": "2026-02-24T15:00:00Z",
+        "src": { "skill": "team-lead" },
+        "p": {
           "tasks_total": 8,
           "tasks_completed": 7,
           "tasks_skipped": 1,
           "quality_verdict": "pass_with_fixes"
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     },
 
     "REVIEW_DISPATCHED": {
-      "producer": "homerun:team-lead",
+      "producer": "team-lead",
       "envelope_example": {
-        "signal": "REVIEW_DISPATCHED",
-        "timestamp": "2026-02-27T15:00:00Z",
-        "source": { "skill": "homerun:team-lead" },
-        "payload": {
+        "s": "REVIEW_DISPATCHED",
+        "ts": "2026-02-27T15:00:00Z",
+        "src": { "skill": "team-lead" },
+        "p": {
           "task_id": "003",
           "reviewer_slot": 1,
           "max_concurrent": 2,
           "review_mode": "incremental"
-        },
-        "envelope_version": "1.0.0"
+        }
       }
     }
   },
 
   "validation": {
-    "quick_check": "function isValidEnvelope(signal) { const required = ['signal', 'timestamp', 'source', 'payload']; return required.every(field => signal.hasOwnProperty(field)) && typeof signal.source === 'object' && signal.source.skill; }",
+    "quick_check": "function isValidEnvelope(signal) { const required = ['s', 'ts', 'src', 'p']; return required.every(field => signal.hasOwnProperty(field)) && typeof signal.src === 'object' && signal.src.skill; }",
     "common_errors": [
-      { "error": "Missing timestamp", "cause": "Old skill version", "fix": "Update skill or add manually" },
-      { "error": "No source.skill", "cause": "Skill not identified", "fix": "Add skill name to source" },
-      { "error": "Payload is string", "cause": "JSON not parsed", "fix": "Parse payload as object" }
+      { "error": "Missing ts", "cause": "Old skill version", "fix": "Update skill or add manually" },
+      { "error": "No src.skill", "cause": "Skill not identified", "fix": "Add skill name to src" },
+      { "error": "Payload is string", "cause": "JSON not parsed", "fix": "Parse p as object" },
+      { "error": "Using verbose keys", "cause": "Pre-v2 format", "fix": "Use compact keys: s, ts, src, p" }
     ]
   }
 }

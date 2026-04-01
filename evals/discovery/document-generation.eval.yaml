@@ -21,14 +21,14 @@ evaluations:
     checks:
       # Verify signal envelope contains spec paths
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "DISCOVERY_COMPLETE"
       - signal_has:
-          field: "payload.spec_paths.prd"
+          field: "p.spec_paths.prd"
       - signal_has:
-          field: "payload.spec_paths.adr"
+          field: "p.spec_paths.adr"
       - signal_has:
-          field: "payload.spec_paths.technical_design"
+          field: "p.spec_paths.technical_design"
       # Check output mentions document creation
       - output_contains: "PRD"
       - output_contains: "ADR"

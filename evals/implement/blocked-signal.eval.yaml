@@ -53,10 +53,10 @@ evaluations:
     checks:
       # Check for blocked signal
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "IMPLEMENTATION_BLOCKED"
       - signal_has:
-          field: "payload.reason"
+          field: "p.reason"
       - output_contains: "blocked|dependency|missing"
 
   - type: llm_judge

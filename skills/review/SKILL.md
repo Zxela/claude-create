@@ -256,9 +256,9 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "summary", "score", "hard_gates", "verified"],
+  "required": ["s", "summary", "score", "hard_gates", "verified"],
   "properties": {
-    "signal": { "const": "APPROVED" },
+    "s": { "const": "APPROVED" },
     "summary": { "type": "string" },
     "score": { "type": "number", "minimum": 0.7, "maximum": 1.0, "description": "Tier 2 quality score (0.0-1.0). Must be >= 0.7 for approval." },
     "hard_gates": {
@@ -290,7 +290,7 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 
 ```json
 {
-  "signal": "APPROVED",
+  "s": "APPROVED",
   "summary": "User authentication service implemented with password hashing and session management",
   "score": 0.92,
   "hard_gates": { "tests": "pass", "types": "pass", "lint": "pass" },
@@ -317,9 +317,9 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "summary", "score", "hard_gates", "issues", "required_fixes"],
+  "required": ["s", "summary", "score", "hard_gates", "issues", "required_fixes"],
   "properties": {
-    "signal": { "const": "REJECTED" },
+    "s": { "const": "REJECTED" },
     "summary": { "type": "string" },
     "score": { "type": "number", "minimum": 0.0, "maximum": 0.69, "description": "Tier 2 quality score. < 0.7 triggers rejection. Omit if hard gate failed." },
     "hard_gates": {
@@ -356,7 +356,7 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 
 ```json
 {
-  "signal": "REJECTED",
+  "s": "REJECTED",
   "summary": "Implementation missing error handling and test coverage for edge cases",
   "score": 0.55,
   "hard_gates": { "tests": "pass", "types": "pass", "lint": "pass" },
@@ -416,7 +416,7 @@ Return this if input validation fails:
 
 ```json
 {
-  "signal": "VALIDATION_ERROR",
+  "s": "VALIDATION_ERROR",
   "error_type": "invalid_input",
   "errors": [
     {

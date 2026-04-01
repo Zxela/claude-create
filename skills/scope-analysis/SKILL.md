@@ -83,17 +83,16 @@ The scope-analyzer agent receives input from the `/create` or `/plan` command:
 
 ```json
 {
-  "signal": "SCOPE_ANALYSIS_COMPLETE",
-  "timestamp": "2026-02-27T10:30:00Z",
-  "source": { "skill": "homerun:scope-analysis" },
-  "payload": {
+  "s": "SCOPE_ANALYSIS_COMPLETE",
+  "ts": "2026-02-27T10:30:00Z",
+  "src": { "skill": "scope-analysis" },
+  "p": {
     "scope_file": "docs/scope-analysis.json",
     "components_count": 5,
     "acceptance_criteria_count": 12,
     "all_criteria_testable": true,
     "untestable_criteria": []
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 
@@ -374,17 +373,16 @@ Return the `SCOPE_ANALYSIS_COMPLETE` signal:
 
 ```json
 {
-  "signal": "SCOPE_ANALYSIS_COMPLETE",
-  "timestamp": "<ISO8601>",
-  "source": { "skill": "homerun:scope-analysis" },
-  "payload": {
+  "s": "SCOPE_ANALYSIS_COMPLETE",
+  "ts": "<ISO8601>",
+  "src": { "skill": "scope-analysis" },
+  "p": {
     "scope_file": "docs/scope-analysis.json",
     "components_count": N,
     "acceptance_criteria_count": N,
     "all_criteria_testable": true,
     "untestable_criteria": []
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 

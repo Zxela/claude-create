@@ -118,7 +118,7 @@ const taskModel = HAIKU_TYPES.includes(task.task_type) ? "haiku" : "sonnet";
 
 Task({
   description: `Implement [${task.id}] ${task.title}`,
-  subagent_type: "homerun:implementer",
+  subagent_type: "implementer",
   model: taskModel,
   isolation: "worktree",  // Only needed for parallel dispatch
   prompt: `Implement this task using TDD.
@@ -197,7 +197,7 @@ const canSkipHardGates = hardGates &&
 if (activeReviewers < 2) {
   Task({
     description: `Review [${task.id}] ${task.title}`,
-    subagent_type: "homerun:reviewer",
+    subagent_type: "reviewer",
     run_in_background: true,
     prompt: `Review this implementation against its specification.
 
@@ -242,7 +242,7 @@ When a reviewer emits `REJECTED`:
 2. Load feedback_patterns.json (updated by the post-implement hook)
 3. **Placeholder escalation check:** If >2 rejections for the same task (or across tasks) cite "incomplete", "vague", or "placeholder" in their reasons, the root cause is the AC — not the implementation. Do NOT retry the implementer. Instead:
    - Mark the task as "blocked" in tasks.json with reason "placeholder_ac"
-   - Escalate to re-decomposition: re-invoke `homerun:task-decomposition` for the affected task(s), providing the rejection feedback as context
+   - Escalate to re-decomposition: re-invoke `task-decomposition` for the affected task(s), providing the rejection feedback as context
    - Resume the dispatch loop only after decomposition produces concrete ACs
 4. Re-dispatch the implementer with:
    - The specific rejection issues from the reviewer
@@ -276,7 +276,7 @@ After all tasks complete (or are skipped):
 ```javascript
 Task({
   description: "Final quality check",
-  subagent_type: "homerun:quality-checker",
+  subagent_type: "quality-checker",
   prompt: `Run the 5-phase quality pipeline.
 
   Worktree: ${worktreePath}

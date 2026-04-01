@@ -159,9 +159,9 @@ Implementers fill in test bodies during TDD cycle."
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "skeletons_generated", "coverage"],
+  "required": ["s", "skeletons_generated", "coverage"],
   "properties": {
-    "signal": { "const": "TEST_SKELETONS_COMPLETE" },
+    "s": { "const": "TEST_SKELETONS_COMPLETE" },
     "skeletons_generated": { "type": "integer" },
     "test_files_created": {
       "type": "array",

@@ -19,10 +19,10 @@ evaluations:
     checks:
       # Verify signal and DAG validation
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "PLANNING_COMPLETE"
       - signal_has:
-          field: "payload.dependency_graph_valid"
+          field: "p.dependency_graph_valid"
           pattern: "true"
       - output_contains: "depends_on"
 

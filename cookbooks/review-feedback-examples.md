@@ -8,10 +8,10 @@ Reference examples for review skill approval/rejection patterns.
 
 ```json
 {
-  "signal": "APPROVED",
-  "timestamp": "2026-01-25T11:15:00Z",
-  "source": { "skill": "homerun:review", "task_id": "001" },
-  "payload": {
+  "s": "APPROVED",
+  "ts": "2026-01-25T11:15:00Z",
+  "src": { "skill": "review", "task_id": "001" },
+  "p": {
     "summary": "User model created with proper validation and password hashing",
     "verified": [
       {
@@ -27,8 +27,7 @@ Reference examples for review skill approval/rejection patterns.
         "test_file": "tests/models/user.test.ts:25"
       }
     ]
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 
@@ -36,10 +35,10 @@ Reference examples for review skill approval/rejection patterns.
 
 ```json
 {
-  "signal": "APPROVED",
-  "timestamp": "2026-01-25T11:15:00Z",
-  "source": { "skill": "homerun:review", "task_id": "003" },
-  "payload": {
+  "s": "APPROVED",
+  "ts": "2026-01-25T11:15:00Z",
+  "src": { "skill": "review", "task_id": "003" },
+  "p": {
     "summary": "Authentication middleware implemented correctly",
     "verified": [
       {
@@ -50,8 +49,7 @@ Reference examples for review skill approval/rejection patterns.
       }
     ],
     "notes": "Consider adding rate limiting in future iteration (not in scope)"
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 
@@ -63,10 +61,10 @@ Reference examples for review skill approval/rejection patterns.
 
 ```json
 {
-  "signal": "REJECTED",
-  "timestamp": "2026-01-25T11:15:00Z",
-  "source": { "skill": "homerun:review", "task_id": "002" },
-  "payload": {
+  "s": "REJECTED",
+  "ts": "2026-01-25T11:15:00Z",
+  "src": { "skill": "review", "task_id": "002" },
+  "p": {
     "summary": "Implementation works but test coverage incomplete",
     "issues": [
       {
@@ -79,8 +77,7 @@ Reference examples for review skill approval/rejection patterns.
     "required_fixes": [
       "Add test case: expect(validateEmail('')).toBe(false)"
     ]
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 
@@ -88,10 +85,10 @@ Reference examples for review skill approval/rejection patterns.
 
 ```json
 {
-  "signal": "REJECTED",
-  "timestamp": "2026-01-25T11:15:00Z",
-  "source": { "skill": "homerun:review", "task_id": "004" },
-  "payload": {
+  "s": "REJECTED",
+  "ts": "2026-01-25T11:15:00Z",
+  "src": { "skill": "review", "task_id": "004" },
+  "p": {
     "summary": "Password comparison has subtle bug",
     "issues": [
       {
@@ -106,8 +103,7 @@ Reference examples for review skill approval/rejection patterns.
       "Replace password === hash with crypto.timingSafeEqual()",
       "Import timingSafeEqual from 'crypto' module"
     ]
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 
@@ -115,10 +111,10 @@ Reference examples for review skill approval/rejection patterns.
 
 ```json
 {
-  "signal": "REJECTED",
-  "timestamp": "2026-01-25T11:15:00Z",
-  "source": { "skill": "homerun:review", "task_id": "005" },
-  "payload": {
+  "s": "REJECTED",
+  "ts": "2026-01-25T11:15:00Z",
+  "src": { "skill": "review", "task_id": "005" },
+  "p": {
     "summary": "Critical: SQL injection vulnerability in query",
     "issues": [
       {
@@ -133,8 +129,7 @@ Reference examples for review skill approval/rejection patterns.
       "Use parameterized query: db.query('SELECT * FROM users WHERE id = $1', [userId])",
       "Never interpolate user input directly into SQL strings"
     ]
-  },
-  "envelope_version": "1.0.0"
+  }
 }
 ```
 
@@ -148,8 +143,8 @@ Reviewers should NOT partially approve. If any criterion fails, REJECT:
 
 ```json
 {
-  "signal": "REJECTED",
-  "payload": {
+  "s": "REJECTED",
+  "p": {
     "summary": "AC-001 and AC-002 pass, but AC-003 missing implementation",
     "issues": [
       {
@@ -166,8 +161,8 @@ Reviewers should NOT partially approve. If any criterion fails, REJECT:
 
 ```json
 {
-  "signal": "REJECTED",
-  "payload": {
+  "s": "REJECTED",
+  "p": {
     "summary": "Multiple issues found during review",
     "issues": [
       {

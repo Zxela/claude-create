@@ -196,9 +196,9 @@ If new issues introduced by auto-fixes, revert auto-fixes and report as `needs_m
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "verdict", "phases"],
+  "required": ["s", "verdict", "phases"],
   "properties": {
-    "signal": { "const": "QUALITY_CHECK_COMPLETE" },
+    "s": { "const": "QUALITY_CHECK_COMPLETE" },
     "verdict": { "enum": ["pass", "pass_with_fixes", "fail"] },
     "phases": {
       "type": "object",
@@ -250,7 +250,7 @@ If new issues introduced by auto-fixes, revert auto-fixes and report as `needs_m
 
 ```json
 {
-  "signal": "QUALITY_CHECK_COMPLETE",
+  "s": "QUALITY_CHECK_COMPLETE",
   "verdict": "pass",
   "phases": {
     "lint": { "status": "pass", "issues_found": 0, "issues_fixed": 0 },
@@ -268,7 +268,7 @@ If new issues introduced by auto-fixes, revert auto-fixes and report as `needs_m
 
 ```json
 {
-  "signal": "QUALITY_CHECK_COMPLETE",
+  "s": "QUALITY_CHECK_COMPLETE",
   "verdict": "pass_with_fixes",
   "phases": {
     "lint": { "status": "fixed", "issues_found": 3, "issues_fixed": 3 },

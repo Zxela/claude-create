@@ -50,7 +50,7 @@ evaluations:
     checks:
       # Verify signal type - payload field names may vary so LLM judge handles details
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "IMPLEMENTATION_COMPLETE"
       - output_contains: "files"
 

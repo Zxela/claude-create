@@ -181,9 +181,9 @@ curl -X GET http://localhost:3000/api/profile \
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "walkthroughs"],
+  "required": ["s", "walkthroughs"],
   "properties": {
-    "signal": { "const": "WALKTHROUGH_COMPLETE" },
+    "s": { "const": "WALKTHROUGH_COMPLETE" },
     "walkthroughs": {
       "type": "array",
       "items": {

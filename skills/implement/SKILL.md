@@ -173,7 +173,7 @@ If validation fails, output a `VALIDATION_ERROR` signal (see Output Schema).
 
 ```json
 {
-  "signal": "VALIDATION_ERROR",
+  "s": "VALIDATION_ERROR",
   "error_type": "semantic_error",
   "errors": [
     {
@@ -301,7 +301,7 @@ Evaluate whether similar functionality already exists using the grep results fro
 **If high duplication detected (3+ real matches, same semantics):**
 ```json
 {
-  "signal": "IMPLEMENTATION_BLOCKED",
+  "s": "IMPLEMENTATION_BLOCKED",
   "reason": "Similar function already exists",
   "blocker_type": "duplication_detected",
   "details": [
@@ -487,7 +487,7 @@ This step catches tautological tests — tests that pass regardless of whether t
    - If test **PASSES** (bad) → Test is tautological. Restore the line and emit:
      ```json
      {
-       "signal": "IMPLEMENTATION_BLOCKED",
+       "s": "IMPLEMENTATION_BLOCKED",
        "reason": "Test passes without implementation — tautological test detected",
        "blocker_type": "tautological_test",
        "details": [
@@ -611,7 +611,7 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 
 ```json
 {
-  "signal": "IMPLEMENTATION_COMPLETE",
+  "s": "IMPLEMENTATION_COMPLETE",
   "files_changed": ["src/models/user.ts", "src/services/auth.ts"],
   "test_file": "tests/services/auth.test.ts",
   "commit_hash": "abc1234",
@@ -658,7 +658,7 @@ All output MUST be valid JSON wrapped in a code block with language `json`.
 
 ```json
 {
-  "signal": "IMPLEMENTATION_BLOCKED",
+  "s": "IMPLEMENTATION_BLOCKED",
   "reason": "Cannot find the User model referenced in TECHNICAL_DESIGN.md",
   "blocker_type": "missing_dependency",
   "details": [
@@ -714,7 +714,7 @@ Emitted when the self-review checklist (Step 5.6) finds issues. The implementer 
 
 ```json
 {
-  "signal": "NEEDS_REWORK",
+  "s": "NEEDS_REWORK",
   "findings": [
     {
       "check": "placeholder_scan",
@@ -764,7 +764,7 @@ Return this if input validation fails:
 
 ```json
 {
-  "signal": "VALIDATION_ERROR",
+  "s": "VALIDATION_ERROR",
   "error_type": "invalid_input",
   "errors": [
     {
@@ -862,7 +862,7 @@ Every completed task MUST attempt verification levels in strict order: L1 first,
 Include the verification level and attempted levels in the completion signal:
 ```json
 {
-  "signal": "IMPLEMENTATION_COMPLETE",
+  "s": "IMPLEMENTATION_COMPLETE",
   "verification_level": "L2",
   "verification_attempted": ["L1", "L2"],
   "verification_details": "L1 attempted — no dev server in worktree, could not exercise endpoint. L2 achieved — all 3 acceptance criteria have passing unit tests."
@@ -872,7 +872,7 @@ Include the verification level and attempted levels in the completion signal:
 If only L3 was achieved:
 ```json
 {
-  "signal": "IMPLEMENTATION_COMPLETE",
+  "s": "IMPLEMENTATION_COMPLETE",
   "verification_level": "L3",
   "verification_attempted": ["L1", "L2", "L3"],
   "verification_details": "L1 not possible — config-only change with no UI surface. L2 not possible — no test runner configured in project. L3 achieved — build exits 0."

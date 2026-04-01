@@ -30,8 +30,8 @@ input:
 
     ```json
     {
-      "signal": "PLANNING_COMPLETE",
-      "payload": {
+      "s": "PLANNING_COMPLETE",
+      "p": {
         "tasks_count": <number>,
         "dependency_graph_valid": true
       }
@@ -45,7 +45,7 @@ evaluations:
   - type: behavioral
     checks:
       - signal_has:
-          field: "signal"
+          field: "s"
           pattern: "PLANNING_COMPLETE"
       - output_contains: "task"
 
@@ -55,7 +55,7 @@ evaluations:
     rubric: |
       Check for valid PLANNING_COMPLETE signal and task decomposition:
 
-      1. Has "signal": "PLANNING_COMPLETE" in JSON output (0-3)
+      1. Has "s": "PLANNING_COMPLETE" in JSON output (0-3)
       2. Tasks are commit-sized and have dependencies (0-3)
       3. Acceptance criteria coverage — all 6 ACs mapped to tasks (0-2)
       4. Foundation tasks (model/setup) come before feature tasks (0-2)

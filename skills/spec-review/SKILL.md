@@ -240,9 +240,9 @@ Produce a structured review with severity levels:
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["signal", "verdict", "issues"],
+  "required": ["s", "verdict", "issues"],
   "properties": {
-    "signal": { "const": "SPEC_REVIEW_COMPLETE" },
+    "s": { "const": "SPEC_REVIEW_COMPLETE" },
     "verdict": { "enum": ["approved", "approved_with_scope_warning", "needs_revision"] },
     "issues": {
       "type": "object",
@@ -274,7 +274,7 @@ Produce a structured review with severity levels:
 
 ```json
 {
-  "signal": "SPEC_REVIEW_COMPLETE",
+  "s": "SPEC_REVIEW_COMPLETE",
   "verdict": "approved",
   "issues": { "high": 0, "medium": 1, "low": 2 },
   "details": [
@@ -293,7 +293,7 @@ Produce a structured review with severity levels:
 
 ```json
 {
-  "signal": "SPEC_REVIEW_COMPLETE",
+  "s": "SPEC_REVIEW_COMPLETE",
   "verdict": "needs_revision",
   "issues": { "high": 2, "medium": 1, "low": 0 },
   "details": [

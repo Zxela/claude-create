@@ -126,7 +126,7 @@ When task decomposition completes, output a JSON signal:
 
 ```json
 {
-  "signal": "PLANNING_COMPLETE",
+  "s": "PLANNING_COMPLETE",
   "tasks_count": 8,
   "tasks_file": "docs/tasks.json",
   "tasks": [
@@ -258,7 +258,7 @@ Every acceptance criterion written into tasks.json MUST be concrete and implemen
 
 ```json
 {
-  "signal": "VALIDATION_ERROR",
+  "s": "VALIDATION_ERROR",
   "error_type": "semantic_error",
   "errors": [
     {
@@ -717,10 +717,10 @@ jq '.phase = "implementing" | .tasks_file = "docs/tasks.json"' state.json > tmp.
 
    ```json
    {
-     "signal": "PLANNING_COMPLETE",
-     "timestamp": "<ISO8601>",
-     "source": { "skill": "homerun:task-decomposition" },
-     "payload": {
+     "s": "PLANNING_COMPLETE",
+     "ts": "<ISO8601>",
+     "src": { "skill": "task-decomposition" },
+     "p": {
        "tasks_count": N,
        "tasks_file": "docs/tasks.json",
        "dependency_graph_valid": true,
@@ -728,8 +728,7 @@ jq '.phase = "implementing" | .tasks_file = "docs/tasks.json"' state.json > tmp.
          "user_stories": N,
          "acceptance_criteria": N
        }
-     },
-     "envelope_version": "1.0.0"
+     }
    }
    ```
 
