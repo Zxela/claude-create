@@ -103,11 +103,15 @@ mkdir -p "${WORKTREE_PATH}/docs"
 
 Templates: `templates/*.md`. Generate only scale-appropriate documents.
 
+**Template selection by scale:**
+- **Small (1-2 files):** Use `templates/TECHNICAL_DESIGN_small.md` — focused template with: Overview, What to Change, Data Models, API Contracts, Testing Strategy, Change Impact Map.
+- **Medium/Large (3+ files):** Use `templates/TECHNICAL_DESIGN.md` — full template with all sections.
+
 **Strict boundaries:** PRD = business value only | ADR = decision rationale only | TECHNICAL_DESIGN = implementation only | WIREFRAMES = UI only (skip for CLI/API/library). Cross-reference, don't duplicate.
 
 **Requirements:** FRs in PRD (MoSCoW priority, EARS-format ACs). NFRs: quantified targets in PRD, implementation in TECHNICAL_DESIGN. Omit categories without measurable targets.
 
-**Quality:** Ground in codebase (real files/patterns). ACs must be testable. Non-scope explicit in TECHNICAL_DESIGN with Change Impact Map (direct/indirect/unaffected). Right-size detail — no boilerplate. Omit inapplicable sections entirely.
+**Quality:** Ground in codebase (real files/patterns). ACs must be testable. Non-scope explicit in TECHNICAL_DESIGN with Change Impact Map (direct/indirect/unaffected). Small features use `TECHNICAL_DESIGN_small.md`; large features get full document set. No boilerplate. Omit inapplicable sections entirely.
 
 Write documents to `$HOMERUN_DOCS_DIR/`.
 

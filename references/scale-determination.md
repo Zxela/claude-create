@@ -77,12 +77,13 @@ Generate an ADR **regardless of scale** if ANY of these apply:
 
 ### Small (1-2 files)
 
-**TECHNICAL_DESIGN only** (simplified):
+**TECHNICAL_DESIGN only** — use the dedicated small-scale template (`templates/TECHNICAL_DESIGN_small.md`):
 - What to change and where (file paths + line ranges)
 - Data model changes (if any)
+- API contracts (if any)
 - Test strategy (which tests to add/modify)
-- No architecture overview needed
-- No API contracts section needed
+- Change impact map
+- No architecture overview, dependencies, NFRs, migration/rollback, or observability sections
 
 Skip: PRD (change is obvious), ADR (no architectural decision), WIREFRAMES
 
