@@ -7,17 +7,13 @@ color: cyan
 
 # Scope Analysis Skill
 
-## Reference Materials
+## References
 
-- Model routing: `references/model-routing.json`
-- Signal contracts: `references/signal-contracts.json`
-- Agent handoff patterns: `references/context-engineering.md`
+`references/model-routing.json` · `references/signal-contracts.json` · `references/context-engineering.md`
 
 ## Overview
 
-Read specification documents and extract a structured scope analysis for the task-decomposer. This skill handles the mechanical work of spec reading: component extraction, AC validation, JIT context ref creation, and dependency mapping. The output is a condensed `docs/scope-analysis.json` that the task-decomposer uses as its primary input.
-
-**Model Selection:** This skill runs on **sonnet** because the work is mechanical — reading, extracting, and validating patterns. No judgment calls about decomposition or task sizing.
+Mechanical spec reading → structured scope analysis for task-decomposer. Extracts components, validates ACs, creates JIT context refs, maps dependencies. Output: `docs/scope-analysis.json`. **Model: sonnet** (mechanical extraction, no judgment).
 
 ---
 
@@ -215,117 +211,18 @@ Classify each component by layer:
 - `api` — Routes, endpoints, controllers
 - `ui` — Components, pages, layouts
 
-### 3. Validate Acceptance Criteria Testability
+### 3. Validate AC Testability
 
-For each acceptance criterion from the PRD, check testability patterns:
+Check each AC against EARS patterns: When/While/If/The system shall, quantitative thresholds, legacy Given/When/Then. Reject: adjective-only, vague outcomes, no thresholds, passive voice, missing "shall". Mark untestable ACs.
 
-#### EARS Format Recognition
+### 4. Generate Test Assertion Templates
+Map each valid AC → test assertion template (e.g., "API returns X" → `expect(response.body).toEqual(X)`).
 
-Acceptance criteria MUST use EARS (Easy Approach to Requirements Syntax). Validate against these patterns:
+### 5. Create JIT Context Refs
+Per component: interface_locations (file:section), pattern_files (discover via grep in src/), grep_patterns, constraints_section (ADR/TECHNICAL_DESIGN reference).
 
-| EARS Pattern | Regex | Example |
-|--------------|-------|---------|
-| Event-driven | `^When .+, the system shall` | "When user submits invalid email, the system shall display error" |
-| State-driven | `^While .+, the system shall` | "While unauthenticated, the system shall redirect to /login" |
-| Conditional | `^If .+, then the system shall` | "If token is expired, then the system shall return 401" |
-| Unconditional | `^The system shall` | "The system shall hash passwords using bcrypt" |
-| Quantitative | `shall .+ (within\|under\|less than\|<) [0-9]` | "The API shall respond within 200ms at p95" |
-| Legacy behavioral | `(Given\|When\|Then)` | "Given a user, when they log in, then session is created" |
-
-**Note:** Legacy Given/When/Then is accepted but EARS is preferred for new criteria.
-
-#### Invalid Patterns to Reject
-
-| Pattern | Example | Problem |
-|---------|---------|---------|
-| Adjective-only | "should be user-friendly" | No observable outcome |
-| Vague outcome | "should work correctly" | "correctly" is undefined |
-| No threshold | "must be fast" | No measurable target |
-| Passive/vague | "errors are handled" | What handling? |
-| Missing "shall" | "the system returns 200" | No obligation keyword — ambiguous intent |
-
-#### Validation Process
-
-```bash
-cd "$WORKTREE_PATH"
-
-# Extract all acceptance criteria from PRD
-CRITERIA_FILE=$(mktemp)
-grep -E "^\s*-\s*\[" "$PRD_PATH" > "$CRITERIA_FILE"
-
-# Check each criterion for testable patterns
-while read -r line; do
-  criterion=$(echo "$line" | sed 's/^[^]]*\] *//')
-
-  if echo "$criterion" | grep -qE "(Given|When|Then)"; then
-    pattern="behavioral"
-  elif echo "$criterion" | grep -qE "(should|must|can|will) [a-z]+ [a-z]+"; then
-    pattern="assertion"
-  elif echo "$criterion" | grep -qE "[<>=≤≥] ?[0-9]"; then
-    pattern="quantitative"
-  else
-    echo "UNTESTABLE: $criterion"
-    pattern="invalid"
-  fi
-done < "$CRITERIA_FILE"
-rm -f "$CRITERIA_FILE"
-```
-
-### 4. Transform ACs to Test Assertion Templates
-
-For each valid criterion, generate a corresponding test assertion template:
-
-| Criterion Pattern | Test Assertion Template |
-|-------------------|------------------------|
-| "User must see X" | `expect(screen.getByText('X')).toBeVisible()` |
-| "API returns X" | `expect(response.body).toEqual(X)` |
-| "X < N" | `expect(X).toBeLessThan(N)` |
-| "Given A, when B, then C" | `describe('given A', () => { it('when B, should C', ...) })` |
-
-### 5. Create JIT Context References
-
-For each component identified in Step 2, create JIT context references:
-
-| Field | What to Provide | Example |
-|-------|----------------|---------|
-| `interface_locations` | File paths + section names for relevant types/interfaces | `["src/models/user.ts:User interface", "TECHNICAL_DESIGN.md:## Data Model"]` |
-| `pattern_files` | Paths to existing implementations showing the pattern to follow | `["src/services/base.ts"]` |
-| `grep_patterns` | Grep patterns to discover related code at runtime | `["export class.*Service", "interface Auth"]` |
-| `constraints_section` | Section reference in ADR/TECHNICAL_DESIGN for constraints | `"ADR.md:## Decision 1"` |
-
-Discover pattern files and interfaces from the codebase:
-
-```bash
-cd "$WORKTREE_PATH"
-
-# Find existing service patterns
-find src/ -name "*.ts" -o -name "*.js" | head -20
-
-# Find existing model patterns
-grep -rn "export class\|export interface\|export type" src/ --include="*.ts" | head -20
-
-# Find existing test patterns
-ls tests/ 2>/dev/null || ls __tests__/ 2>/dev/null || echo "No test directory found"
-```
-
-### 6. Extract Non-Scope and Change Impact Map
-
-From TECHNICAL_DESIGN.md:
-
-```bash
-# Extract non-scope section
-grep -A 20 "## Non.Scope\|## Out of Scope\|## Exclusions" "$TECH_DESIGN_PATH"
-
-# Extract change impact
-grep -A 20 "## Impact\|## Affected" "$TECH_DESIGN_PATH"
-```
-
-### 7. Extract Traceability from State
-
-```bash
-# Extract traceability links from state.json
-jq '.traceability // {}' state.json
-```
+### 6. Extract Non-Scope & Change Impact Map
+From TECHNICAL_DESIGN: non-scope/exclusions section + impact/affected sections. Extract traceability from state.json.
 
 ### 8. Write scope-analysis.json
 
@@ -394,14 +291,6 @@ Return the `SCOPE_ANALYSIS_COMPLETE` signal:
 
 ## Exit Criteria
 
-- [ ] All spec documents read and analyzed
-- [ ] Components extracted with layer classification
-- [ ] Data models, API contracts, and dependencies extracted
-- [ ] All acceptance criteria validated for testability
-- [ ] Test assertion templates generated for valid criteria
-- [ ] JIT context refs created per component (interface locations, pattern files, grep patterns)
-- [ ] Non-scope boundaries and change impact map extracted
-- [ ] Traceability links preserved from state.json
-- [ ] `docs/scope-analysis.json` written and committed
-- [ ] `state.json` phase updated to `"task_decomposition"`
-- [ ] `SCOPE_ANALYSIS_COMPLETE` signal emitted
+- [ ] Specs read; components/models/contracts/deps extracted; ACs validated with test templates
+- [ ] JIT context refs created; non-scope + impact map extracted; traceability preserved
+- [ ] `docs/scope-analysis.json` committed; phase → `task_decomposition`; signal emitted
