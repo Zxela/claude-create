@@ -228,17 +228,24 @@ while (pendingTasks > 0 || activeImplementers > 0 || activeReviewers > 0):
 After all tasks complete (or are skipped):
 
 ```javascript
+// Determine session tier: if ALL tasks were haiku-type, tier = "haiku". Otherwise "sonnet".
+const HAIKU_TYPES = ["add_field", "add_method", "add_validation", "rename_refactor", "add_test", "add_config", "add_endpoint"];
+const sessionTier = completedTasks.every(t => HAIKU_TYPES.includes(t.task_type)) ? "haiku" : "sonnet";
+
 Task({
   description: "Final quality check",
   subagent_type: "homerun:quality-checker",
-  prompt: `Run the 5-phase quality pipeline.
+  prompt: `Run the quality pipeline.
 
   Worktree: ${worktreePath}
   Files changed: ${allChangedFiles}
   Fix mode: auto
+  Tier: ${sessionTier}
 
-  Run lint, type checks, structural review, tests, and final recheck.
-  Auto-fix issues where possible.`
+  ${sessionTier === "haiku"
+    ? "Haiku-tier session: run lint, type checks, and tests only. Skip structural review (Phase 3) and LLM auto-fix."
+    : "Run lint, type checks, structural review, tests, and final recheck. Auto-fix issues where possible."
+  }`
 });
 ```
 

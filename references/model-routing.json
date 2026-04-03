@@ -19,7 +19,12 @@
       "decomposable": false,
       "default_methodology": "direct",
       "methodology_note": "Simple tasks use direct+tests, not full TDD cycle",
-      "skip_step_0": true
+      "skip_step_0": true,
+      "quality_gate": {
+        "skip_structural_review": true,
+        "skip_llm_autofix": true,
+        "note": "Deterministic checks only (lint, types, tests). LLM phases have low signal-to-cost ratio for mechanical tasks."
+      }
     },
     "sonnet": {
       "task_types": [
@@ -56,7 +61,7 @@
     "test_skeletons": "sonnet",
     "team_lead": "sonnet",
     "reviewer": "sonnet",
-    "quality_check": "sonnet",
+    "quality_check": "sonnet (haiku-tier sessions: LLM phases skipped, no model cost)",
     "diagnose": "sonnet",
     "reverse_engineer": "opus",
     "walkthrough": "sonnet"
