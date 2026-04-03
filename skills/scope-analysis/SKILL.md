@@ -249,7 +249,7 @@ cat > docs/scope-analysis.json << 'SCOPE_EOF'
 SCOPE_EOF
 ```
 
-### 9. Update State and Commit
+### 8. Update State and Commit
 
 ```bash
 cd "$WORKTREE_PATH"
@@ -265,7 +265,7 @@ Components: N, Acceptance Criteria: N
 All criteria testable: yes/no"
 ```
 
-### 10. Emit Signal
+### 9. Emit Signal
 
 Return the `SCOPE_ANALYSIS_COMPLETE` signal:
 
