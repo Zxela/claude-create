@@ -11,8 +11,8 @@ SMALL-SCALE TEMPLATE (1-2 files)
 Focused subset of the full TECHNICAL_DESIGN template for small features.
 Omits: Architecture diagrams, Dependencies, NFRs, Migration/Rollback,
        Observability, Error Handling (overkill at this scale).
-INCLUDES: Overview, what to change, data models, testing strategy,
-          change impact, agreement checklist
+INCLUDES: Overview, what to change, data models, API contracts,
+          testing strategy, change impact, agreement checklist
 EXCLUDES: Business motivation, user stories (-> PRD)
           Decision rationale, option comparisons (-> ADR)
 -->
