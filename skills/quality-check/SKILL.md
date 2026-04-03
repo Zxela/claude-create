@@ -7,21 +7,13 @@ color: teal
 
 # Quality Check Skill
 
-## Reference Materials
+## References
 
-- Signal contracts: `references/signal-contracts.json`
-- Context patterns: `references/context-engineering.md`
-- Sequential zero-error gate model: `references/quality-gates.md`
+`references/signal-contracts.json` · `references/context-engineering.md` · `references/quality-gates.md`
 
 ## Overview
 
-You are a **quality assurance agent**. Your job: run a structured 5-phase quality pipeline on changed files and fix issues autonomously. This skill complements the `review` skill — review checks spec compliance, quality-check validates code health.
-
-The team-lead can invoke this after review approval or as a standalone gate before completion.
-
-**Model Selection:** Sonnet — quality checks require judgment for fixes but not deep reasoning.
-
-**Context Budget:** Target < 15K tokens.
+5-phase quality pipeline on changed files. Complements review (spec compliance) with code health validation. Invoked after review approval or as standalone gate. **Model: sonnet. Budget: < 15K tokens.**
 
 ---
 
@@ -64,127 +56,23 @@ The team-lead can invoke this after review approval or as a standalone gate befo
 
 ## Process
 
-### Phase 1: Lint & Format (HOOK — handled by `homerun-quality-lint.sh`)
+### Phase 1-2: Lint & Types (HOOKS — zero LLM cost)
 
-**Git hook detection:** Before running, check if a git hook framework (husky, pre-commit, custom) already enforces lint. If so, skip this phase with `"skipped_by_hooks"` status — the git hooks already guarantee lint compliance at commit time.
+Handled by `scripts/homerun-quality-lint.sh` and `scripts/homerun-quality-typecheck.sh`. Skip with `skipped_by_hooks` if git hooks (husky/pre-commit) already enforce. Agent reads exit codes only.
 
-```bash
-# Only skip if hooks are verifiably enforcing lint:
-# - husky: dir exists AND husky in devDependencies AND pre-commit hook is executable
-# - pre-commit: config exists AND .git/hooks/pre-commit links to pre-commit framework
-# - custom: hook is executable and contains lint/format commands
-LINT_STATUS=""
-if [ -d "$WORKTREE_PATH/.husky" ] && [ -x "$WORKTREE_PATH/.husky/pre-commit" ] && grep -q '"husky"' "$WORKTREE_PATH/package.json" 2>/dev/null; then
-  LINT_STATUS="skipped_by_hooks"
-elif [ -f "$WORKTREE_PATH/.pre-commit-config.yaml" ] && [ -x "$WORKTREE_PATH/.git/hooks/pre-commit" ] && grep -q "pre-commit" "$WORKTREE_PATH/.git/hooks/pre-commit" 2>/dev/null; then
-  LINT_STATUS="skipped_by_hooks"
-fi
-# When in doubt, don't skip — better to lint twice than miss a violation
-```
+### Phase 3: Structural Review (LLM — only phase requiring judgment)
 
-**If no git hooks enforce lint:** This phase is handled by the standalone hook script `scripts/homerun-quality-lint.sh`. The hook runs automatically as part of the quality gate pipeline. If running quality-check manually, execute the hook first:
+Review changed files for: unused imports, dead code, debug artifacts (console.log, debugger), naming consistency, file organization. Grep for artifacts first.
 
-```bash
-bash "$PLUGIN_ROOT/scripts/homerun-quality-lint.sh"
-LINT_EXIT=$?
-```
+**Blocking** (fail): debug artifacts, genuine dead code. **Advisory** (pass): naming, organization, benign TODOs.
 
-The quality-checker agent does NOT run lint — it reads the hook's exit code and reports the result.
+### Phase 4: Tests (DETERMINISTIC)
 
-### Phase 2: Type Checking (HOOK — handled by `homerun-quality-typecheck.sh`)
+Run test suite, check exit code. If fail + fix_mode=auto → attempt fix (max 2). Still failing → report unresolved.
 
-**Git hook detection:** Same as Phase 1 — if git hooks already enforce type checking, skip with `"skipped_by_hooks"` status.
+### Phase 5: Final Recheck (DETERMINISTIC)
 
-**If no git hooks enforce types:** This phase is handled by the standalone hook script `scripts/homerun-quality-typecheck.sh`. Execute before quality-check if running manually:
-
-```bash
-bash "$PLUGIN_ROOT/scripts/homerun-quality-typecheck.sh"
-TYPE_EXIT=$?
-```
-
-The quality-checker agent does NOT run type checking — it reads the hook's exit code and reports the result.
-
-### Phase 3: Structural Review (LLM JUDGMENT — this is where you add value)
-
-This is the ONLY phase that requires LLM reasoning. The other phases are deterministic CLI checks.
-
-Review changed files for:
-
-1. **Unused imports** — imports not referenced in the file body
-2. **Dead code** — functions, variables, or classes that are defined but never used
-3. **Debug artifacts** — `console.log`, `debugger`, `TODO`/`FIXME` comments left behind
-4. **Naming consistency** — do new names follow the existing codebase conventions?
-5. **File organization** — are new files in the right directories?
-
-```bash
-cd "$WORKTREE_PATH"
-
-for file in "${FILES[@]}"; do
-  # Quick checks the LLM can interpret
-  if [[ "$file" =~ \.(ts|tsx|js|jsx)$ ]]; then
-    echo "=== $file ==="
-    grep -n "console\.\(log\|debug\|warn\)" "$file" | head -5
-    grep -n "debugger" "$file" | head -5
-    grep -n "TODO\|FIXME\|HACK\|XXX" "$file" | head -5
-  fi
-done
-```
-
-#### Severity Tiers
-
-Classify each structural finding as **blocking** or **advisory**:
-
-**Blocking** (affects verdict):
-- Debug artifacts (`console.log`, `debugger`) — these would reach production
-- Genuine dead code (functions/variables defined but never called anywhere)
-
-**Advisory** (reported but don't block pass):
-- Naming consistency — follows conventions but non-standard
-- File organization — could be better but functional
-- Benign TODO/FIXME — tracked work items, not forgotten debug code
-
-Advisory-only findings result in `pass` (not `fail`). Only blocking findings cause `fail`.
-
-### Phase 4: Tests (DETERMINISTIC — no LLM judgment)
-
-```bash
-cd "$WORKTREE_PATH"
-
-# Run full test suite and check exit code (use mktemp to avoid cross-session collisions)
-if [ -f package.json ]; then
-  TEST_OUT=$(mktemp)
-  npm test 2>&1 | tee "$TEST_OUT"
-  TEST_EXIT=$?
-  echo "Exit code: $TEST_EXIT"
-  grep -A 2 'FAIL' "$TEST_OUT" | head -20
-  rm -f "$TEST_OUT"
-elif [ -f Cargo.toml ]; then
-  cargo test 2>&1 | tail -30
-  TEST_EXIT=$?
-elif [ -f pyproject.toml ]; then
-  pytest 2>&1 | tail -30
-  TEST_EXIT=$?
-fi
-
-# Result: TEST_EXIT == 0 means pass. No LLM analysis needed.
-```
-
-**If tests fail and fix_mode=auto:** Attempt to fix failing tests (max 2 attempts). This requires LLM judgment.
-**If tests still fail after 2 attempts:** Report as unresolved.
-
-### Phase 5: Final Recheck (DETERMINISTIC — no LLM judgment)
-
-After all auto-fixes, re-run deterministic checks to confirm no regressions:
-
-```bash
-cd "$WORKTREE_PATH"
-
-# Re-run phases 1 and 2
-npx tsc --noEmit 2>&1 | grep "error" | wc -l
-npm test 2>&1 | grep -E "Tests:.*failed" || echo "All tests pass"
-```
-
-If new issues introduced by auto-fixes, revert auto-fixes and report as `needs_manual_fix`.
+Re-run phases 1-2 after auto-fixes. New issues from fixes → revert, report `needs_manual_fix`.
 
 ---
 
@@ -307,20 +195,7 @@ When verdict is `fail`:
 
 ## Exit Criteria
 
-- [ ] All 5 phases executed (or skipped with reason)
-- [ ] Auto-fixes applied where possible (if fix_mode=auto)
-- [ ] Recheck confirms no regressions from fixes
-- [ ] Verdict determined
-- [ ] Signal emitted with phase-by-phase results
+- [ ] All 5 phases executed/skipped; auto-fixes applied; recheck passed; verdict + signal emitted
 
----
-
-## Context Budget
-
-| Component | Budget | Strategy |
-|-----------|--------|----------|
-| Input + file reads | ~3K | Changed files only |
-| Phase execution | ~6K | Command output masked (tail -20) |
-| Auto-fixes | ~3K | Targeted changes only |
-| Report | ~1K | Structured output |
-| **Buffer** | ~2K | Retries |
+## Context Budget: ~15K
+Input ~3K | Execution ~6K | Fixes ~3K | Report ~1K | Buffer ~2K

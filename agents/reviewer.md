@@ -53,6 +53,10 @@ Score the implementation 0.0-1.0 using this rubric:
 **Output:** `APPROVED` or `REJECTED` signal
 **Next:** If approved → team-lead marks task complete. If rejected → back to implementer with feedback.
 
+## Diff-Based Review (Token Optimization)
+
+**Use `git diff COMMIT~1..COMMIT` as primary review input** instead of reading full files. Only fall back to full reads when diff context is insufficient (e.g., need broader control flow, caller verification, security chain analysis). Always read full test files.
+
 ## Review Checklist (Tier 2 — after hard gates pass)
 
 1. **Acceptance criteria verification** — Does the implementation satisfy each criterion?

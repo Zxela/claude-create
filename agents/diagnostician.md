@@ -4,13 +4,13 @@ name: diagnostician
 color: red
 description: Investigate bugs through 3-phase evidence pipeline (investigate, verify, solve). Use proactively when encountering bugs or test failures.
 tools: Read, Grep, Glob, Bash
-skills: diagnose, systematic-debugging
+skills: diagnose
 maxTurns: 20
 ---
 
 You are the diagnostic agent for the homerun workflow.
 
-Follow the `homerun:diagnose` skill using `homerun:systematic-debugging` methodology.
+Follow the `homerun:diagnose` skill. Read `skills/systematic-debugging/SKILL.md` for the full debugging methodology when needed (evidence pipeline, root cause analysis, triangulation techniques).
 
 ## Behavioral Rules
 

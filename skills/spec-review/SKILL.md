@@ -7,22 +7,13 @@ color: orange
 
 # Spec Review Skill
 
-## Reference Materials
+## References
 
-- Signal contracts: `references/signal-contracts.json`
-- Context patterns: `references/context-engineering.md`
-- Testability patterns: `references/discovery-questions.md`
-- Scale determination & doc segregation: `references/scale-determination.md`
+`references/signal-contracts.json` · `references/context-engineering.md` · `references/discovery-questions.md` · `references/scale-determination.md`
 
 ## Overview
 
-You are a **specification reviewer agent**. Your job: validate that discovery output (PRD, ADR, TECHNICAL_DESIGN) is internally consistent, complete, and ready for planning decomposition. This phase catches ambiguities and contradictions before they cascade into bad tasks.
-
-This skill runs between discovery and planning. It is a quality gate — specs that fail review go back to the user for correction before planning begins.
-
-**Model Selection:** Sonnet — review requires judgment but not deep architectural reasoning.
-
-**Context Budget:** Target < 15K tokens.
+Validate discovery output (PRD, ADR, TECHNICAL_DESIGN) for consistency, completeness, and testability. Quality gate between discovery and planning. **Model: sonnet. Budget: < 15K tokens.**
 
 ---
 
@@ -74,161 +65,24 @@ This skill runs between discovery and planning. It is a quality gate — specs t
 
 ## Process
 
-### 1. Cross-Document Consistency Check
-
-Verify that all documents agree on fundamental facts:
-
-**Data Model Alignment:**
-```bash
-# Extract data models mentioned in TECHNICAL_DESIGN
-grep -E "^#{1,3}.*[Mm]odel|^#{1,3}.*[Ss]chema|^#{1,3}.*[Ee]ntity" "$SPEC_PATH/TECHNICAL_DESIGN.md"
-
-# Cross-reference with PRD user stories
-grep -E "User|Account|Session|Token" "$SPEC_PATH/PRD.md"
-
-# Check ADR decisions reference same entities
-grep -E "User|Account|Session|Token" "$SPEC_PATH/ADR.md"
-```
-
-**Check for contradictions:**
-
-| Check | How | Severity |
-|-------|-----|----------|
-| PRD mentions entity not in TECHNICAL_DESIGN | Grep entity names across docs | High |
-| ADR decision contradicts TECHNICAL_DESIGN approach | Compare decision vs architecture section | High |
-| PRD acceptance criteria reference undefined API | Grep endpoints in PRD vs API Contracts | Medium |
-| Non-goals in PRD but implemented in TECHNICAL_DESIGN | Compare non-goals list vs components | Medium |
-| PRD success metrics unmeasurable with TECHNICAL_DESIGN | Check if metrics have data sources | Low |
+### 1. Cross-Document Consistency
+Grep entity names across docs. Check: PRD entity not in TECHNICAL_DESIGN (high), ADR contradicts TECHNICAL_DESIGN (high), PRD references undefined API (medium), non-goals implemented (medium), unmeasurable metrics (low).
 
 ### 2. Completeness Check
-
-Verify each document has required sections with substantive content:
-
-**PRD Completeness:**
-- [ ] Problem statement present and specific (not generic)
-- [ ] At least 1 goal with measurable outcome
-- [ ] At least 1 non-goal explicitly stated
-- [ ] At least 1 user story with acceptance criteria
-- [ ] Every acceptance criterion is testable (behavioral, assertion, or quantitative)
-
-**ADR Completeness:**
-- [ ] Context explains decision drivers
-- [ ] At least 2 options considered
-- [ ] Decision stated with rationale
-- [ ] Consequences listed (positive and negative)
-
-**TECHNICAL_DESIGN Completeness:**
-- [ ] Architecture overview present
-- [ ] Data models defined with field types
-- [ ] API contracts defined (if applicable)
-- [ ] Dependencies listed
-- [ ] Security considerations addressed
-- [ ] Testing strategy outlined
+**PRD:** problem statement, 1+ goals, 1+ non-goals, user stories with testable ACs. **ADR:** context/drivers, 2+ options, decision+rationale, consequences. **TECHNICAL_DESIGN:** architecture, data models, API contracts, deps, security, testing strategy.
 
 ### 3. Testability Audit
+Every PRD AC must match behavioral (Given/When/Then), assertion, or quantitative patterns. Flag untestable ACs.
 
-Every acceptance criterion from PRD must be testable:
+### 4. Design Sync
+Flag explicit conflicts: type mismatches, numeric disagreements, integration point mismatches, missing entities. Only explicit conflicts — omissions handled in step 2.
 
-```bash
-# Extract all acceptance criteria
-grep -E "^\s*-\s*\[" "$SPEC_PATH/PRD.md" | while read -r line; do
-  criterion=$(echo "$line" | sed 's/^[^]]*\] *//')
-
-  # Check for valid patterns
-  if echo "$criterion" | grep -qE "(Given|When|Then)"; then
-    echo "PASS (behavioral): $criterion"
-  elif echo "$criterion" | grep -qE "(should|must|can|will) [a-z]+ [a-z]+"; then
-    echo "PASS (assertion): $criterion"
-  elif echo "$criterion" | grep -qE "[<>=] ?[0-9]"; then
-    echo "PASS (quantitative): $criterion"
-  else
-    echo "FAIL (untestable): $criterion"
-  fi
-done
-```
-
-### 4. Design Sync (Cross-Document Consistency)
-
-Check for explicit conflicts between documents:
-
-| Conflict Type | Detection | Example |
-|---------------|-----------|---------|
-| Type mismatch | Same field has different types across docs | PRD says "email (string)" but TECHNICAL_DESIGN has "email (Email type)" |
-| Numeric parameter disagreement | Different values for same parameter | PRD says "8 char minimum" but ADR says "12 char minimum" |
-| Integration point mismatch | Described differently in different docs | PRD says REST API but TECHNICAL_DESIGN shows GraphQL |
-| Missing entity | Referenced in one doc but absent from another | PRD mentions "audit log" but no data model exists |
-
-**Only flag explicit conflicts.** Omissions are checked in completeness (step 2), not here.
-
-### 4.5. Template Version Check (Informational)
-
-Check if spec documents include `template_version` front-matter. This is a non-blocking informational check — missing version metadata does not affect the review verdict.
-
-```bash
-for doc in "$SPEC_PATH/PRD.md" "$SPEC_PATH/ADR.md" "$SPEC_PATH/TECHNICAL_DESIGN.md"; do
-  if [ -f "$doc" ]; then
-    VERSION=$(head -10 "$doc" | grep "template_version:" | awk '{print $2}' | tr -d '"')
-    if [ -z "$VERSION" ]; then
-      echo "INFO: $(basename $doc) missing template_version front-matter"
-    else
-      echo "OK: $(basename $doc) template_version=$VERSION"
-    fi
-  fi
-done
-```
-
-If any document is missing `template_version`, include an informational note (severity: `low`, category: `style`) in the review report. This helps track template drift but should never block planning.
-
-### 4.6. Scope Cohesion Check
-
-Assess whether the spec covers a cohesive, shippable unit or spans too many independent concerns. This check is advisory — it does **not** block approval.
-
-| Signal | Threshold | Severity |
-|--------|-----------|----------|
-| Component count | >8 | Medium — warn "Consider phasing" |
-| Distinct user types | >3 | Medium — warn "Multiple user types — should they ship together?" |
-| Non-scope items | >5 | Low — info "Large deferred scope. Phase 2 planning recommended" |
-
-**How to detect:**
-- Count top-level components or modules in TECHNICAL_DESIGN architecture section
-- Count distinct user/actor types across PRD user stories
-- Count items in the non-scope / non-goals lists across PRD and TECHNICAL_DESIGN
-
-Include any triggered warnings in the review report under the appropriate severity. These warnings use category `scope_cohesion`.
+### 4.5-4.6. Template Version & Scope Cohesion (Advisory)
+Template version: informational only (low/style). Scope cohesion: components >8 (medium), user types >3 (medium), non-scope >5 (low). Advisory — does not block approval. Category: `scope_cohesion`.
 
 ### 5. Generate Review Report
 
-Produce a structured review with severity levels:
-
-```markdown
-## Spec Review Report
-
-### Summary
-- Documents reviewed: PRD, ADR, TECHNICAL_DESIGN
-- Issues found: N high, M medium, P low
-- Verdict: APPROVED / NEEDS_REVISION
-
-### High Severity Issues
-> Must fix before planning
-
-1. **[CONTRADICTION]** PRD AC-003 requires "password >= 12 chars" but ADR-001 specifies bcrypt with 8 char minimum
-   - Files: PRD.md:45, ADR.md:23
-   - Fix: Align on single password length requirement
-
-### Medium Severity Issues
-> Should fix, may cause implementation confusion
-
-1. **[INCOMPLETE]** TECHNICAL_DESIGN missing error handling section for /register endpoint
-   - File: TECHNICAL_DESIGN.md
-   - Fix: Add error responses table
-
-### Low Severity Issues
-> Optional improvements
-
-1. **[STYLE]** PRD success metric "fast response" has no threshold
-   - File: PRD.md:12
-   - Fix: Add specific threshold (e.g., "< 200ms")
-```
+Structured report: summary (docs reviewed, issue counts, verdict) → high severity (must fix) → medium (should fix) → low (optional). Each issue: category, description, file:line, fix.
 
 ---
 
@@ -344,21 +198,7 @@ When verdict is `approved` with medium/low issues:
 
 ## Exit Criteria
 
-- [ ] All three documents read and analyzed
-- [ ] Cross-document consistency checked
-- [ ] Completeness verified for each document
-- [ ] Testability audit completed for all acceptance criteria
-- [ ] Review report generated with severity classification
-- [ ] Verdict determined (approved / needs_revision)
-- [ ] Signal emitted with structured JSON output
+- [ ] All docs analyzed; consistency, completeness, testability checked; verdict determined; signal emitted
 
----
-
-## Context Budget
-
-| Component | Budget | Strategy |
-|-----------|--------|----------|
-| Spec documents | ~6K | Read sections, not line-by-line |
-| Analysis | ~4K | Structured checks |
-| Report generation | ~2K | Template-based output |
-| **Buffer** | ~3K | Edge cases |
+## Context Budget: ~15K
+Spec docs ~6K | Analysis ~4K | Report ~2K | Buffer ~3K

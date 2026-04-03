@@ -9,11 +9,7 @@ color: cyan
 
 ## Overview
 
-You are orchestrating Phase 3 (Implementation). This skill runs **inline in the main session** — you dispatch implementers directly, track progress via native tasks, and run a quality gate at the end.
-
-**Why inline?** Claude naturally handles coordination (ordering, parallelism, failure recovery) better than a constrained subagent with monitoring loops. This skill provides structure, not algorithms.
-
-**Announce at start:** "Starting implementation — dispatching tasks from the DAG."
+Orchestrate Phase 3 (Implementation) **inline in main session**. Dispatch implementers, track via native tasks, run quality gate. Announce: "Starting implementation — dispatching tasks from the DAG."
 
 ---
 
@@ -61,40 +57,11 @@ Pass 2: For each task with depends_on:
 
 ### 2.5. Feedback Pattern Injection
 
-Before dispatching implementers, check for accumulated feedback patterns from prior rejections in this session.
+If `feedback_patterns.json` exists: inject `common_patterns` and `session_patterns` into implementer prompts. Absent/empty → skip.
 
-```bash
-FEEDBACK_FILE="$WORKTREE_PATH/feedback_patterns.json"
-if [ -f "$FEEDBACK_FILE" ] && [ -s "$FEEDBACK_FILE" ]; then
-  PATTERNS=$(jq -r '.common_patterns // [] | join(", ")' "$FEEDBACK_FILE")
-  REJECTION_COUNT=$(jq -r '.total_rejections // 0' "$FEEDBACK_FILE")
-  echo "Session has $REJECTION_COUNT prior rejections. Common patterns: $PATTERNS"
-fi
-```
+### Iteration Caps
 
-**When feedback_patterns.json exists and is non-empty:**
-- Read the `common_patterns` and `session_patterns` arrays
-- Include a `previous_rejections` block in each implementer's task prompt:
-  ```
-  **Previous rejection patterns in this session (apply proactively):**
-  ${session_patterns.map(p => `- Task ${p.task_id}: ${p.rejection_reasons.join(', ')}`).join('\n')}
-
-  Common issues to avoid: ${common_patterns.join(', ')}
-  ```
-- This enables implementers to learn from earlier rejections without re-experiencing them
-
-**When feedback_patterns.json does not exist or is empty:**
-- Proceed normally — no injection needed
-- This is the common case for the first task in a session
-
-### Iteration Cap
-
-To prevent unbounded retry loops:
-
-- **Per-task cap:** Max 3 failed review cycles per individual task. After 3 rejections, mark the task as `needs_user_input` in tasks.json and escalate. Log: "Iteration cap reached for task [ID]. Escalating to user."
-- **Session cap:** Max 5 total retries across all tasks in a session. After hitting the cap, pause the dispatch loop and present current status to the user before continuing.
-
-These caps supersede any per-section retry limits below. When either cap is hit, do not retry — escalate.
+Per-task: max 3 rejections → `needs_user_input`, escalate. Session: max 5 total retries → pause, present status. Caps supersede per-section limits.
 
 ### 3. Dispatch Loop
 
@@ -159,21 +126,7 @@ Task({
 
 ### Requirement Change Detection
 
-During the dispatch loop, watch for signals that requirements have shifted. If ANY of these are detected in user messages, **stop the dispatch loop** and return to discovery/re-scoping before continuing:
-
-| Signal | Example | Action |
-|--------|---------|--------|
-| **New features mentioned** | "Oh, we should also add email notifications" | Stop — new scope needs spec updates |
-| **Constraint additions** | "Actually, this needs to work offline too" | Stop — constraint changes ripple through design |
-| **Technical requirement changes** | "Let's use WebSockets instead of polling" | Stop — architecture decision needs ADR update |
-| **Scope expansion** | "Can we also handle the admin side?" | Stop — new user stories need PRD update |
-| **Behavioral pivots** | "Actually the error should retry, not fail" | Assess — minor AC update vs. architectural change |
-
-**When detected:**
-1. Pause all pending implementer dispatches (let active ones finish)
-2. Inform the user: "I noticed a potential requirement change: [specific signal]. This may affect the current implementation plan."
-3. Ask whether to: (a) update specs and re-plan affected tasks, (b) note it for a follow-up, or (c) ignore — it was just thinking out loud
-4. If (a): update spec documents, re-run scope analysis for affected tasks only, resume dispatch
+Watch for: new features, constraint additions, technical changes, scope expansion, behavioral pivots. On detection → pause pending dispatches, inform user, ask: (a) update specs + re-plan, (b) note for follow-up, (c) ignore.
 
 ### 3.5. Continuous Incremental Review
 
@@ -219,6 +172,7 @@ if (activeReviewers < 2) {
     ${canSkipHardGates
       ? 'Hard gates passed in implementer self-review. Skip Tier 1, go straight to Tier 2 soft review.'
       : 'Run Tier 1 hard gates first, then Tier 2 soft review.'}
+    Use git diff ${task.commit_hash}~1..${task.commit_hash} as primary review input (diff-based review). Only read full files when diff context is insufficient.
     Emit APPROVED or REJECTED signal.`
   });
 } else {
