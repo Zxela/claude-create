@@ -1,6 +1,6 @@
 ---
 name: quality-check
-description: "[sonnet] Multi-phase quality pipeline: lint, types, structure, tests, recheck"
+description: "[sonnet/haiku-tier] Multi-phase quality pipeline: lint, types, structure, tests, recheck. Haiku-tier tasks skip LLM phases."
 model: sonnet
 color: teal
 ---
@@ -19,9 +19,9 @@ You are a **quality assurance agent**. Your job: run a structured 5-phase qualit
 
 The team-lead can invoke this after review approval or as a standalone gate before completion.
 
-**Model Selection:** Sonnet — quality checks require judgment for fixes but not deep reasoning.
+**Model Selection:** Sonnet — quality checks require judgment for fixes but not deep reasoning. For `tier: "haiku"` sessions, LLM phases are skipped entirely.
 
-**Context Budget:** Target < 15K tokens.
+**Context Budget:** Target < 15K tokens (< 5K for haiku-tier).
 
 ---
 
@@ -44,6 +44,12 @@ The team-lead can invoke this after review approval or as a standalone gate befo
       "enum": ["auto", "report_only"],
       "default": "auto",
       "description": "auto: fix issues and recommit. report_only: report without changing files."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["haiku", "sonnet", "opus"],
+      "default": "sonnet",
+      "description": "Execution tier of the tasks in this session. haiku: skip LLM phases (Phase 3 structural review, Phase 4 auto-fix). sonnet/opus: full pipeline."
     }
   }
 }
@@ -56,9 +62,27 @@ The team-lead can invoke this after review approval or as a standalone gate befo
   "worktree_path": "../myapp-create-user-auth-a1b2c3d4",
   "files_changed": ["src/services/auth.ts", "tests/services/auth.test.ts"],
   "task_id": "002",
-  "fix_mode": "auto"
+  "fix_mode": "auto",
+  "tier": "sonnet"
 }
 ```
+
+---
+
+## Tier Routing
+
+Before starting, determine which phases to run:
+
+```
+tier == "haiku"  → run Phase 1 (lint), Phase 2 (types), Phase 4 (tests, report_only), Phase 5 (recheck)
+                   SKIP Phase 3 (structural review — LLM)
+                   OVERRIDE fix_mode to "report_only" for Phase 4 (no LLM auto-fix)
+
+tier == "sonnet" → full pipeline (all 5 phases, fix_mode as specified)
+tier == "opus"   → full pipeline (all 5 phases, fix_mode as specified)
+```
+
+**Why skip for haiku?** Haiku-tier tasks (`add_field`, `add_method`, `add_validation`, etc.) are mechanical single-focus changes. The structural review phase adds LLM cost (~3K tokens) but provides minimal signal for tasks that don't involve new abstractions, dead code risks, or naming decisions. Deterministic checks (lint, types, tests) are sufficient.
 
 ---
 
@@ -104,7 +128,9 @@ TYPE_EXIT=$?
 
 The quality-checker agent does NOT run type checking — it reads the hook's exit code and reports the result.
 
-### Phase 3: Structural Review (LLM JUDGMENT — this is where you add value)
+### Phase 3: Structural Review (LLM JUDGMENT — skipped for haiku-tier)
+
+**Tier check:** If `tier == "haiku"`, skip this phase entirely. Emit `"status": "skipped", "reason": "haiku_tier"` in the phase result and proceed to Phase 4.
 
 This is the ONLY phase that requires LLM reasoning. The other phases are deterministic CLI checks.
 
@@ -145,7 +171,9 @@ Classify each structural finding as **blocking** or **advisory**:
 
 Advisory-only findings result in `pass` (not `fail`). Only blocking findings cause `fail`.
 
-### Phase 4: Tests (DETERMINISTIC — no LLM judgment)
+### Phase 4: Tests (DETERMINISTIC — haiku-tier uses report_only)
+
+**Tier check:** If `tier == "haiku"`, override `fix_mode` to `"report_only"` for this phase regardless of the input value. Do not attempt LLM auto-fix for haiku tasks — just run tests, report results, and proceed.
 
 ```bash
 cd "$WORKTREE_PATH"
@@ -239,7 +267,8 @@ If new issues introduced by auto-fixes, revert auto-fixes and report as `needs_m
       "properties": {
         "status": { "enum": ["pass", "fixed", "fail", "skipped"] },
         "issues_found": { "type": "integer" },
-        "issues_fixed": { "type": "integer" }
+        "issues_fixed": { "type": "integer" },
+        "reason": { "type": "string", "description": "Why this phase was skipped (e.g. 'haiku_tier', 'skipped_by_hooks')" }
       }
     }
   }
