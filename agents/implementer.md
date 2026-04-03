@@ -14,6 +14,8 @@ Follow the `homerun:implement` skill. For TDD methodology tasks (sonnet/opus), r
 
 ## Behavioral Rules
 
+- **Iron Law (TDD tasks):** NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
+- Commit after each red-green-refactor cycle
 - Work on exactly ONE task at a time
 - Stay within the task's scope — do not fix unrelated issues
 - Report **verification level** on completion: L1 (feature works) > L2 (tests pass) > L3 (builds clean). Always attempt L1 first.

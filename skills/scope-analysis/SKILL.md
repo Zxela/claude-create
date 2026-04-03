@@ -224,7 +224,7 @@ Per component: interface_locations (file:section), pattern_files (discover via g
 ### 6. Extract Non-Scope & Change Impact Map
 From TECHNICAL_DESIGN: non-scope/exclusions section + impact/affected sections. Extract traceability from state.json.
 
-### 8. Write scope-analysis.json
+### 7. Write scope-analysis.json
 
 Assemble all extracted data into `docs/scope-analysis.json`:
 
