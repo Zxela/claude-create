@@ -26,6 +26,7 @@ Start an orchestrated development workflow that takes you from idea to implement
 
 - `--auto`: Enable fully automated mode. Skips confirmation prompts between phases and proceeds automatically through discovery, planning, and execution.
 - `--resume`: Resume an interrupted session. Finds the existing worktree and continues from where you left off.
+- `--full`: Force large classification, run complete pipeline regardless of prompt complexity. Bypasses the auto-classifier.
 - `--retries N,M`: Configure retry limits for phase failures.
   - `N`: Maximum retries using the same agent (default: 2)
   - `M`: Maximum retries spawning a fresh agent (default: 1)
@@ -92,9 +93,96 @@ When resuming an interrupted session:
    - Set `auto_mode: true` if `--auto` flag is present
    - Parse `--retries N,M` to override default retry values
 
-3. **Start the Phase Loop** beginning at "discovery"
+3. **Start the routing logic** — classify complexity, then route to the appropriate path
+
+### Step 0: Classify Complexity
+
+**Skip if:** `--full` flag is set (force large) OR `--resume` (already classified)
+
+Run a single haiku call to classify the user's prompt:
+
+**Prompt to classifier:**
+```
+Classify this task's complexity for a development pipeline.
+
+User request: "${user_prompt}"
+
+Codebase: ${primary_language}, ${file_count} files
+Project type: ${has_existing_code ? "existing codebase" : "new project"}
+
+Respond with JSON:
+{
+  "classification": "trivial|small|medium|large",
+  "reasoning": "one sentence",
+  "estimated_files": N,
+  "needs_adr": boolean
+}
+
+Rules:
+- trivial: single file, single action (fix, rename, update field)
+- small: 2-4 files, single layer, no architectural decisions
+- medium: 4-8 files, multiple layers, may need design docs
+- large: 8+ files, multiple services, needs full planning
+- When uncertain, choose the higher tier
+- New projects with no code: minimum medium
+- "migrate", "refactor across", "redesign": minimum medium
+```
+
+**Store result:**
+- If trivial or small: set `scale` in memory (no state.json yet)
+- If medium or large: proceed to discovery which will create state.json
+
+**Log:** Print classification result: `"Classified as ${classification}: ${reasoning}"`
+
+### Trivial Fast Path
+
+**If classification == "trivial":**
+
+1. No worktree creation
+2. No state.json
+3. No discovery, specs, scope, or task decomposition
+4. Dispatch single implementer directly:
+   ```javascript
+   Agent({
+     description: `Implement: ${user_prompt_summary}`,
+     subagent_type: "homerun:implementer",
+     model: "haiku",
+     prompt: `Implement this task using TDD.
+     
+     Task: ${user_prompt}
+     
+     Use the current working directory (no worktree).
+     Run tests, typecheck, and lint before committing.
+     Commit with message: feat: ${summary}`
+   })
+   ```
+5. Run haiku-tier quality check (lint + types + tests only):
+   ```bash
+   homerun-quality-lint.sh && homerun-quality-typecheck.sh
+   ```
+6. If quality passes: done. Print summary.
+7. If quality fails: print failures, ask user to fix or retry.
+
+**Skip to completion — do not enter the phase loop.**
+
+### Small Fast Path
+
+**If classification == "small":**
+
+1. No worktree creation (unless user has worktree preference)
+2. Create minimal state.json with `scale: "small"` and `phase: "task_decomposition"`
+3. Skip discovery, specs, spec review, scope analysis
+4. Run lightweight task decomposition:
+   - Spawn task-decomposer with instruction: `flat_list_mode: true`
+   - Output: flat tasks.json with no DAG (no depends_on)
+   - Skip DAG validation (no DAG to validate)
+5. Enter team-lead dispatch loop with sequential-only mode
+6. Run haiku-tier quality check
+7. Proceed to completion (finishing-a-development-branch)
 
 ### Phase Loop
+
+**Entry condition:** classification is "medium" or "large" (or --full)
 
 Read the current phase from `state.json` (or start at "discovery" for new sessions). Spawn the appropriate agent, wait for it to return, then read `state.json` again and continue to the next phase. Repeat until complete.
 
@@ -282,6 +370,16 @@ Invoke the finishing skill in the current context to present merge/PR/continue o
 ```
 /create command
      │
+     ▼
+┌─────────────────┐
+│  Classify       │  ← [haiku] Auto-classify complexity (skip if --full)
+└─────────────────┘
+     │
+     ├── trivial ──► Single implementer → Quality check → Done
+     │
+     ├── small ────► Flat task decomposition → Sequential dispatch → Quality check → Done
+     │
+     ├── medium/large (or --full):
      ▼
 ┌─────────────────┐
 │   Discovery     │  ← Gather requirements, explore codebase
