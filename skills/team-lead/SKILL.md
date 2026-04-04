@@ -77,11 +77,17 @@ Work through the DAG by dispatching implementers for ready tasks.
 3. **Select model by task type** — Read `references/model-routing.json` to determine the correct model. Haiku tasks (`add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`) use haiku. Sonnet tasks (`create_model`, `create_service`, `add_endpoint_complex`, `create_middleware`, `bug_fix`, `integration_test`) use sonnet. Architectural tasks use opus. **Always pass `model:` in the Task call** — the implementer agent defaults to sonnet, so haiku tasks will waste cost without the override.
 
 4. **Dispatch implementer(s):**
+   - Build synthesis context (see Context Synthesis section below)
+   - Determine model from task type
+   - Pass synthesized upstream context in the prompt
 
 ```javascript
 // Determine model from task_type (see references/model-routing.json)
 const HAIKU_TYPES = ["add_field", "add_method", "add_validation", "rename_refactor", "add_test", "add_config", "add_endpoint"];
 const taskModel = HAIKU_TYPES.includes(task.task_type) ? "haiku" : "sonnet";
+
+// Build synthesis context for tasks with completed dependencies
+const synthesisContext = buildSynthesisContext(task, tasksJson);
 
 Task({
   description: `Implement [${task.id}] ${task.title}`,
@@ -95,6 +101,7 @@ Task({
   Title: ${task.title}
   Objective: ${task.objective}
 
+  ${synthesisContext ? `Context from upstream tasks:\n  ${synthesisContext}\n` : ''}
   Acceptance criteria:
   ${task.acceptance_criteria.map(c => '- ' + c).join('\n')}
 
@@ -110,10 +117,50 @@ Task({
 });
 ```
 
+#### Context Synthesis for Dependent Tasks
+
+When dispatching a task that has completed dependencies (`depends_on` with status "completed"), synthesize context from upstream work before building the dispatch prompt.
+
+**Synthesis depth by downstream task tier:**
+
+**Haiku-tier downstream tasks:**
+1. Read `implementation_notes` from each completed dependency in tasks.json
+2. Build a bullet-point context block:
+   ```
+   Context from upstream tasks:
+   - [${dep.id}] ${dep.title}: Changed ${notes.files_changed.join(', ')}. ${notes.key_decisions || ''}
+     ${notes.gotchas ? 'Watch out: ' + notes.gotchas : ''}
+   ```
+3. Prepend this block to the implementer prompt
+
+**Sonnet/opus-tier downstream tasks:**
+1. Read `implementation_notes` from each completed dependency
+2. Read the actual diff: `git log --oneline -1 ${dep_commit_hash} && git diff ${dep_commit_hash}~1..${dep_commit_hash}`
+3. Build a detailed context block:
+   ```
+   Context from [${dep.id}] ${dep.title}:
+   Files changed: ${notes.files_changed}
+   Key decisions: ${notes.key_decisions}
+   Interfaces established: ${notes.interfaces_established}
+   Gotchas: ${notes.gotchas}
+   
+   Relevant diff sections:
+   ${filtered_diff}  // Only sections touching files in downstream task's context_refs
+   ```
+4. Replace generic JIT context_refs with synthesized paths for any files that appear in upstream `implementation_notes.files_changed`
+5. Prepend the full context block to the implementer prompt
+
+**Important:** Only include diff sections relevant to the downstream task. Filter by files that appear in the downstream task's `context_refs` or `acceptance_criteria`. Do not dump the entire upstream diff.
+
 5. **After each implementer returns:**
    - **If `NEEDS_REWORK`:** Re-dispatch the implementer immediately with the self-review findings as `previous_feedback`. No reviewer is needed — the implementer caught its own issues. Include the `findings` array so the implementer knows exactly what to fix. This counts toward the retry limit (max 2 retries per task).
-   - **If `IMPLEMENTATION_COMPLETE` with `hard_gate_results`:** Mark the native task completed, then dispatch the reviewer with `skip_hard_gates: true` and the `hard_gate_results` from the implementer (see Section 3.5). This lets the reviewer skip Tier 1 re-execution when all exit codes are 0.
-   - **If `IMPLEMENTATION_COMPLETE` without `hard_gate_results`:** Mark the native task completed, dispatch the reviewer normally (no `skip_hard_gates`).
+   - **If `IMPLEMENTATION_COMPLETE`:**
+     1. Read `implementation_notes` from the signal payload
+     2. Write `implementation_notes` to the task entry in docs/tasks.json
+     3. Write `agent_id` to the task entry (for potential rework continuation)
+     4. Mark native task completed
+     5. If `hard_gate_results` present with all exit codes 0: dispatch reviewer with `skip_hard_gates: true` (see Section 3.5)
+     6. Otherwise: dispatch reviewer normally (no `skip_hard_gates`)
    - Update tasks.json if the implementer didn't already
    - Find next batch of ready tasks
    - Repeat until no pending tasks remain
