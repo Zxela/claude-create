@@ -91,6 +91,17 @@ Run before signaling completion:
 
 All pass → `IMPLEMENTATION_COMPLETE` with `hard_gate_results`. Any fail → `NEEDS_REWORK` with findings.
 
+### 5.7. Write Implementation Notes
+
+Before signaling completion, populate `implementation_notes` for downstream tasks:
+
+- `files_changed`: List all files you modified (from `git diff --name-only HEAD~1`)
+- `key_decisions`: Document any non-obvious choices — why you chose one approach over another, patterns you established, naming conventions you introduced. Skip if the implementation was straightforward.
+- `interfaces_established`: List any types, exports, or contracts you created that downstream tasks may import or depend on. Include the file path and export name.
+- `gotchas`: Note anything that surprised you or could trip up downstream work — unexpected nullability, edge cases in existing code, ordering dependencies. Skip if none.
+
+This field is included in the IMPLEMENTATION_COMPLETE signal. Empty sub-fields are allowed for trivial tasks — do not fabricate notes where none are needed.
+
 ### 6. Signal Completion
 
 Output JSON signal wrapped in a ```json code block.
@@ -102,7 +113,7 @@ Output JSON signal wrapped in a ```json code block.
 All output MUST be valid JSON in a ```json code block. Four possible signals:
 
 ### IMPLEMENTATION_COMPLETE
-Required fields: `signal`, `files_changed`, `test_file`, `commit_hash`, `hard_gate_results` ({tests, types, lint} exit codes), `verification_level` (L1|L2|L3), `verification_attempted` (array), `acceptance_criteria_met` (array of {criterion, implementation_file, test_location} with file:line format).
+Required fields: `signal`, `files_changed`, `test_file`, `commit_hash`, `hard_gate_results` ({tests, types, lint} exit codes), `verification_level` (L1|L2|L3), `verification_attempted` (array), `acceptance_criteria_met` (array of {criterion, implementation_file, test_location} with file:line format), `implementation_notes` ({files_changed, key_decisions, interfaces_established, gotchas}).
 
 Include `verification_details` if L3-only (explain why L1/L2 impossible). If any AC cannot be addressed → use IMPLEMENTATION_BLOCKED instead. Never omit criteria silently.
 
