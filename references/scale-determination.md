@@ -6,7 +6,7 @@ Determines which specification documents to generate based on estimated task sco
 
 | Scale | Estimated Files | Documents to Generate | Dialogue Turns | Planning | Execution Pipeline |
 |-------|----------------|----------------------|----------------|----------|--------------------|
-| **Small** | 1-2 files | TECHNICAL_DESIGN only (simplified) | 5-8 | Simplified task list (no DAG) | Single implementer, no Agent Teams, skip spec-review + scope-analysis |
+| **Small** | 1-2 files | TECHNICAL_DESIGN_small.md only | 5-8 | Simplified task list (no DAG) | Single implementer, no Agent Teams, skip spec-review + scope-analysis |
 | **Medium** | 3-5 files | PRD + TECHNICAL_DESIGN | 10-15 | Full task DAG | Standard pipeline, max 2 concurrent implementers |
 | **Large** | 6+ files | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 | Full task DAG | Full pipeline, up to 5 concurrent implementers |
 
@@ -83,6 +83,7 @@ Generate an ADR **regardless of scale** if ANY of these apply:
 - API contracts (if any)
 - Test strategy (which tests to add/modify)
 - Change impact map
+- Agreement checklist (scope, non-scope, constraints, testing)
 - No architecture overview, dependencies, NFRs, migration/rollback, or observability sections
 
 Skip: PRD (change is obvious), ADR (no architectural decision), WIREFRAMES

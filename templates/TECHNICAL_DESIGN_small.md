@@ -94,4 +94,9 @@ _Skip this section if no API changes._
 
 - [ ] **Scope**: {{What changes — list of files}}
 - [ ] **Non-scope**: {{What explicitly does NOT change}}
+- [ ] **Constraints**: {{Backward compatibility, performance requirements}}
 - [ ] **Testing**: {{Test strategy — which tests to add/modify}}
+
+## Open Questions
+
+- [ ] {{Question that needs resolution}}
