@@ -32,8 +32,8 @@ evaluations:
       3. Consistency (0-3): Similar task types get same model assignment
 
       Model routing reference:
-      - Haiku: add_field, add_method, add_config, rename_refactor, add_test
-      - Sonnet: create_model, create_service, add_middleware, bug_fix, integration_test
+      - Haiku: add_field, add_method, add_validation, rename_refactor, add_test, add_config, add_endpoint
+      - Sonnet: create_model, create_service, add_endpoint_complex, create_middleware, bug_fix, integration_test
 
       Score 0-10. Pass threshold: 7
     passing_score: 7

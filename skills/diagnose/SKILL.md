@@ -108,7 +108,7 @@ git diff HEAD~3..HEAD -- "$FILE"
 
 #### 1.2 Trace Data Flow
 
-Follow the backward tracing technique from `root-cause-tracing.md`:
+Follow the backward tracing technique from `skills/systematic-debugging/root-cause-tracing.md`:
 
 ```
 Error location → What called this? → What provided bad value?

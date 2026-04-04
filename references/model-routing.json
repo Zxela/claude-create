@@ -23,6 +23,7 @@
       "quality_gate": {
         "skip_structural_review": true,
         "skip_llm_autofix": true,
+        "enforcement": "Enforced via tier parameter passed to quality-check skill, not read from this config directly.",
         "note": "Deterministic checks only (lint, types, tests). LLM phases have low signal-to-cost ratio for mechanical tasks."
       }
     },
@@ -61,7 +62,7 @@
     "test_skeletons": "sonnet",
     "team_lead": "sonnet",
     "reviewer": "sonnet",
-    "quality_check": "sonnet (haiku-tier sessions: LLM phases skipped, no model cost)",
+    "quality_check": "sonnet",
     "diagnose": "sonnet",
     "reverse_engineer": "opus",
     "walkthrough": "sonnet"

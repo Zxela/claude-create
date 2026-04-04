@@ -32,10 +32,10 @@ Follow the `homerun:quality-check` skill to run the quality pipeline.
 ## Quality Pipeline
 
 ### Phase 1: Lint & Format (HOOK)
-Handled by `homerun-quality-lint.sh` hook. Read its exit code — do not run lint yourself.
+Handled by `scripts/homerun-quality-lint.sh` hook. Read its exit code — do not run lint yourself.
 
 ### Phase 2: Type Checking (HOOK)
-Handled by `homerun-quality-typecheck.sh` hook. Read its exit code — do not run typecheck yourself.
+Handled by `scripts/homerun-quality-typecheck.sh` hook. Read its exit code — do not run typecheck yourself.
 
 ### Phase 3: Structural Review (LLM JUDGMENT — skipped for haiku-tier)
 This is where you provide value. Verify:

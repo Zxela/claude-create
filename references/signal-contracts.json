@@ -188,6 +188,8 @@
         },
         "payload": {
           "summary": "User authentication service implemented with password hashing",
+          "score": 0.85,
+          "hard_gates": { "tests": "pass", "types": "pass", "lint": "pass" },
           "verified": [
             {
               "criterion": "AC-001",
@@ -212,6 +214,8 @@
         },
         "payload": {
           "summary": "Missing test for AC-002",
+          "score": 0.45,
+          "hard_gates": { "tests": "fail", "types": "pass", "lint": "pass" },
           "issues": [
             {
               "criterion": "AC-002",
@@ -376,6 +380,24 @@
           "fixes_applied": [
             { "phase": "lint", "description": "Fixed formatting", "file": "src/services/auth.ts" }
           ],
+          "unresolved": []
+        },
+        "envelope_version": "1.0.0"
+      },
+      "envelope_example_haiku_tier": {
+        "signal": "QUALITY_CHECK_COMPLETE",
+        "timestamp": "2026-01-25T11:20:00Z",
+        "source": { "skill": "homerun:quality-check", "task_id": "003" },
+        "payload": {
+          "verdict": "pass",
+          "phases": {
+            "lint": { "status": "pass", "issues_found": 0, "issues_fixed": 0 },
+            "types": { "status": "pass", "issues_found": 0, "issues_fixed": 0 },
+            "structure": { "status": "skipped", "reason": "haiku_tier" },
+            "tests": { "status": "pass", "issues_found": 0, "issues_fixed": 0 },
+            "recheck": { "status": "skipped", "reason": "haiku_tier" }
+          },
+          "fixes_applied": [],
           "unresolved": []
         },
         "envelope_version": "1.0.0"

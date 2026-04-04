@@ -41,7 +41,7 @@ color: teal
       "type": "string",
       "enum": ["haiku", "sonnet", "opus"],
       "default": "sonnet",
-      "description": "Execution tier of the tasks in this session. haiku: skip LLM phases (Phase 3 structural review, Phase 4 auto-fix). sonnet/opus: full pipeline."
+      "description": "Execution tier of the tasks in this session. haiku: skip LLM phases (Phase 3 structural review, Phase 5 recheck). sonnet/opus: full pipeline."
     }
   }
 }

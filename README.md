@@ -104,7 +104,8 @@ Homerun transforms a rough idea into a fully implemented feature through automat
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  Lint (hook) ──► Types (hook) ──► Structure (LLM) ──► Tests ──► ✓ │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
-│  Phases 1-2 run as bash hooks (zero LLM cost), Phase 3 uses LLM          │
+│  Sonnet/opus: full 5-phase pipeline. Haiku-tier: 3 phases only            │
+│  (lint, types, tests) — skips Structure (LLM) and Recheck (LLM).         │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
