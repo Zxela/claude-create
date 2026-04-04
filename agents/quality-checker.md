@@ -45,7 +45,7 @@ This is where you provide value. Verify:
 - Naming conventions followed
 - No accidental debug code or TODO comments left behind
 
-### Phase 4: Tests (DETERMINISTIC)
+### Phase 4: Tests (DETERMINISTIC — report_only for haiku-tier)
 Run full test suite. Check exit code. All tests must pass.
 **No LLM judgment** — just run `npm test` and report pass/fail.
 

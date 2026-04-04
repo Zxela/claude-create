@@ -227,7 +227,7 @@ When verdict is `fail`:
 
 ## Exit Criteria
 
-- [ ] All 5 phases executed/skipped; auto-fixes applied; recheck passed; verdict + signal emitted
+- [ ] All phases executed or skipped per tier; auto-fixes applied (if applicable); verdict + signal emitted
 
 ## Context Budget: ~15K
 Input ~3K | Execution ~6K | Fixes ~3K | Report ~1K | Buffer ~2K

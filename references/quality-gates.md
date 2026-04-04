@@ -49,8 +49,8 @@ Phase 1 ──0 errors──→ Phase 2 ──0 errors──→ Phase 4 (report_
 ## Integration with Hooks
 
 Phases 1-2 run via bash hooks at zero LLM cost:
-- `homerun-quality-lint.sh` → Phase 1
-- `homerun-quality-typecheck.sh` → Phase 2
+- `scripts/homerun-quality-lint.sh` → Phase 1
+- `scripts/homerun-quality-typecheck.sh` → Phase 2
 
 Phases 3-5 require LLM turns or test runner (sonnet/opus only — haiku skips 3 and 5):
 - Phase 3: Structural review of implementation quality (LLM) — skipped for haiku-tier
