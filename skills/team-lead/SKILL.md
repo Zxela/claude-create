@@ -228,9 +228,10 @@ while (pendingTasks > 0 || activeImplementers > 0 || activeReviewers > 0):
 After all tasks complete (or are skipped):
 
 ```javascript
-// Determine session tier: if ALL tasks were haiku-type, tier = "haiku". Otherwise "sonnet".
+// Determine session tier: if ALL tasks (completed + skipped) were haiku-type, tier = "haiku". Otherwise "sonnet".
 const HAIKU_TYPES = ["add_field", "add_method", "add_validation", "rename_refactor", "add_test", "add_config", "add_endpoint"];
-const sessionTier = completedTasks.every(t => HAIKU_TYPES.includes(t.task_type)) ? "haiku" : "sonnet";
+const allTasks = [...completedTasks, ...skippedTasks];
+const sessionTier = allTasks.length > 0 && allTasks.every(t => HAIKU_TYPES.includes(t.task_type)) ? "haiku" : "sonnet";
 
 Task({
   description: "Final quality check",
@@ -239,11 +240,11 @@ Task({
 
   Worktree: ${worktreePath}
   Files changed: ${allChangedFiles}
-  Fix mode: auto
+  Fix mode: ${sessionTier === "haiku" ? "report_only" : "auto"}
   Tier: ${sessionTier}
 
   ${sessionTier === "haiku"
-    ? "Haiku-tier session: run lint, type checks, and tests only. Skip structural review (Phase 3) and LLM auto-fix."
+    ? "Haiku-tier session: run lint, type checks, and tests only. Skip structural review (Phase 3), LLM auto-fix, and final recheck (Phase 5)."
     : "Run lint, type checks, structural review, tests, and final recheck. Auto-fix issues where possible."
   }`
 });

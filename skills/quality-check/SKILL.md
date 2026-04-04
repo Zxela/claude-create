@@ -66,8 +66,9 @@ color: teal
 Before starting, determine which phases to run:
 
 ```
-tier == "haiku"  → run Phase 1 (lint), Phase 2 (types), Phase 4 (tests, report_only), Phase 5 (recheck)
+tier == "haiku"  → run Phase 1 (lint), Phase 2 (types), Phase 4 (tests, report_only)
                    SKIP Phase 3 (structural review — LLM)
+                   SKIP Phase 5 (recheck — nothing to recheck when no auto-fixes run)
                    OVERRIDE fix_mode to "report_only" for Phase 4 (no LLM auto-fix)
 
 tier == "sonnet" → full pipeline (all 5 phases, fix_mode as specified)

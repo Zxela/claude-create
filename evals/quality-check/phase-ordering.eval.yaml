@@ -46,9 +46,9 @@ evaluations:
     rubric: |
       Evaluate quality check execution:
 
-      1. Phase ordering (0-4): Followed correct order — lint first, then types, then structure, then tests, then recheck
+      1. Phase ordering (0-4): Followed correct order — lint first, then types, then structure, then tests, then recheck. For haiku-tier sessions, correct order is lint → types → tests (skip structure and recheck).
       2. Stop-on-failure awareness (0-2): Would stop at a failing phase before proceeding to next
-      3. Completeness (0-2): Executed or mentioned all 5 phases
+      3. Completeness (0-2): Executed or mentioned all applicable phases (5 for sonnet/opus, 3 for haiku-tier)
       4. Signal output (0-2): Emitted or described QUALITY_CHECK_COMPLETE signal with phase results
 
       Score 0-10. Pass threshold: 5
