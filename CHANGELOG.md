@@ -1,5 +1,27 @@
 # Changelog
 
+## [5.8.0] - 2026-04-03
+
+### Added
+- **Haiku-tier quality gate routing** — Quality-check skill now accepts a `tier` parameter. Haiku-tier sessions skip Phase 3 (structural review) and Phase 5 (recheck), override fix_mode to `report_only`, saving ~3K tokens per session. Deterministic checks (lint, types, tests) still run. Complements PR #29's conditional TDD removal. (Closes #22)
+- **Haiku-tier signal example** — `QUALITY_CHECK_COMPLETE` signal contract now includes a haiku-tier envelope example with `"status": "skipped", "reason": "haiku_tier"` for phases 3 and 5.
+- **`reason` field in phase_result schema** — Skipped phases now document why they were skipped (e.g. `haiku_tier`, `skipped_by_hooks`).
+
+### Fixed
+- **Signal contract alignment** — Added missing `score` and `hard_gates` fields to APPROVED/REJECTED signal examples to match review skill requirements.
+- **phase_models.quality_check** — Restored bare `"sonnet"` model identifier (was corrupted with inline prose annotation).
+- **Model-routing eval** — Completed haiku task type list (was missing `add_validation` and `add_endpoint`) and corrected sonnet list (`add_middleware` → `add_endpoint_complex`).
+- **Script path references** — Fixed bare script names to include `scripts/` prefix in quality-checker agent and quality-gates reference.
+- **Diagnose skill path** — Fixed incomplete relative path to `root-cause-tracing.md`.
+- **Exit criteria** — Updated quality-check exit criteria to be tier-agnostic instead of hardcoding "All 5 phases".
+- **Signal-envelope eval** — Updated rubric to accept haiku-tier phase results (3 active + 2 skipped).
+- **Phase-ordering eval** — Updated rubric to accept haiku-tier ordering (lint → types → tests).
+
+### Changed
+- **Session tier computation** — Team-lead now includes skipped tasks (not just completed) when determining session tier, preventing incorrect haiku classification when sonnet tasks were skipped.
+- **Quality-gates reference** — Added tier routing table, haiku-reduced pipeline diagram, and tier-aware phase descriptions.
+- **README** — Phase 5 diagram now notes haiku-tier variant.
+
 ## [5.7.0] - 2026-03-27
 
 ### Added
