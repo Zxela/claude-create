@@ -2,27 +2,55 @@
 
 Determines which specification documents to generate based on estimated task scope. Used by the discovery skill to right-size documentation effort.
 
-## Scale Estimation Matrix
+## Scale Classifications
 
-| Scale | Estimated Files | Documents to Generate | Dialogue Turns | Planning | Execution Pipeline |
-|-------|----------------|----------------------|----------------|----------|--------------------|
-| **Small** | 1-2 files | TECHNICAL_DESIGN_small.md only | 5-8 | Simplified task list (no DAG) | Single implementer, no Agent Teams, skip spec-review + scope-analysis |
-| **Medium** | 3-5 files | PRD + TECHNICAL_DESIGN | 10-15 | Full task DAG | Standard pipeline, max 2 concurrent implementers |
-| **Large** | 6+ files | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 | Full task DAG | Full pipeline, up to 5 concurrent implementers |
+### Trivial
+**Estimated files:** 1
+**Signals:** Prompt < 50 words, single-action keywords ("fix", "rename", "update", "change", "remove"), no architectural decisions needed, single file or clearly scoped change
+**Examples:** "Fix the typo in README", "Rename getUserById to findUserById", "Add created_at field to User model"
+**Pipeline:** Skip all phases. Direct single-implementer dispatch with haiku-tier quality check.
+**State management:** No state.json, no tasks.json, no spec docs, no worktree.
+
+### Small
+**Estimated files:** 2-4
+**Signals:** Prompt < 150 words, single-layer change ("add endpoint", "add page", "add validation"), no ADR triggers
+**Examples:** "Add a /health endpoint", "Add email validation to signup form", "Create a 404 page"
+**Pipeline:** Skip discovery, specs, spec review, scope analysis. Lightweight task decomposition (flat list, no DAG). Sequential dispatch.
+**State management:** Minimal tasks.json (flat list). No spec docs. No worktree unless parallel.
+
+### Medium
+**Estimated files:** 3-5
+**Documents to Generate:** PRD + TECHNICAL_DESIGN
+**Dialogue Turns:** 10-15
+**Planning:** Full task DAG
+**Execution Pipeline:** Standard pipeline, max 2 concurrent implementers
+
+### Large
+**Estimated files:** 6+
+**Documents to Generate:** PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES
+**Dialogue Turns:** 15-20
+**Planning:** Full task DAG
+**Execution Pipeline:** Full pipeline, up to 5 concurrent implementers
 
 ## Pipeline Short-Circuit Rules (Effort-Proportional Routing)
 
 The team-lead uses the scale from `state.json` to determine the execution pipeline:
 
-### Small Scale (1-2 files)
-- **Skip:** Spec review (trivial scope, not worth reviewing)
-- **Skip:** Scope analysis (no intermediate artifact needed — task decomposer reads specs directly)
-- **Skip:** Agent Teams / native task DAG (overhead > value)
-- **Skip:** Separate reviewer agent (implementer self-verifies)
-- **Use:** Single implementer with all tasks inlined in prompt
-- **Use:** Quality check after implementation
+### Trivial Scale (1 file)
+- **Skip:** All phases — discovery, specs, spec review, scope analysis, task decomposition
+- **Skip:** Worktree creation, state.json, tasks.json
+- **Use:** Direct single-implementer dispatch
+- **Use:** Haiku-tier quality check (lint + types + tests only)
+- **Model:** Haiku
+- **Estimated cost:** ~2-5K tokens total
+
+### Small Scale (2-4 files)
+- **Skip:** Discovery, specs, spec review, scope analysis
+- **Use:** Lightweight task decomposition (flat list, no DAG)
+- **Use:** Sequential single-implementer dispatch
+- **Use:** Haiku-tier quality check
 - **Model:** Prefer haiku for implementation
-- **Estimated cost:** ~5-10K tokens total
+- **Estimated cost:** ~5-15K tokens total
 
 ### Medium Scale (3-5 files)
 - **Use:** Full spec review
@@ -57,9 +85,39 @@ During the Scope & Boundaries dialogue category, assess:
 ```
 
 **Quick heuristics:**
+- "Fix typo in README" → Trivial (single file, single action)
+- "Rename getUserById" → Trivial (single rename, mechanical)
 - "Add a field to X" → Small (model + maybe a test)
 - "Add a new endpoint" → Medium (route + handler + service + tests)
 - "Build authentication system" → Large (models + service + middleware + routes + tests + config)
+
+## Auto-Classification Heuristic
+
+Classification runs as a single haiku call before any phase begins. This call pays for itself by avoiding unnecessary phases.
+
+**Input to classifier:**
+- User's prompt (verbatim)
+- Codebase summary: primary language, file count, top-level directory structure
+- Project type: new project (no existing code) vs existing codebase
+
+**Structured output:**
+```json
+{
+  "classification": "trivial|small|medium|large",
+  "reasoning": "One sentence explaining why",
+  "estimated_files": 3,
+  "architectural_layers": ["api", "service"],
+  "needs_adr": false
+}
+```
+
+**Override rules:**
+- `--full` flag → always "large"
+- New project with no existing code → minimum "medium" (needs at least PRD + TD)
+- Prompt mentions "migrate", "refactor across", "redesign" → minimum "medium"
+- Prompt mentions multiple services/systems → minimum "large"
+
+**Conservative default:** When uncertain between two tiers, choose the higher tier. Excess planning is cheaper than insufficient planning for complex tasks.
 
 ## ADR Trigger Conditions
 

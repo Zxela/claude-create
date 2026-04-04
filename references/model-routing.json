@@ -97,13 +97,22 @@
   },
 
   "scale_routing": {
+    "trivial": {
+      "max_implementers": 1,
+      "default_model": "haiku",
+      "isolation": "none",
+      "quality_tier": "haiku",
+      "phases": ["implement", "quality_check"],
+      "quality_check_phases": ["lint", "types", "tests"]
+    },
     "small": {
       "max_implementers": 1,
-      "skip_spec_review": true,
-      "skip_scope_analysis": true,
-      "skip_agent_teams": true,
-      "skip_separate_reviewer": true,
-      "preferred_model": "haiku"
+      "default_model": "haiku",
+      "isolation": "none",
+      "quality_tier": "haiku",
+      "phases": ["task_decomposition", "implement", "quality_check"],
+      "task_decomposition_mode": "flat",
+      "quality_check_phases": ["lint", "types", "tests"]
     },
     "medium": {
       "max_implementers": 2,
