@@ -303,7 +303,34 @@ docs/
           }
         },
         "model": { "enum": ["opus", "sonnet", "haiku"], "default": "sonnet" },
-        "subtasks": { "type": "array", "items": { "$ref": "#/definitions/task" } }
+        "subtasks": { "type": "array", "items": { "$ref": "#/definitions/task" } },
+        "implementation_notes": {
+          "type": "object",
+          "description": "Structured knowledge transfer for dependent tasks — populated on completion",
+          "properties": {
+            "files_changed": { "type": "array", "items": { "type": "string" }, "description": "Paths of files modified" },
+            "key_decisions": { "type": "string", "description": "Non-obvious implementation choices" },
+            "interfaces_established": { "type": "string", "description": "Types, exports, contracts created for downstream use" },
+            "gotchas": { "type": "string", "description": "Surprises or traps for downstream tasks" }
+          }
+        },
+        "agent_id": {
+          "type": "string",
+          "description": "ID of the agent currently executing this task — set by team-lead on dispatch, used for SendMessage continuation on rework"
+        },
+        "attempts": {
+          "type": "array",
+          "description": "History of execution attempts for rework tracking",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent_id": { "type": "string" },
+              "status": { "type": "string", "enum": ["rejected", "completed"] },
+              "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+              "feedback": { "type": "string" }
+            }
+          }
+        }
       }
     }
   }
@@ -350,7 +377,10 @@ docs/
         "grep_patterns": ["CREATE TABLE.*users", "migration.*user"],
         "constraints_section": "ADR.md:## Decision 1"
       },
-      "model": "haiku"
+      "model": "haiku",
+      "agent_id": null,
+      "attempts": [],
+      "implementation_notes": null
     }
   ]
 }
