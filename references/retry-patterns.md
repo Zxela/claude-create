@@ -66,25 +66,36 @@ function getRetryType(task, state) {
     };
   }
 
-  // THIRD rejection: escalate haiku to sonnet
-  if (attempts.length >= 3 && task.model === 'haiku') {
-    return { type: 'escalate', model: 'sonnet' };
+  // THIRD rejection: escalate
+  if (attempts.length >= 3) {
+    if (task.model === 'haiku') {
+      return { type: 'escalate', model: 'sonnet' };
+    }
+    // sonnet/opus: escalate to user with full attempt history
+    return {
+      type: 'human_escalation',
+      attempts: attempts.map(a => ({ severity: a.severity, feedback: a.feedback }))
+    };
   }
 
   return { type: 'human_escalation' };
 }
 
-// Build a concise summary of what failed and why, NOT raw reviewer feedback
+// Build a concise summary of what failed and why
 function buildStructuredFailureSummary(task) {
+  const lastAttempt = task.attempts[task.attempts.length - 1];
   return {
     task_objective: task.objective,
+    attempt_count: task.attempts.length,
+    // Structured per-attempt summaries (severity + status only, not raw feedback)
     attempts: task.attempts.map(a => ({
       status: a.status,
-      severity: a.severity,
-      feedback: a.feedback
+      severity: a.severity
     })),
-    specific_fixes_needed: task.attempts[task.attempts.length - 1].feedback,
-    // DO NOT include: raw reviewer output, previous implementation code,
+    // Extract actionable fixes from the last rejection's required_fixes,
+    // NOT the raw feedback string
+    specific_fixes_needed: lastAttempt.required_fixes || lastAttempt.feedback,
+    // DO NOT include: raw reviewer output verbatim, previous implementation code,
     // or accumulated context from failed attempts
   };
 }

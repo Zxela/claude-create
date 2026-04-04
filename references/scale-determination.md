@@ -19,14 +19,14 @@ Determines which specification documents to generate based on estimated task sco
 **State management:** Minimal tasks.json (flat list). No spec docs. No worktree unless parallel.
 
 ### Medium
-**Estimated files:** 3-5
+**Estimated files:** 5-8
 **Documents to Generate:** PRD + TECHNICAL_DESIGN
 **Dialogue Turns:** 10-15
 **Planning:** Full task DAG
 **Execution Pipeline:** Standard pipeline, max 2 concurrent implementers
 
 ### Large
-**Estimated files:** 6+
+**Estimated files:** 9+
 **Documents to Generate:** PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES
 **Dialogue Turns:** 15-20
 **Planning:** Full task DAG
@@ -52,7 +52,7 @@ The team-lead uses the scale from `state.json` to determine the execution pipeli
 - **Model:** Prefer haiku for implementation
 - **Estimated cost:** ~5-15K tokens total
 
-### Medium Scale (3-5 files)
+### Medium Scale (5-8 files)
 - **Use:** Full spec review
 - **Use:** Task DAG with max 2 concurrent implementers
 - **Use:** 1 reviewer agent (background)
@@ -60,7 +60,7 @@ The team-lead uses the scale from `state.json` to determine the execution pipeli
 - **Model:** Sonnet for implementation, skip opus escalation
 - **Estimated cost:** ~30-60K tokens total
 
-### Large Scale (6+ files)
+### Large Scale (9+ files)
 - **Use:** Full pipeline (spec review → planning → Agent Teams → review → quality)
 - **Use:** Up to 5 concurrent implementers (based on DAG width)
 - **Use:** 1 reviewer agent (background)
@@ -81,14 +81,15 @@ During the Scope & Boundaries dialogue category, assess:
    → Check: task objective implies new model? new endpoint? new service?
 
 3. Total = modified + created
-   → 1-2 = Small, 3-5 = Medium, 6+ = Large
+   → 1 = Trivial, 2-4 = Small, 5-8 = Medium, 9+ = Large
 ```
 
 **Quick heuristics:**
 - "Fix typo in README" → Trivial (single file, single action)
 - "Rename getUserById" → Trivial (single rename, mechanical)
-- "Add a field to X" → Small (model + maybe a test)
-- "Add a new endpoint" → Medium (route + handler + service + tests)
+- "Add created_at field to User model" → Trivial (single model file change)
+- "Add a /health endpoint" → Small (route + handler + test)
+- "Add user profile page with API" → Medium (route + handler + service + model + tests)
 - "Build authentication system" → Large (models + service + middleware + routes + tests + config)
 
 ## Auto-Classification Heuristic
@@ -133,7 +134,7 @@ Generate an ADR **regardless of scale** if ANY of these apply:
 
 ## Document Content by Scale
 
-### Small (1-2 files)
+### Small (2-4 files)
 
 **TECHNICAL_DESIGN only** — use the dedicated small-scale template (`templates/TECHNICAL_DESIGN_small.md`):
 - What to change and where (file paths + line ranges)
@@ -146,7 +147,7 @@ Generate an ADR **regardless of scale** if ANY of these apply:
 
 Skip: PRD (change is obvious), ADR (no architectural decision), WIREFRAMES
 
-### Medium (3-5 files)
+### Medium (5-8 files)
 
 **PRD** (focused):
 - Problem statement (brief)
@@ -163,7 +164,7 @@ Skip: PRD (change is obvious), ADR (no architectural decision), WIREFRAMES
 
 Skip: ADR (unless triggered), WIREFRAMES (unless UI change)
 
-### Large (6+ files)
+### Large (9+ files)
 
 **Full document set:**
 - PRD — Complete with goals, non-goals, user stories, success metrics

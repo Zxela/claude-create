@@ -11,7 +11,7 @@
 - **Small scale tier**: New classification for 2-4 file changes — flat task list, sequential dispatch, no discovery.
 
 ### Changed
-- `signal-contracts.json`: IMPLEMENTATION_COMPLETE now includes `implementation_notes`, `agent_id`, `attempts` fields
+- `signal-contracts.json`: IMPLEMENTATION_COMPLETE now includes `implementation_notes` field (task-level `agent_id` and `attempts` are tracked in tasks.json only)
 - `tasks.json` schema: Added `implementation_notes`, `agent_id`, `attempts` fields
 - `retry-patterns.md`: First retry uses SendMessage continuation, fresh spawn is second strategy
 - `scale-determination.md`: Four tiers (trivial/small/medium/large) replacing three (small/medium/large)

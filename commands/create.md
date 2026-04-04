@@ -28,9 +28,9 @@ Start an orchestrated development workflow that takes you from idea to implement
 - `--resume`: Resume an interrupted session. Finds the existing worktree and continues from where you left off.
 - `--full`: Force large classification, run complete pipeline regardless of prompt complexity. Bypasses the auto-classifier.
 - `--retries N,M`: Configure retry limits for phase failures.
-  - `N`: Maximum retries using the same agent (default: 2)
+  - `N`: Maximum retries continuing the original agent via SendMessage (default: 1)
   - `M`: Maximum retries spawning a fresh agent (default: 1)
-  - Example: `--retries 3,2` allows 3 same-agent retries, then 2 fresh-agent retries
+  - Example: `--retries 3,2` allows 3 continue-agent retries, then 2 fresh-agent retries
 
 ## Workflow
 
@@ -85,7 +85,7 @@ When resuming an interrupted session:
    {
      "auto_mode": false,
      "retries": {
-       "same_agent": 1,
+       "continue_agent": 1,
        "fresh_agent": 1
      }
    }
@@ -121,8 +121,8 @@ Respond with JSON:
 Rules:
 - trivial: single file, single action (fix, rename, update field)
 - small: 2-4 files, single layer, no architectural decisions
-- medium: 4-8 files, multiple layers, may need design docs
-- large: 8+ files, multiple services, needs full planning
+- medium: 5-8 files, multiple layers, may need design docs
+- large: 9+ files, multiple services, needs full planning
 - When uncertain, choose the higher tier
 - New projects with no code: minimum medium
 - "migrate", "refactor across", "redesign": minimum medium

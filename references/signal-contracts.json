@@ -133,9 +133,7 @@
             "key_decisions": "Used discriminated union for FeatureResult instead of optional fields",
             "interfaces_established": "FeatureResult type exported from src/types.ts",
             "gotchas": "FeatureResult.error is string|null, not string|undefined — downstream must check null"
-          },
-          "agent_id": "agent-a1b2c3",
-          "attempts": []
+          }
         },
         "envelope_version": "1.0.0"
       }
