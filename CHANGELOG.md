@@ -1,5 +1,22 @@
 # Changelog
 
+## [6.0.0] — 2026-04-03
+
+### Added
+- **Adaptive phase routing**: `/create` auto-classifies task complexity (trivial/small/medium/large) and skips unnecessary phases. Trivial tasks bypass all planning. `--full` flag forces complete pipeline.
+- **Hybrid synthesis**: Team-lead reads completed task output (implementation notes, diffs) and synthesizes specific context for dependent tasks. Synthesis depth scales with task tier.
+- **Continue-on-rework**: Low/medium severity reviewer rejections continue the original implementer via SendMessage instead of spawning fresh. Falls back to fresh spawn on second rejection.
+- **Implementation notes**: Implementers write structured `implementation_notes` (files_changed, key_decisions, interfaces_established, gotchas) on completion for knowledge transfer.
+- **Trivial scale tier**: New classification for single-file changes — no state.json, no specs, direct dispatch.
+- **Small scale tier**: New classification for 2-4 file changes — flat task list, sequential dispatch, no discovery.
+
+### Changed
+- `signal-contracts.json`: IMPLEMENTATION_COMPLETE now includes `implementation_notes`, `agent_id`, `attempts` fields
+- `tasks.json` schema: Added `implementation_notes`, `agent_id`, `attempts` fields
+- `retry-patterns.md`: First retry uses SendMessage continuation, fresh spawn is second strategy
+- `scale-determination.md`: Four tiers (trivial/small/medium/large) replacing three (small/medium/large)
+- `model-routing.json`: Added trivial/small scale routing rules, updated retry strategy order
+
 ## [5.8.0] - 2026-04-03
 
 ### Added
