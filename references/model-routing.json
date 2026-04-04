@@ -69,10 +69,10 @@
   },
 
   "retry_strategy": {
-    "order": ["fresh_agent", "same_agent", "escalate"],
-    "note": "Fresh-context-first: first retry uses clean context with structured failure summary. Accumulated context from failed attempts degrades performance.",
+    "order": ["continue_agent", "fresh_agent", "escalate"],
+    "note": "Continue-on-rework: first retry continues original agent via SendMessage (retains context). Falls back to fresh agent on second rejection or if SendMessage fails.",
+    "continue_agent_retries": 1,
     "fresh_agent_retries": 1,
-    "same_agent_retries": 1,
     "escalation": {
       "from": "haiku",
       "to": "sonnet"

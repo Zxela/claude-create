@@ -236,20 +236,30 @@ When an implementer emits `NEEDS_REWORK` instead of `IMPLEMENTATION_COMPLETE`:
 3. This counts toward the retry limit (max 2 retries per task)
 4. If the implementer still emits `NEEDS_REWORK` after max retries, skip the task and note it
 
-**Handling rejections (from reviewer):**
+**Handling rejections (from reviewer) — Continue-on-Rework:**
 
 When a reviewer emits `REJECTED`:
-1. Read the rejection feedback
-2. Load feedback_patterns.json (updated by the post-implement hook)
-3. **Placeholder escalation check:** If >2 rejections for the same task (or across tasks) cite "incomplete", "vague", or "placeholder" in their reasons, the root cause is the AC — not the implementation. Do NOT retry the implementer. Instead:
-   - Mark the task as "blocked" in tasks.json with reason "placeholder_ac"
-   - Escalate to re-decomposition: re-invoke `homerun:task-decomposition` for the affected task(s), providing the rejection feedback as context
-   - Resume the dispatch loop only after decomposition produces concrete ACs
-4. Re-dispatch the implementer with:
-   - The specific rejection issues from the reviewer
-   - The accumulated session feedback patterns (from Section 2.5)
-   - A retry counter (max 2 retries per task)
-5. The re-dispatched implementer runs alongside other active implementers/reviewers
+1. Read rejection feedback (severity, issues, required_fixes)
+2. Load feedback_patterns.json (updated by post-implement hook)
+3. **Placeholder escalation check** (unchanged): If >2 rejections cite "incomplete", "vague", or "placeholder":
+   - Mark task as "blocked" in tasks.json with reason "placeholder_ac"
+   - Escalate to re-decomposition: re-invoke `homerun:task-decomposition` for affected task(s)
+   - Resume only after concrete ACs
+
+4. **Continue-on-rework:**
+   - Record attempt in tasks.json `attempts` array: `{ agent_id, status: "rejected", severity, feedback }`
+   - **If severity is low/medium AND attempts.length == 1 (first rejection):**
+     - Attempt `SendMessage` to the original `agent_id` from tasks.json
+     - Message content: the reviewer's `required_fixes` array + specific `issues` with file paths and line numbers
+     - If SendMessage succeeds: implementer applies targeted fix, re-runs self-review, re-signals
+     - If SendMessage fails (agent terminated): fall through to fresh spawn below
+   - **If severity is low/medium AND attempts.length >= 2 (second+ rejection):**
+     - Spawn fresh implementer with structured failure summary from all attempts
+     - Include all previous rejection feedback
+   - **If severity is high:**
+     - Escalate to user (unchanged)
+
+5. Iteration caps remain: max 3 rejections per task, max 5 session retries
 
 **Handling approvals:**
 
