@@ -16,6 +16,7 @@ Follow the `homerun:quality-check` skill to run the quality pipeline.
 
 - **Phases 1, 2, and 4 are deterministic** — run CLI tools and check exit codes. No LLM judgment needed for these.
 - **Phase 3 (structural review) is the ONLY phase requiring LLM judgment** — this is where you add value
+- **Haiku-tier sessions** skip Phase 3 (structural review) and Phase 5 (recheck), and override fix_mode to `report_only`. Only deterministic checks run.
 - In `auto` fix mode: fix issues and recommit automatically
 - In `report_only` mode: report issues without modifying code
 - Re-run failed phases after fixes to confirm resolution
@@ -36,7 +37,7 @@ Handled by `homerun-quality-lint.sh` hook. Read its exit code — do not run lin
 ### Phase 2: Type Checking (HOOK)
 Handled by `homerun-quality-typecheck.sh` hook. Read its exit code — do not run typecheck yourself.
 
-### Phase 3: Structural Review (LLM JUDGMENT)
+### Phase 3: Structural Review (LLM JUDGMENT — skipped for haiku-tier)
 This is where you provide value. Verify:
 - File organization matches project conventions
 - Import patterns are consistent
@@ -48,7 +49,7 @@ This is where you provide value. Verify:
 Run full test suite. Check exit code. All tests must pass.
 **No LLM judgment** — just run `npm test` and report pass/fail.
 
-### Phase 5: Final Recheck (DETERMINISTIC)
+### Phase 5: Final Recheck (DETERMINISTIC — skipped for haiku-tier)
 Re-run phases 1-2 after any auto-fixes to confirm no regressions.
 
 ## Verdict Rules

@@ -1,6 +1,6 @@
 ---
 name: quality-check
-description: "[sonnet] Multi-phase quality pipeline: lint, types, structure, tests, recheck"
+description: "[sonnet/haiku-tier] Multi-phase quality pipeline: lint, types, structure, tests, recheck. Haiku-tier tasks skip LLM phases."
 model: sonnet
 color: teal
 ---
@@ -13,7 +13,7 @@ color: teal
 
 ## Overview
 
-5-phase quality pipeline on changed files. Complements review (spec compliance) with code health validation. Invoked after review approval or as standalone gate. **Model: sonnet. Budget: < 15K tokens.**
+5-phase quality pipeline on changed files. Complements review (spec compliance) with code health validation. Invoked after review approval or as standalone gate. **Model: sonnet. Budget: < 15K tokens (< 5K for haiku-tier).** Haiku-tier sessions skip LLM phases (Phase 3, Phase 5) entirely.
 
 ---
 
@@ -36,6 +36,12 @@ color: teal
       "enum": ["auto", "report_only"],
       "default": "auto",
       "description": "auto: fix issues and recommit. report_only: report without changing files."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["haiku", "sonnet", "opus"],
+      "default": "sonnet",
+      "description": "Execution tier of the tasks in this session. haiku: skip LLM phases (Phase 3 structural review, Phase 4 auto-fix). sonnet/opus: full pipeline."
     }
   }
 }
@@ -48,9 +54,28 @@ color: teal
   "worktree_path": "../myapp-create-user-auth-a1b2c3d4",
   "files_changed": ["src/services/auth.ts", "tests/services/auth.test.ts"],
   "task_id": "002",
-  "fix_mode": "auto"
+  "fix_mode": "auto",
+  "tier": "sonnet"
 }
 ```
+
+---
+
+## Tier Routing
+
+Before starting, determine which phases to run:
+
+```
+tier == "haiku"  → run Phase 1 (lint), Phase 2 (types), Phase 4 (tests, report_only)
+                   SKIP Phase 3 (structural review — LLM)
+                   SKIP Phase 5 (recheck — nothing to recheck when no auto-fixes run)
+                   OVERRIDE fix_mode to "report_only" for Phase 4 (no LLM auto-fix)
+
+tier == "sonnet" → full pipeline (all 5 phases, fix_mode as specified)
+tier == "opus"   → full pipeline (all 5 phases, fix_mode as specified)
+```
+
+**Why skip for haiku?** Haiku-tier tasks (`add_field`, `add_method`, `add_validation`, etc.) are mechanical single-focus changes. The structural review phase adds LLM cost (~3K tokens) but provides minimal signal for tasks that don't involve new abstractions, dead code risks, or naming decisions. Deterministic checks (lint, types, tests) are sufficient.
 
 ---
 
@@ -60,17 +85,23 @@ color: teal
 
 Handled by `scripts/homerun-quality-lint.sh` and `scripts/homerun-quality-typecheck.sh`. Skip with `skipped_by_hooks` if git hooks (husky/pre-commit) already enforce. Agent reads exit codes only.
 
-### Phase 3: Structural Review (LLM — only phase requiring judgment)
+### Phase 3: Structural Review (LLM — skipped for haiku-tier)
+
+**Tier check:** If `tier == "haiku"`, skip this phase entirely. Emit `"status": "skipped", "reason": "haiku_tier"` and proceed to Phase 4.
 
 Review changed files for: unused imports, dead code, debug artifacts (console.log, debugger), naming consistency, file organization. Grep for artifacts first.
 
 **Blocking** (fail): debug artifacts, genuine dead code. **Advisory** (pass): naming, organization, benign TODOs.
 
-### Phase 4: Tests (DETERMINISTIC)
+### Phase 4: Tests (DETERMINISTIC — haiku-tier uses report_only)
+
+**Tier check:** If `tier == "haiku"`, override `fix_mode` to `"report_only"`. Do not attempt LLM auto-fix — just run tests and report.
 
 Run test suite, check exit code. If fail + fix_mode=auto → attempt fix (max 2). Still failing → report unresolved.
 
-### Phase 5: Final Recheck (DETERMINISTIC)
+### Phase 5: Final Recheck (DETERMINISTIC — skipped for haiku-tier)
+
+**Tier check:** If `tier == "haiku"`, skip this phase entirely. Emit `"status": "skipped", "reason": "haiku_tier"`. No auto-fixes ran, so there is nothing to recheck.
 
 Re-run phases 1-2 after auto-fixes. New issues from fixes → revert, report `needs_manual_fix`.
 
@@ -127,7 +158,8 @@ Re-run phases 1-2 after auto-fixes. New issues from fixes → revert, report `ne
       "properties": {
         "status": { "enum": ["pass", "fixed", "fail", "skipped"] },
         "issues_found": { "type": "integer" },
-        "issues_fixed": { "type": "integer" }
+        "issues_fixed": { "type": "integer" },
+        "reason": { "type": "string", "description": "Why this phase was skipped (e.g. 'haiku_tier', 'skipped_by_hooks')" }
       }
     }
   }
