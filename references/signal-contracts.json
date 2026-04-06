@@ -53,8 +53,6 @@
         "timestamp": "2026-01-25T10:30:00Z",
         "source": { "skill": "homerun:discovery" },
         "payload": {
-          "worktree_path": "/path/to/worktree",
-          "branch": "create/feature-uuid",
           "spec_paths": {
             "prd": "docs/PRD.md",
             "adr": "docs/ADR.md",

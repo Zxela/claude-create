@@ -1,14 +1,14 @@
 # State Schema Reference
 
-The `state.json` file lives at the worktree root and tracks the entire `/create` workflow lifecycle. This reference documents its schema and initialization.
+The `state.json` file lives in the working directory and tracks the entire `/create` workflow lifecycle. During planning phases it lives in the cwd; the team-lead may move it to a worktree at implementation time if isolation is needed.
 
 ## Full Schema
 
 ```json
 {
   "session_id": "feature-name-a1b2c3d4",
-  "branch": "create/feature-name-a1b2c3d4",
-  "worktree": "../repo-create-feature-name-a1b2c3d4",
+  "branch": null,
+  "worktree": null,
   "feature": "feature-name",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
@@ -103,8 +103,8 @@ The `state.json` file lives at the worktree root and tracks the entire `/create`
 | Field | Description |
 |-------|-------------|
 | `session_id` | Unique identifier combining feature slug and UUID |
-| `branch` | Git branch name for this workflow |
-| `worktree` | Path to the git worktree directory |
+| `branch` | Git branch name (null during planning, set by team-lead at implementation if worktree created) |
+| `worktree` | Path to worktree (null during planning, set by team-lead at implementation if needed) |
 | `feature` | Slugified feature name |
 | `created_at` | ISO 8601 timestamp of session creation |
 | `phase` | Current workflow phase (discovery, spec_review, scope_analysis, task_decomposition, implementing, completing) |
