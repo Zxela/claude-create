@@ -184,10 +184,12 @@ Rules:
 
 **Entry condition:** classification is "medium" or "large" (or --full)
 
+All planning phases (discovery through task decomposition) work in the **current working directory**. No worktrees are created during planning — worktree isolation is deferred to the implementing phase where it's actually needed.
+
 Read the current phase from `state.json` (or start at "discovery" for new sessions). Spawn the appropriate agent, wait for it to return, then read `state.json` again and continue to the next phase. Repeat until complete.
 
 ```bash
-PHASE=$(jq -r '.phase // "discovery"' "$WORKTREE_PATH/state.json" 2>/dev/null || echo "discovery")
+PHASE=$(jq -r '.phase // "discovery"' state.json 2>/dev/null || echo "discovery")
 ```
 
 #### Phase: discovery
@@ -210,12 +212,12 @@ After discovery returns, re-read `state.json`. Discovery sets `phase: "spec_revi
 **Auto-mode skip for non-large features:** If `auto_mode` is enabled and scale is not `"large"`, skip spec review entirely — update `state.json` phase to `"scope_analysis"` and continue the loop. In auto mode, the cost of a full spec review outweighs the risk for small/medium features.
 
 ```bash
-SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' "$WORKTREE_PATH/state.json" 2>/dev/null)
-AUTO_MODE=$(jq -r '.config.auto_mode // false' "$WORKTREE_PATH/state.json" 2>/dev/null)
+SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' state.json 2>/dev/null)
+AUTO_MODE=$(jq -r '.config.auto_mode // false' state.json 2>/dev/null)
 
 if [ "$AUTO_MODE" = "true" ] && [ "$SCALE" != "large" ]; then
   echo "Skipping spec review (auto mode, scale=$SCALE)"
-  jq '.phase = "scope_analysis"' "$WORKTREE_PATH/state.json" > tmp.json && mv tmp.json "$WORKTREE_PATH/state.json"
+  jq '.phase = "scope_analysis"' state.json > tmp.json && mv tmp.json state.json
   # Continue phase loop — do not spawn spec-reviewer
 fi
 ```
@@ -228,7 +230,6 @@ Task({
   subagent_type: "spec-reviewer",
   prompt: `Review specs for consistency, completeness, and testability.
 
-  Worktree: ${worktree}
   Spec paths: ${JSON.stringify(state.spec_paths)}
   Auto mode: ${state.config.auto_mode}
 
@@ -246,7 +247,7 @@ Task({
 
 **Scale-based skip:** Before spawning the scope-analyzer, check if the scale is "small":
 ```bash
-SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' "$WORKTREE_PATH/state.json" 2>/dev/null)
+SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' state.json 2>/dev/null)
 ```
 If `SCALE` is `"small"`, skip the scope_analysis phase entirely — update `state.json` phase directly to `"task_decomposition"` and continue the loop. Small features don't need the intermediate scope-analysis.json artifact.
 
@@ -256,9 +257,6 @@ Task({
   subagent_type: "scope-analyzer",
   model: "sonnet",
   prompt: `Extract scope analysis from specification documents.
-
-  Worktree: ${worktree}
-  State file: ${worktree}/state.json
 
   Read state.json and spec documents, then create docs/scope-analysis.json with components, validated ACs, and JIT context refs.`
 });
@@ -274,9 +272,6 @@ Task({
   subagent_type: "task-decomposer",
   prompt: `Decompose scope analysis into implementation tasks.
 
-  Worktree: ${worktree}
-  State file: ${worktree}/state.json
-
   Read docs/scope-analysis.json and create docs/tasks.json with DAG.`
 });
 ```
@@ -286,7 +281,7 @@ After task-decomposer returns, re-read `state.json`. Task decomposition sets `ph
 **DAG Validation:** Before proceeding to implementation, run the validation script:
 
 ```bash
-VALIDATE_RESULT=$(bash scripts/homerun-validate-dag.sh "${worktree}/docs/tasks.json" "${worktree}/docs/scope-analysis.json")
+VALIDATE_RESULT=$(bash scripts/homerun-validate-dag.sh docs/tasks.json docs/scope-analysis.json)
 VALIDATE_EXIT=$?
 
 if [ $VALIDATE_EXIT -eq 2 ]; then
@@ -311,16 +306,16 @@ If validation passes (exit code 0 or 1): check mode before continuing.
 If `auto_mode` is **not** enabled, print a task summary and stop — directing the user to start implementation explicitly:
 
 ```bash
-AUTO_MODE=$(jq -r '.config.auto_mode // false' "$WORKTREE_PATH/state.json" 2>/dev/null)
+AUTO_MODE=$(jq -r '.config.auto_mode // false' state.json 2>/dev/null)
 
 if [ "$AUTO_MODE" != "true" ]; then
-  TASK_COUNT=$(jq '.tasks | length' "$WORKTREE_PATH/docs/tasks.json")
+  TASK_COUNT=$(jq '.tasks | length' docs/tasks.json)
   echo ""
   echo "Planning complete — $TASK_COUNT tasks ready for implementation:"
-  jq -r '.tasks[] | "  \(.id): \(.title) [\(.task_type)] → \(.model // "sonnet")"' "$WORKTREE_PATH/docs/tasks.json"
+  jq -r '.tasks[] | "  \(.id): \(.title) [\(.task_type)] → \(.model // "sonnet")"' docs/tasks.json
   echo ""
   echo "To start implementation, run:"
-  echo "  /build $WORKTREE_PATH"
+  echo "  /build"
   # STOP — do not proceed to implementing
 fi
 ```
@@ -328,6 +323,8 @@ fi
 If `auto_mode` is enabled: continue to `implementing` as before.
 
 #### Phase: implementing
+
+The team-lead creates a worktree for implementation isolation **only if** an existing git repo with history is present. For greenfield projects (no repo or freshly initialized), implementation runs in the current directory.
 
 ```javascript
 Skill({ skill: "homerun:team-lead" });

@@ -18,14 +18,16 @@ Orchestrate Phase 3 (Implementation) **inline in main session**. Dispatch implem
 ### 1. Load Tasks
 
 ```bash
-cd "$WORKTREE_PATH"
-
-TASKS_FILE=$(jq -r '.tasks_file' state.json)
+# Planning phases wrote state.json and docs/ to cwd — no worktree to cd into
+TASKS_FILE=$(jq -r '.tasks_file // "docs/tasks.json"' state.json)
 TASK_COUNT=$(jq '.tasks | length' "$TASKS_FILE")
 PENDING=$(jq '[.tasks[] | select(.status == "pending")] | length' "$TASKS_FILE")
 
 echo "$PENDING pending of $TASK_COUNT total tasks"
 ```
+
+**Worktree decision:** If an existing git repo with commit history is present (`git log --oneline -1` succeeds and the repo has real commits), create a feature branch for isolation. For greenfield projects or benchmark environments (no meaningful git history), work directly in the current directory — worktree overhead is wasted.
+
 
 Read the full tasks to understand the DAG:
 

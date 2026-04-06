@@ -60,5 +60,4 @@ All stored in `$HOME/.claude/homerun/<project-hash>/<feature-slug>/`. See `refer
 - Knowledge gaps addressed through structured dialogue
 - All spec documents created at appropriate scale
 - All acceptance criteria describe observable, testable outcomes
-- Git worktree created with state.json initialized
-- Phase set to `spec_review` before transitioning
+- state.json initialized in cwd with spec_paths and scale, phase set to `spec_review`
