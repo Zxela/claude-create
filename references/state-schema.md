@@ -56,7 +56,7 @@ The `state.json` file lives in the working directory and tracks the entire `/cre
     "max_identical_rejections": 3,
     "max_iterations_without_progress": 3,
     "retries": {
-      "same_agent": 1,
+      "continue_agent": 1,
       "fresh_agent": 1
     }
   },

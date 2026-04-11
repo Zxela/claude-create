@@ -131,7 +131,7 @@ Start an orchestrated workflow from idea through implementation.
 |------|-------------|
 | `--auto` | Skip all confirmations — dialogue, validation, phase transitions |
 | `--resume` | Resume interrupted session |
-| `--retries N,M` | Retry limits: N=fresh agent, M=same agent (default: 1,1) |
+| `--retries N,M` | Retry limits: N=continue agent (SendMessage), M=fresh agent (default: 1,1) |
 
 **Plan-then-stop (default):** In interactive mode, `/create` stops after DAG validation and prints a task summary. Run `/build <worktree>` to start implementation. In `--auto` mode, execution continues immediately.
 
@@ -334,7 +334,7 @@ state.json
 │   ├── timeout_minutes
 │   ├── max_identical_rejections
 │   ├── max_iterations_without_progress
-│   └── retries { same_agent, fresh_agent }
+│   └── retries { continue_agent, fresh_agent }
 └── skill_log               # Audit trail of skill invocations
 ```
 
@@ -473,11 +473,13 @@ All inter-agent communication uses typed JSON signal envelopes. See `references/
 Task rejected (attempt 1 failed)
       │
       ▼
+  Severity is high? → Escalate to user immediately
+      │ NO ↓
+  continue_agent retries remaining? (default: 1)
+      │ YES → SendMessage to original agent (retains full context)
+      │ NO ↓
   fresh_agent retries remaining? (default: 1)
       │ YES → Spawn fresh agent (clean slate + structured failure summary)
-      │ NO ↓
-  same_agent retries remaining? (default: 1)
-      │ YES → Retry with same agent + targeted guidance
       │ NO ↓
   Model is haiku? → Escalate to sonnet
       │ NO ↓

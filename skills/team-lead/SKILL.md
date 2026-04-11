@@ -157,12 +157,13 @@ When dispatching a task that has completed dependencies (`depends_on` with statu
 5. **After each implementer returns:**
    - **If `NEEDS_REWORK`:** Re-dispatch the implementer immediately with the self-review findings as `previous_feedback`. No reviewer is needed — the implementer caught its own issues. Include the `findings` array so the implementer knows exactly what to fix. This counts toward the retry limit (max 2 retries per task).
    - **If `IMPLEMENTATION_COMPLETE`:**
-     1. Read `implementation_notes` from the signal payload
+     1. Read `implementation_notes` and `commit_hash` from the signal payload
      2. Write `implementation_notes` to the task entry in docs/tasks.json
-     3. Write `agent_id` to the task entry (for potential rework continuation)
-     4. Mark native task completed
-     5. If `hard_gate_results` present with all exit codes 0: dispatch reviewer with `skip_hard_gates: true` (see Section 3.5)
-     6. Otherwise: dispatch reviewer normally (no `skip_hard_gates`)
+     3. Write `commit_hash` to the task entry in docs/tasks.json
+     4. Write `agent_id` to the task entry (for potential rework continuation)
+     5. Mark native task completed
+     6. If `hard_gate_results` present with all exit codes 0: dispatch reviewer with `skip_hard_gates: true` (see Section 3.5)
+     7. Otherwise: dispatch reviewer normally (no `skip_hard_gates`)
    - Update tasks.json if the implementer didn't already
    - Find next batch of ready tasks
    - Repeat until no pending tasks remain

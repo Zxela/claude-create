@@ -116,19 +116,19 @@
     },
     "medium": {
       "max_implementers": 2,
-      "skip_spec_review": false,
-      "skip_scope_analysis": false,
-      "skip_agent_teams": false,
-      "skip_separate_reviewer": false,
-      "preferred_model": "sonnet"
+      "default_model": "sonnet",
+      "isolation": "worktree",
+      "quality_tier": "sonnet",
+      "phases": ["discovery", "spec_review", "scope_analysis", "task_decomposition", "implement", "review", "quality_check"],
+      "quality_check_phases": ["lint", "types", "structure", "tests", "recheck"]
     },
     "large": {
       "max_implementers": 5,
-      "skip_spec_review": false,
-      "skip_scope_analysis": false,
-      "skip_agent_teams": false,
-      "skip_separate_reviewer": false,
-      "preferred_model": null
+      "default_model": null,
+      "isolation": "worktree",
+      "quality_tier": "sonnet",
+      "phases": ["discovery", "spec_review", "scope_analysis", "task_decomposition", "implement", "review", "quality_check"],
+      "quality_check_phases": ["lint", "types", "structure", "tests", "recheck"]
     }
   },
 

@@ -136,16 +136,9 @@ Generate an ADR **regardless of scale** if ANY of these apply:
 
 ### Small (2-4 files)
 
-**TECHNICAL_DESIGN only** — use the dedicated small-scale template (`templates/TECHNICAL_DESIGN_small.md`):
-- What to change and where (file paths + line ranges)
-- Data model changes (if any)
-- API contracts (if any)
-- Test strategy (which tests to add/modify)
-- Change impact map
-- Agreement checklist (scope, non-scope, constraints, testing)
-- No architecture overview, dependencies, NFRs, migration/rollback, or observability sections
+**No spec documents.** Small tasks skip discovery and spec generation entirely — the task description and codebase provide sufficient context. Lightweight task decomposition produces a flat task list directly from the user prompt.
 
-Skip: PRD (change is obvious), ADR (no architectural decision), WIREFRAMES
+Skip: PRD, ADR, TECHNICAL_DESIGN, WIREFRAMES
 
 ### Medium (5-8 files)
 

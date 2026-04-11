@@ -176,16 +176,17 @@ Use deterministic CLI checks (exit codes) instead of LLM judgment for:
 
 Reserve LLM for structural review (Phase 3) where judgment is genuinely needed.
 
-### 10. Fresh-Context-First Retries (v4.0)
+### 10. Continue-on-Rework Retries (v6.0)
 
-Invert naive retry order. First retry = fresh agent with structured failure summary:
+First retry continues the original agent via SendMessage — the agent retains full context (files read, code written, tests run), so targeted fixes are faster than a fresh start:
 
 ```
-BEFORE: same_agent(2x) → fresh_agent(1x) → escalate
-AFTER:  fresh_agent(1x) → same_agent(1x) → escalate
+v4.0: fresh_agent(1x) → same_agent(1x) → escalate
+v6.0: continue_agent(1x) → fresh_agent(1x) → escalate
+      (high severity → immediate escalation)
 ```
 
-Accumulated context from failed attempts degrades performance. A clean context with a concise failure summary succeeds more often.
+The original agent's accumulated context is an asset for low/medium severity fixes. Fresh agents are reserved for second rejections where a new perspective is needed.
 
 ## Anti-Patterns to Avoid
 
@@ -213,9 +214,9 @@ Accumulated context from failed attempts degrades performance. A clean context w
 ❌ Use Sonnet to decide if lint/type/test checks pass
 ✅ Run CLI tools, check exit codes — zero-cost, deterministic, reproducible
 
-### 7. Retrying with Accumulated Context (NEW)
-❌ Retry failed implementation with all previous attempt context accumulated
-✅ Fresh agent with structured failure summary — higher success rate, lower token cost
+### 7. Retry Strategy Mismatch (NEW)
+❌ Always use fresh agents (loses context) or always continue (accumulates noise)
+✅ Continue-on-rework for first low/med rejection (retains context), fresh agent for second (new perspective)
 
 ## Measuring Effectiveness
 

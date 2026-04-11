@@ -46,13 +46,21 @@ Extracted from team-lead orchestration logic for token efficiency.
 function getRetryType(task, state) {
   const attempts = task.attempts || [];
 
+  // FIRST rejection (high severity): escalate immediately with context
+  if (attempts.length === 1 && attempts[0].severity === 'high') {
+    return {
+      type: 'human_escalation',
+      attempts: attempts.map(a => ({ severity: a.severity, feedback: a.feedback }))
+    };
+  }
+
   // FIRST rejection (low/med): continue original agent via SendMessage
   // Agent retains full context — targeted fix is faster than fresh start
-  if (attempts.length === 1 && attempts[0].severity !== 'high') {
+  if (attempts.length === 1) {
     return {
       type: 'continue_agent',
       agent_id: task.agent_id,
-      message: task.attempts[0].feedback,
+      message: task.attempts[0].required_fixes || task.attempts[0].feedback,
       fallback: 'fresh_agent'  // if SendMessage fails
     };
   }
@@ -77,8 +85,6 @@ function getRetryType(task, state) {
       attempts: attempts.map(a => ({ severity: a.severity, feedback: a.feedback }))
     };
   }
-
-  return { type: 'human_escalation' };
 }
 
 // Build a concise summary of what failed and why

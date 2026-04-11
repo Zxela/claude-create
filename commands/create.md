@@ -57,8 +57,13 @@ Start an orchestrated development workflow that takes you from idea to implement
 
 When resuming an interrupted session:
 
-1. Find existing homerun worktrees and show their session info:
+1. Find existing homerun sessions (worktrees and cwd) and show their session info:
    ```bash
+   # Check cwd for a planning-phase session (worktree deferred to implementation)
+   if [ -f "state.json" ]; then
+     echo "cwd — $(jq -r '"\(.feature // "unknown") [\(.phase // "unknown")]"' state.json)"
+   fi
+
    # List all homerun worktrees with their phase and feature name
    for wt in $(git worktree list | grep 'create/' | awk '{print $1}'); do
      if [ -f "$wt/state.json" ]; then
@@ -67,9 +72,9 @@ When resuming an interrupted session:
    done
    ```
 
-2. If multiple worktrees exist, ask the user which session to resume
+2. If multiple sessions exist, ask the user which session to resume
 
-3. Read `state.json` from the selected worktree root
+3. Read `state.json` from the selected location (cwd or worktree root)
 
 4. Jump into the **Phase Loop** below at the current phase
 
@@ -157,7 +162,7 @@ Rules:
      
      Use the current working directory (no worktree).
      Run tests, typecheck, and lint before committing.
-     Commit with message: feat: ${summary}`
+     Commit with message: feat: ${user_prompt_summary}`
    })
    ```
 5. Run haiku-tier quality check (lint + types + tests only):
