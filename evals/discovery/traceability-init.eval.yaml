@@ -23,8 +23,6 @@ evaluations:
           field: "signal"
           pattern: "DISCOVERY_COMPLETE"
       - signal_has:
-          field: "payload.worktree_path"
-      - signal_has:
           field: "payload.spec_paths.prd"
       # Check output mentions traceability initialization
       - output_contains: "traceability"

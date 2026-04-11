@@ -1,0 +1,139 @@
+name: team-lead-feedback-injection
+description: "Verify team-lead loads feedback_patterns.json and injects patterns into implementer prompts"
+workflow: homerun:team-lead
+tags: [team-lead, feedback, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+cases:
+  - name: inject-existing-patterns
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-feedback-001",
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              {
+                "id": "001",
+                "title": "Add user lookup",
+                "objective": "Implement findUser function",
+                "task_type": "add_method",
+                "status": "pending",
+                "depends_on": [],
+                "acceptance_criteria": [
+                  { "id": "AC-001", "criterion": "findUser(id) returns user or null" }
+                ],
+                "test_file": "tests/user.test.ts"
+              }
+            ]
+          }
+      - path: feedback_patterns.json
+        content: |
+          {
+            "common_patterns": [
+              "Always use strict equality (===) not loose equality (==)",
+              "Return types must be explicit — no implicit any"
+            ],
+            "session_patterns": [
+              "Previous task was rejected for missing null check on database return value"
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json, docs/tasks.json, and feedback_patterns.json.
+
+        Step 2.5 says: If feedback_patterns.json exists, inject common_patterns and session_patterns
+        into implementer prompts.
+
+        Build the implementer dispatch prompt for task 001 that includes the feedback patterns.
+        Show the full prompt text you would pass to the implementer.
+
+        Do NOT actually dispatch any agents.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "strict equality|===|loose equality"
+          - output_contains: "null check|database return"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate feedback pattern injection:
+
+          1. Common patterns (0-3): Both common_patterns are included in the prompt —
+             strict equality rule AND explicit return types rule.
+          2. Session patterns (0-3): The session_pattern about null check on database return
+             is included in the prompt.
+          3. Integration quality (0-2): Patterns are naturally integrated into the prompt
+             (e.g., in a "Previous session feedback" or "Known patterns" section), not dumped
+             as raw JSON.
+          4. Task context preserved (0-2): The core task details (id, title, objective, ACs)
+             are still present alongside the injected patterns.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: skip-when-absent
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-feedback-002",
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              {
+                "id": "001",
+                "title": "Add config loader",
+                "objective": "Load config from environment variables",
+                "task_type": "add_config",
+                "status": "pending",
+                "depends_on": [],
+                "acceptance_criteria": [
+                  { "id": "AC-001", "criterion": "Reads PORT from process.env" }
+                ],
+                "test_file": "tests/config.test.ts"
+              }
+            ]
+          }
+      # No feedback_patterns.json fixture — file does not exist
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        Step 2.5 says: If feedback_patterns.json exists, inject patterns. If absent or empty, skip.
+
+        Note: feedback_patterns.json does NOT exist in this project.
+
+        Build the implementer dispatch prompt for task 001.
+        Show the full prompt text. Note how you handle the missing feedback file.
+
+        Do NOT actually dispatch any agents.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate handling of missing feedback_patterns.json:
+
+          1. Graceful skip (0-4): Does NOT error or block on missing feedback_patterns.json.
+             Acknowledges the file is absent and proceeds normally.
+          2. No fabrication (0-3): Does NOT invent or hallucinate feedback patterns. The prompt
+             should either omit the feedback section entirely or note "None (first task)" / similar.
+          3. Task prompt quality (0-3): The implementer prompt is still complete and correct
+             with task details, ACs, and methodology despite missing feedback.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

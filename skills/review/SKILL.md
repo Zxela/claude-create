@@ -69,16 +69,63 @@ git diff ${COMMIT_HASH}~1..${COMMIT_HASH} -- ${FILES_CHANGED[@]}
 
 ## Output Signals
 
-All output: valid JSON in ```json code block.
+All output: valid JSON in ```json code block. **Use envelope format** with `signal`, `timestamp`, `source`, `payload` wrapper (see `references/signal-contracts.json`).
 
 ### APPROVED
-Required: `signal`, `summary`, `score` (>= 0.7), `hard_gates` ({tests, types, lint}: pass|fail|skipped), `verified[]` ({criterion, description, implementation_file, test_file} with file:line format).
+
+```json
+{
+  "signal": "APPROVED",
+  "timestamp": "<ISO8601>",
+  "source": { "skill": "homerun:review", "task_id": "<task.id>" },
+  "payload": {
+    "summary": "<one-line summary>",
+    "score": 0.85,
+    "hard_gates": { "tests": "pass", "types": "pass", "lint": "pass" },
+    "verified": [
+      { "criterion": "AC-001", "description": "...", "implementation_file": "src/x.ts:45", "test_file": "tests/x.test.ts:12" }
+    ]
+  },
+  "envelope_version": "1.0.0"
+}
+```
 
 ### REJECTED
-Required: `signal`, `summary`, `score` (< 0.7, omit if hard gate failed), `hard_gates`, `issues[]` ({criterion, description, file, line, severity}), `required_fixes[]`.
+
+```json
+{
+  "signal": "REJECTED",
+  "timestamp": "<ISO8601>",
+  "source": { "skill": "homerun:review", "task_id": "<task.id>" },
+  "payload": {
+    "summary": "<one-line summary>",
+    "score": 0.45,
+    "hard_gates": { "tests": "fail", "types": "pass", "lint": "pass" },
+    "issues": [
+      { "criterion": "AC-002", "description": "...", "file": "src/x.ts", "line": 45, "severity": "high" }
+    ],
+    "required_fixes": ["Fix the boundary check at src/x.ts:45"]
+  },
+  "envelope_version": "1.0.0"
+}
+```
+
+Omit `score` from payload if rejection is due to hard gate failure (Tier 2 was not run).
 
 ### VALIDATION_ERROR
-Required: `signal`, `error_type` (invalid_input|semantic_error), `errors[]` ({path, message, expected, received}).
+
+```json
+{
+  "signal": "VALIDATION_ERROR",
+  "timestamp": "<ISO8601>",
+  "source": { "skill": "homerun:review" },
+  "payload": {
+    "error_type": "invalid_input",
+    "errors": [{ "path": "$.task.id", "message": "...", "expected": "...", "received": "..." }]
+  },
+  "envelope_version": "1.0.0"
+}
+```
 
 ## Re-Review Process
 

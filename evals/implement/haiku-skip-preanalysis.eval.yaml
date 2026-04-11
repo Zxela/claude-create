@@ -1,0 +1,123 @@
+name: implement-haiku-skip-preanalysis
+description: "Verify haiku task types skip Step 0 pre-implementation analysis and go straight to Step 1"
+workflow: homerun:implement
+tags: [implement, routing, smoke, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": { "test": "node --test" }
+      }
+  - path: src/config.ts
+    content: |
+      export const config = {
+        port: 3000,
+        host: 'localhost'
+      };
+
+cases:
+  - name: haiku-task-skips-step0
+    input:
+      prompt: |
+        Implement this task.
+
+        Task spec:
+        {
+          "id": "010",
+          "title": "Add maxConnections to config",
+          "objective": "Add maxConnections field with default value 10 to the config object",
+          "task_type": "add_field",
+          "methodology": "direct",
+          "acceptance_criteria": [
+            {
+              "id": "AC-001",
+              "criterion": "config.maxConnections equals 10",
+              "risk_level": "must_test",
+              "test_assertion": "expect(config.maxConnections).toBe(10)"
+            }
+          ],
+          "test_file": "tests/config.test.js",
+          "context_refs": { "pattern_files": ["src/config.ts"] }
+        }
+
+        IMPORTANT: This is a haiku task type ("add_field").
+        Step 0 (Pre-Implementation Analysis) says: "Skip for haiku tasks → jump to Step 1."
+        Do NOT run strategy selection, metacognitive questions, impact analysis, or duplication check.
+        Go straight to understanding the task and implementing it.
+
+        Describe your approach before implementing.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate haiku task routing:
+
+          1. No Step 0 (0-4): Does NOT perform pre-implementation analysis steps —
+             no strategy selection, no metacognitive questions, no impact analysis, no duplication check.
+             Goes directly to understanding the task (Step 1) or implementation.
+          2. Direct methodology (0-3): Uses direct methodology (implement then verify), not TDD ceremony.
+             For add_field tasks, direct approach is correct.
+          3. Efficiency (0-3): The approach is lean and proportional to the task complexity.
+             Adding a single field should not involve extensive analysis or planning.
+
+          If Step 0 analysis phases are performed: max score 4.
+          If TDD ceremony is used for a haiku/direct task: deduct 2 points.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: sonnet-task-proportional-depth
+    input:
+      prompt: |
+        Implement this task.
+
+        Task spec:
+        {
+          "id": "011",
+          "title": "Create UserService",
+          "objective": "Create a service that manages user CRUD operations",
+          "task_type": "create_service",
+          "methodology": "tdd",
+          "acceptance_criteria": [
+            {
+              "id": "AC-001",
+              "criterion": "createUser({name, email}) returns new User with generated id",
+              "risk_level": "must_test"
+            },
+            {
+              "id": "AC-002",
+              "criterion": "getUserById(id) returns User or null",
+              "risk_level": "must_test"
+            }
+          ],
+          "test_file": "tests/user-service.test.ts",
+          "context_refs": { "pattern_files": ["src/config.ts"] }
+        }
+
+        This is a sonnet-tier task ("create_service"). Implement it with appropriate
+        depth — proper interfaces, typed contracts, and TDD methodology.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate sonnet-tier implementation depth:
+
+          1. Structural quality (0-4): Implementation shows proportional depth for a
+             create_service task — proper interface/type definitions, class structure,
+             separation of concerns. More substantial than adding a single field.
+          2. TDD methodology (0-3): Uses TDD (red-green-refactor) as specified by
+             "methodology": "tdd". Tests exist and cover both ACs.
+          3. Completeness (0-3): Both ACs are implemented — createUser returns a User
+             with generated id, getUserById returns User or null.
+
+          If implementation is trivial/shallow (e.g., single function, no types): max score 4.
+
+          Score 0-10. Pass threshold: 5
+        passing_score: 5

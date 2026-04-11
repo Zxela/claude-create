@@ -2,29 +2,57 @@
 
 Determines which specification documents to generate based on estimated task scope. Used by the discovery skill to right-size documentation effort.
 
-## Scale Estimation Matrix
+## Scale Classifications
 
-| Scale | Estimated Files | Documents to Generate | Dialogue Turns | Planning | Execution Pipeline |
-|-------|----------------|----------------------|----------------|----------|--------------------|
-| **Small** | 1-2 files | TECHNICAL_DESIGN_small.md only | 5-8 | Simplified task list (no DAG) | Single implementer, no Agent Teams, skip spec-review + scope-analysis |
-| **Medium** | 3-5 files | PRD + TECHNICAL_DESIGN | 10-15 | Full task DAG | Standard pipeline, max 2 concurrent implementers |
-| **Large** | 6+ files | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 | Full task DAG | Full pipeline, up to 5 concurrent implementers |
+### Trivial
+**Estimated files:** 1
+**Signals:** Prompt < 50 words, single-action keywords ("fix", "rename", "update", "change", "remove"), no architectural decisions needed, single file or clearly scoped change
+**Examples:** "Fix the typo in README", "Rename getUserById to findUserById", "Add created_at field to User model"
+**Pipeline:** Skip all phases. Direct single-implementer dispatch with haiku-tier quality check.
+**State management:** No state.json, no tasks.json, no spec docs, no worktree.
+
+### Small
+**Estimated files:** 2-4
+**Signals:** Prompt < 150 words, single-layer change ("add endpoint", "add page", "add validation"), no ADR triggers
+**Examples:** "Add a /health endpoint", "Add email validation to signup form", "Create a 404 page"
+**Pipeline:** Skip discovery, specs, spec review, scope analysis. Lightweight task decomposition (flat list, no DAG). Sequential dispatch.
+**State management:** Minimal tasks.json (flat list). No spec docs. No worktree unless parallel.
+
+### Medium
+**Estimated files:** 5-8
+**Documents to Generate:** PRD + TECHNICAL_DESIGN
+**Dialogue Turns:** 10-15
+**Planning:** Full task DAG
+**Execution Pipeline:** Standard pipeline, max 2 concurrent implementers
+
+### Large
+**Estimated files:** 9+
+**Documents to Generate:** PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES
+**Dialogue Turns:** 15-20
+**Planning:** Full task DAG
+**Execution Pipeline:** Full pipeline, up to 5 concurrent implementers
 
 ## Pipeline Short-Circuit Rules (Effort-Proportional Routing)
 
 The team-lead uses the scale from `state.json` to determine the execution pipeline:
 
-### Small Scale (1-2 files)
-- **Skip:** Spec review (trivial scope, not worth reviewing)
-- **Skip:** Scope analysis (no intermediate artifact needed — task decomposer reads specs directly)
-- **Skip:** Agent Teams / native task DAG (overhead > value)
-- **Skip:** Separate reviewer agent (implementer self-verifies)
-- **Use:** Single implementer with all tasks inlined in prompt
-- **Use:** Quality check after implementation
-- **Model:** Prefer haiku for implementation
-- **Estimated cost:** ~5-10K tokens total
+### Trivial Scale (1 file)
+- **Skip:** All phases — discovery, specs, spec review, scope analysis, task decomposition
+- **Skip:** Worktree creation, state.json, tasks.json
+- **Use:** Direct single-implementer dispatch
+- **Use:** Haiku-tier quality check (lint + types + tests only)
+- **Model:** Haiku
+- **Estimated cost:** ~2-5K tokens total
 
-### Medium Scale (3-5 files)
+### Small Scale (2-4 files)
+- **Skip:** Discovery, specs, spec review, scope analysis
+- **Use:** Lightweight task decomposition (flat list, no DAG)
+- **Use:** Sequential single-implementer dispatch
+- **Use:** Haiku-tier quality check
+- **Model:** Prefer haiku for implementation
+- **Estimated cost:** ~5-15K tokens total
+
+### Medium Scale (5-8 files)
 - **Use:** Full spec review
 - **Use:** Task DAG with max 2 concurrent implementers
 - **Use:** 1 reviewer agent (background)
@@ -32,7 +60,7 @@ The team-lead uses the scale from `state.json` to determine the execution pipeli
 - **Model:** Sonnet for implementation, skip opus escalation
 - **Estimated cost:** ~30-60K tokens total
 
-### Large Scale (6+ files)
+### Large Scale (9+ files)
 - **Use:** Full pipeline (spec review → planning → Agent Teams → review → quality)
 - **Use:** Up to 5 concurrent implementers (based on DAG width)
 - **Use:** 1 reviewer agent (background)
@@ -53,13 +81,43 @@ During the Scope & Boundaries dialogue category, assess:
    → Check: task objective implies new model? new endpoint? new service?
 
 3. Total = modified + created
-   → 1-2 = Small, 3-5 = Medium, 6+ = Large
+   → 1 = Trivial, 2-4 = Small, 5-8 = Medium, 9+ = Large
 ```
 
 **Quick heuristics:**
-- "Add a field to X" → Small (model + maybe a test)
-- "Add a new endpoint" → Medium (route + handler + service + tests)
+- "Fix typo in README" → Trivial (single file, single action)
+- "Rename getUserById" → Trivial (single rename, mechanical)
+- "Add created_at field to User model" → Trivial (single model file change)
+- "Add a /health endpoint" → Small (route + handler + test)
+- "Add user profile page with API" → Medium (route + handler + service + model + tests)
 - "Build authentication system" → Large (models + service + middleware + routes + tests + config)
+
+## Auto-Classification Heuristic
+
+Classification runs as a single haiku call before any phase begins. This call pays for itself by avoiding unnecessary phases.
+
+**Input to classifier:**
+- User's prompt (verbatim)
+- Codebase summary: primary language, file count, top-level directory structure
+- Project type: new project (no existing code) vs existing codebase
+
+**Structured output:**
+```json
+{
+  "classification": "trivial|small|medium|large",
+  "reasoning": "One sentence explaining why",
+  "estimated_files": 3,
+  "needs_adr": false
+}
+```
+
+**Override rules:**
+- `--full` flag → always "large"
+- New project with no existing code → minimum "medium" (needs at least PRD + TD)
+- Prompt mentions "migrate", "refactor across", "redesign" → minimum "medium"
+- Prompt mentions multiple services/systems → minimum "large"
+
+**Conservative default:** When uncertain between two tiers, choose the higher tier. Excess planning is cheaper than insufficient planning for complex tasks.
 
 ## ADR Trigger Conditions
 
@@ -75,20 +133,13 @@ Generate an ADR **regardless of scale** if ANY of these apply:
 
 ## Document Content by Scale
 
-### Small (1-2 files)
+### Small (2-4 files)
 
-**TECHNICAL_DESIGN only** — use the dedicated small-scale template (`templates/TECHNICAL_DESIGN_small.md`):
-- What to change and where (file paths + line ranges)
-- Data model changes (if any)
-- API contracts (if any)
-- Test strategy (which tests to add/modify)
-- Change impact map
-- Agreement checklist (scope, non-scope, constraints, testing)
-- No architecture overview, dependencies, NFRs, migration/rollback, or observability sections
+**No spec documents.** Small tasks skip discovery and spec generation entirely — the task description and codebase provide sufficient context. Lightweight task decomposition produces a flat task list directly from the user prompt.
 
-Skip: PRD (change is obvious), ADR (no architectural decision), WIREFRAMES
+Skip: PRD, ADR, TECHNICAL_DESIGN, WIREFRAMES
 
-### Medium (3-5 files)
+### Medium (5-8 files)
 
 **PRD** (focused):
 - Problem statement (brief)
@@ -105,7 +156,7 @@ Skip: PRD (change is obvious), ADR (no architectural decision), WIREFRAMES
 
 Skip: ADR (unless triggered), WIREFRAMES (unless UI change)
 
-### Large (6+ files)
+### Large (9+ files)
 
 **Full document set:**
 - PRD — Complete with goals, non-goals, user stories, success metrics
@@ -115,15 +166,16 @@ Skip: ADR (unless triggered), WIREFRAMES (unless UI change)
 
 ## Storing Scale in State
 
+The `scale` field is a plain string. Detailed breakdown goes in `scale_details`. See `references/state-schema.md` for the full schema.
+
 ```json
 {
-  "scale": {
-    "estimated": "medium",
-    "file_count": 4,
-    "files_modified": ["src/models/user.ts", "src/routes/auth.ts"],
-    "files_created": ["src/services/auth.ts", "tests/services/auth.test.ts"],
+  "scale": "medium",
+  "scale_details": {
+    "estimated_files": 4,
     "adr_triggers": [],
-    "docs_generated": ["prd", "technical_design"]
+    "docs_to_generate": ["prd", "technical_design"],
+    "skip_scope_analysis": false
   }
 }
 ```

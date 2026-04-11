@@ -1,0 +1,81 @@
+name: implement-test-output-masking
+description: "Verify implementer masks test output using dot reporter + tail instead of dumping full results"
+workflow: homerun:implement
+tags: [implement, context-optimization, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "type": "module",
+        "scripts": { "test": "node --test" }
+      }
+  - path: src/math.ts
+    content: |
+      export function add(a: number, b: number): number {
+        return a + b;
+      }
+
+input:
+  prompt: |
+    Implement this task.
+
+    Task spec:
+    {
+      "id": "008",
+      "title": "Add multiply function",
+      "objective": "Add multiply(a, b) that returns a * b",
+      "task_type": "add_method",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "criterion": "multiply(3, 4) returns 12",
+          "risk_level": "must_test",
+          "test_assertion": "expect(multiply(3, 4)).toBe(12)"
+        },
+        {
+          "id": "AC-002",
+          "criterion": "multiply(0, 5) returns 0",
+          "risk_level": "must_test",
+          "test_assertion": "expect(multiply(0, 5)).toBe(0)"
+        }
+      ],
+      "test_file": "tests/math.test.js",
+      "context_refs": { "pattern_files": ["src/math.ts"] }
+    }
+
+    IMPORTANT: When running tests, use observation masking to save tokens:
+    - Use: `npm test -- --reporter=dot 2>&1 | tail -30`
+    - Keep: pass/fail summary + first failure only
+    - Discard: individual passing test details, coverage reports, duplicate output
+
+    This saves 5-10K tokens per test run. Do NOT dump the full verbose test output.
+
+    After implementing, report what test commands you ran and how you masked the output.
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 500
+    rubric: |
+      Evaluate test output masking:
+
+      1. Masked command used (0-4): Test command includes output masking — either
+         `--reporter=dot`, `| tail`, or equivalent truncation. Does NOT use default
+         verbose output that dumps every passing test.
+      2. Output conciseness (0-3): The test results shown in the output are concise —
+         pass/fail summary, not full verbose per-test output. If the output includes
+         10+ lines of individual test results, this is a masking failure.
+      3. Token awareness (0-3): Mentions or demonstrates awareness of token cost —
+         e.g., mentions "observation masking", "saving tokens", uses compact output format.
+
+      If full verbose test output is dumped (>10 lines of individual tests): max score 4.
+      If no test masking at all (default `npm test` with full output): max score 3.
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

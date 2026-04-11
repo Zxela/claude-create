@@ -53,8 +53,6 @@
         "timestamp": "2026-01-25T10:30:00Z",
         "source": { "skill": "homerun:discovery" },
         "payload": {
-          "worktree_path": "/path/to/worktree",
-          "branch": "create/feature-uuid",
           "spec_paths": {
             "prd": "docs/PRD.md",
             "adr": "docs/ADR.md",
@@ -127,7 +125,13 @@
           ],
           "hard_gate_results": { "tests": 0, "types": 0, "lint": 0 },
           "verification_level": "L2",
-          "verification_attempted": ["L1", "L2"]
+          "verification_attempted": ["L1", "L2"],
+          "implementation_notes": {
+            "files_changed": ["src/feature.ts", "src/types.ts"],
+            "key_decisions": "Used discriminated union for FeatureResult instead of optional fields",
+            "interfaces_established": "FeatureResult type exported from src/types.ts",
+            "gotchas": "FeatureResult.error is string|null, not string|undefined — downstream must check null"
+          }
         },
         "envelope_version": "1.0.0"
       }

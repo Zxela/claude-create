@@ -1,0 +1,126 @@
+name: review-skip-hard-gates
+description: "Verify reviewer skips Tier 1 when skip_hard_gates=true with all exit codes 0"
+workflow: homerun:review
+tags: [review, hard-gates, homerun]
+timeout_seconds: 300
+
+cases:
+  - name: skip-to-tier2-on-cached-pass
+    input:
+      prompt: |
+        Review task 005: Add greeting helper
+
+        Task spec:
+        {
+          "id": "005",
+          "title": "Add greeting helper",
+          "acceptance_criteria": [
+            {
+              "id": "AC-007",
+              "criterion": "greet('Alice') returns 'Hello, Alice!'",
+              "risk_level": "must_test",
+              "test_assertion": "expect(greet('Alice')).toBe('Hello, Alice!')"
+            },
+            {
+              "id": "AC-008",
+              "criterion": "greet('') returns 'Hello, stranger!'",
+              "risk_level": "must_test",
+              "test_assertion": "expect(greet('')).toBe('Hello, stranger!')"
+            }
+          ]
+        }
+
+        Implementation:
+        ```typescript
+        // src/greet.ts
+        export function greet(name: string): string {
+          return name ? `Hello, ${name}!` : 'Hello, stranger!';
+        }
+        ```
+
+        Test file:
+        ```typescript
+        // tests/greet.test.ts
+        import { greet } from '../src/greet';
+        test('greets by name', () => { expect(greet('Alice')).toBe('Hello, Alice!'); });
+        test('greets stranger', () => { expect(greet('')).toBe('Hello, stranger!'); });
+        ```
+
+        skip_hard_gates: true
+        hard_gate_results: { "tests": 0, "types": 0, "lint": 0 }
+
+        IMPORTANT: skip_hard_gates is true AND all exit codes are 0.
+        This means hard gates already passed during implementer self-review.
+        Skip Tier 1 entirely and go straight to Tier 2 soft review.
+        Use the cached hard_gate_results — do NOT re-run tests/types/lint.
+
+        Evaluate the implementation against the acceptance criteria using Tier 2 only.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "APPROVED|REJECTED"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate skip-hard-gates behavior:
+
+          1. Tier 1 skipped (0-4): Does NOT re-run tests, tsc, or eslint. Acknowledges
+             skip_hard_gates=true with passing exit codes and uses cached results.
+          2. Tier 2 executed (0-3): Performs the soft LLM review — evaluates implementation
+             against acceptance criteria, checks code quality, provides a score.
+          3. Correct verdict (0-3): Given the implementation is correct (greet works for both
+             ACs, tests cover both cases), should emit APPROVED with score >= 0.7.
+
+          If Tier 1 is re-run despite skip_hard_gates=true: deduct 3 points.
+          If no Tier 2 review is performed: max score 4.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: no-skip-when-exit-codes-nonzero
+    input:
+      prompt: |
+        Review task 006: Add config parser
+
+        Task spec:
+        {
+          "id": "006",
+          "title": "Add config parser",
+          "acceptance_criteria": [
+            {
+              "id": "AC-009",
+              "criterion": "parseConfig(json) returns parsed config object",
+              "risk_level": "must_test"
+            }
+          ]
+        }
+
+        Implementation provided (details not relevant for this eval).
+
+        skip_hard_gates: true
+        hard_gate_results: { "tests": 0, "types": 1, "lint": 0 }
+
+        IMPORTANT: skip_hard_gates is true BUT types exit code is 1 (failure).
+        The fast-path rule says: skip_hard_gates=true + ALL exit codes 0 → skip Tier 1.
+        Since types failed, you CANNOT skip Tier 1. You must run the hard gates.
+
+        What should you do?
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate handling of skip_hard_gates with non-zero exit codes:
+
+          1. No skip (0-5): Recognizes that skip_hard_gates fast-path requires ALL exit codes
+             to be 0. Since types has exit code 1, Tier 1 must run (or reject immediately).
+          2. Rejection or re-run (0-3): Either rejects immediately due to the failed type check
+             OR indicates that hard gates must be re-run.
+          3. Reasoning (0-2): Explains why the fast-path doesn't apply — at least one exit code
+             is non-zero.
+
+          If it skips Tier 1 despite non-zero exit code: Score 0.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

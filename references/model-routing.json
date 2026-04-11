@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "version": "2.0.0",
-  "description": "Authoritative task type to model routing configuration (v4.0 — effort-proportional)",
+  "description": "Authoritative task type to model routing configuration (v6.0 — adaptive orchestration)",
 
   "task_routing": {
     "haiku": {
@@ -69,10 +69,10 @@
   },
 
   "retry_strategy": {
-    "order": ["fresh_agent", "same_agent", "escalate"],
-    "note": "Fresh-context-first: first retry uses clean context with structured failure summary. Accumulated context from failed attempts degrades performance.",
-    "fresh_agent_retries": 1,
-    "same_agent_retries": 1,
+    "order": ["continue_agent", "fresh_agent", "escalate"],
+    "note": "Continue-on-rework: first retry continues original agent via SendMessage (retains context). Falls back to fresh agent on second rejection or if SendMessage fails.",
+    "continue_agent": 1,
+    "fresh_agent": 1,
     "escalation": {
       "from": "haiku",
       "to": "sonnet"
@@ -97,29 +97,38 @@
   },
 
   "scale_routing": {
+    "trivial": {
+      "max_implementers": 1,
+      "default_model": "haiku",
+      "isolation": "none",
+      "quality_tier": "haiku",
+      "phases": ["implement", "quality_check"],
+      "quality_check_phases": ["lint", "types", "tests"]
+    },
     "small": {
       "max_implementers": 1,
-      "skip_spec_review": true,
-      "skip_scope_analysis": true,
-      "skip_agent_teams": true,
-      "skip_separate_reviewer": true,
-      "preferred_model": "haiku"
+      "default_model": "haiku",
+      "isolation": "none",
+      "quality_tier": "haiku",
+      "phases": ["task_decomposition", "implement", "quality_check"],
+      "task_decomposition_mode": "flat",
+      "quality_check_phases": ["lint", "types", "tests"]
     },
     "medium": {
       "max_implementers": 2,
-      "skip_spec_review": false,
-      "skip_scope_analysis": false,
-      "skip_agent_teams": false,
-      "skip_separate_reviewer": false,
-      "preferred_model": "sonnet"
+      "default_model": "sonnet",
+      "isolation": "worktree",
+      "quality_tier": "sonnet",
+      "phases": ["discovery", "spec_review", "scope_analysis", "task_decomposition", "implement", "review", "quality_check"],
+      "quality_check_phases": ["lint", "types", "structure", "tests", "recheck"]
     },
     "large": {
       "max_implementers": 5,
-      "skip_spec_review": false,
-      "skip_scope_analysis": false,
-      "skip_agent_teams": false,
-      "skip_separate_reviewer": false,
-      "preferred_model": null
+      "default_model": null,
+      "isolation": "worktree",
+      "quality_tier": "sonnet",
+      "phases": ["discovery", "spec_review", "scope_analysis", "task_decomposition", "implement", "review", "quality_check"],
+      "quality_check_phases": ["lint", "types", "structure", "tests", "recheck"]
     }
   },
 

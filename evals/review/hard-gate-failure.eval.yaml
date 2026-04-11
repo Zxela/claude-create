@@ -1,0 +1,142 @@
+name: review-hard-gate-failure
+description: "Verify reviewer immediately rejects on hard gate failure without proceeding to Tier 2"
+workflow: homerun:review
+tags: [review, rejection, hard-gates, homerun]
+timeout_seconds: 300
+
+cases:
+  - name: test-failure-immediate-reject
+    input:
+      prompt: |
+        Review task 003: Add date formatter
+
+        Task spec:
+        {
+          "id": "003",
+          "title": "Add date formatter",
+          "acceptance_criteria": [
+            {
+              "id": "AC-005",
+              "criterion": "formatDate('2024-01-15') returns 'Jan 15, 2024'",
+              "risk_level": "must_test"
+            }
+          ]
+        }
+
+        Implementation:
+        ```typescript
+        // src/date.ts
+        export function formatDate(iso: string): string {
+          const d = new Date(iso);
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        ```
+
+        Test file:
+        ```typescript
+        // tests/date.test.ts
+        import { formatDate } from '../src/date';
+        test('formats date', () => { expect(formatDate('2024-01-15')).toBe('Jan 15, 2024'); });
+        ```
+
+        Hard gate results (from running tests, tsc, eslint):
+        {
+          "tests": 1,
+          "types": 0,
+          "lint": 0
+        }
+
+        IMPORTANT: The tests exit code is 1 (FAILURE). Types and lint pass.
+
+        Tier 1 rules: Any hard gate failure → reject IMMEDIATELY. Do NOT proceed to Tier 2 soft review.
+        Emit a REJECTED signal.
+    evaluations:
+      - type: behavioral
+        checks:
+          - signal_has:
+              field: "signal"
+              pattern: "REJECTED"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate hard gate failure handling:
+
+          1. Immediate rejection (0-4): Emits REJECTED signal. Does NOT proceed to Tier 2
+             (soft LLM review). Hard gate failure = immediate rejection.
+          2. Identifies failure (0-3): Specifically identifies that tests failed (exit code 1)
+             while types and lint passed.
+          3. No score (0-3): Does NOT provide a soft review score (0.0-1.0) since Tier 2 was
+             skipped. Score should be omitted or noted as N/A for hard gate failures.
+
+          If APPROVED despite test failure: Score 0.
+          If proceeds to Tier 2 review despite failure: max score 4.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: lint-failure-immediate-reject
+    input:
+      prompt: |
+        Review task 004: Add string utils
+
+        Task spec:
+        {
+          "id": "004",
+          "title": "Add string utils",
+          "acceptance_criteria": [
+            {
+              "id": "AC-006",
+              "criterion": "truncate(str, n) returns first n characters with ellipsis",
+              "risk_level": "must_test"
+            }
+          ]
+        }
+
+        Implementation:
+        ```typescript
+        // src/string-utils.ts
+        export function truncate(str: string, n: number): string {
+          if (str.length <= n) return str
+          return str.slice(0, n) + '...'
+        }
+        ```
+
+        Test file:
+        ```typescript
+        // tests/string-utils.test.ts
+        import { truncate } from '../src/string-utils';
+        test('truncates long string', () => { expect(truncate('hello world', 5)).toBe('hello...'); });
+        ```
+
+        Hard gate results:
+        {
+          "tests": 0,
+          "types": 0,
+          "lint": 1
+        }
+
+        IMPORTANT: The lint exit code is 1 (FAILURE). Tests and types pass.
+        Tier 1 rules: Any hard gate failure → reject IMMEDIATELY.
+    evaluations:
+      - type: behavioral
+        checks:
+          - signal_has:
+              field: "signal"
+              pattern: "REJECTED"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate lint gate failure handling:
+
+          1. Immediate rejection (0-5): Emits REJECTED signal due to lint failure.
+             Does NOT proceed to Tier 2. Any single hard gate failure is sufficient for rejection.
+          2. Identifies lint failure (0-3): Specifically calls out lint as the failing gate
+             (exit code 1) while tests and types passed.
+          3. Required fixes (0-2): Mentions that lint issues need to be fixed.
+
+          If APPROVED despite lint failure: Score 0.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

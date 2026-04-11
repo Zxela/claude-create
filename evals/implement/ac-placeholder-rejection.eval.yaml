@@ -1,0 +1,178 @@
+name: implement-ac-placeholder-rejection
+description: "Verify implementer rejects tasks with placeholder ACs (TBD, TODO, vague) via VALIDATION_ERROR"
+workflow: homerun:implement
+tags: [implement, validation, smoke, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": { "test": "node --test" }
+      }
+
+cases:
+  - name: reject-tbd-placeholder
+    input:
+      prompt: |
+        Implement this task using TDD methodology.
+
+        Task spec:
+        {
+          "id": "005",
+          "title": "Add payment processing",
+          "objective": "Handle payment flow for orders",
+          "task_type": "create_service",
+          "methodology": "tdd",
+          "acceptance_criteria": [
+            {
+              "id": "AC-001",
+              "criterion": "Process payment for valid credit card",
+              "risk_level": "must_test"
+            },
+            {
+              "id": "AC-002",
+              "criterion": "TBD — error handling to be defined later",
+              "risk_level": "must_test"
+            }
+          ],
+          "test_file": "tests/payment.test.ts",
+          "context_refs": {}
+        }
+
+        IMPORTANT: Before implementing, you MUST scan all acceptance criteria for placeholder language.
+        Placeholder patterns include: "TBD", "TODO", "to be defined", "add appropriate error handling",
+        "similar to Task N", or vague objectives without testable assertions.
+
+        If ANY AC is a placeholder → emit VALIDATION_ERROR with error_type "semantic_error".
+        Do NOT attempt implementation.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "VALIDATION_ERROR|validation.?error"
+          - output_contains: "AC-002|placeholder|TBD"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate AC placeholder rejection:
+
+          1. Rejection (0-4): Emits VALIDATION_ERROR (not IMPLEMENTATION_COMPLETE or NEEDS_REWORK).
+             Does NOT attempt to write any code or tests.
+          2. Error identification (0-3): Identifies AC-002 as the problematic criterion with
+             "TBD" placeholder language.
+          3. Error type (0-3): Uses error_type "semantic_error" and includes details about
+             which AC failed and why.
+
+          If implementation is attempted despite placeholder: Score 0.
+          If wrong signal type (NEEDS_REWORK instead of VALIDATION_ERROR): max score 4.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: reject-vague-objective
+    input:
+      prompt: |
+        Implement this task using TDD methodology.
+
+        Task spec:
+        {
+          "id": "006",
+          "title": "Add error handling",
+          "objective": "Add appropriate error handling throughout the module",
+          "task_type": "add_validation",
+          "methodology": "tdd",
+          "acceptance_criteria": [
+            {
+              "id": "AC-001",
+              "criterion": "Add appropriate error handling for all edge cases",
+              "risk_level": "must_test"
+            },
+            {
+              "id": "AC-002",
+              "criterion": "Handle errors similar to Task 003",
+              "risk_level": "must_test"
+            }
+          ],
+          "test_file": "tests/errors.test.ts",
+          "context_refs": {}
+        }
+
+        IMPORTANT: Before implementing, scan ALL acceptance criteria for placeholder language.
+        Placeholder patterns: "TBD", "TODO", "add appropriate error handling",
+        "similar to Task N", vague objectives without testable assertions.
+
+        If ANY AC is a placeholder → emit VALIDATION_ERROR with error_type "semantic_error".
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "VALIDATION_ERROR|validation.?error"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate vague AC rejection:
+
+          1. Rejection (0-4): Emits VALIDATION_ERROR. Does NOT attempt implementation.
+          2. Identification (0-3): Identifies at least one problematic AC —
+             AC-001 ("add appropriate error handling" is a known placeholder pattern) or
+             AC-002 ("similar to Task 003" is a known placeholder pattern).
+          3. Specificity (0-3): Explains WHY the ACs are placeholders — they are not testable,
+             not observable, and/or reference undefined criteria.
+
+          If implementation is attempted: Score 0.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: accept-concrete-acs
+    input:
+      prompt: |
+        Implement this task using TDD methodology.
+
+        Task spec:
+        {
+          "id": "007",
+          "title": "Add getUserById",
+          "objective": "Implement user lookup by ID",
+          "task_type": "add_method",
+          "methodology": "tdd",
+          "acceptance_criteria": [
+            {
+              "id": "AC-001",
+              "criterion": "getUserById('1') returns { id: '1', name: 'Alice' }",
+              "risk_level": "must_test",
+              "test_assertion": "expect(getUserById('1')).toEqual({ id: '1', name: 'Alice' })"
+            },
+            {
+              "id": "AC-002",
+              "criterion": "getUserById('nonexistent') returns null",
+              "risk_level": "must_test",
+              "test_assertion": "expect(getUserById('nonexistent')).toBeNull()"
+            }
+          ],
+          "test_file": "tests/user.test.js",
+          "context_refs": {}
+        }
+
+        Before implementing, scan acceptance criteria for placeholder language.
+        These ACs are concrete and testable — proceed with implementation.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 300
+        rubric: |
+          Evaluate that concrete ACs are NOT rejected:
+
+          1. No false rejection (0-5): Does NOT emit VALIDATION_ERROR for these concrete ACs.
+             Both ACs have specific inputs, expected outputs, and test assertions.
+          2. Proceeds to implement (0-5): Begins implementation (writes tests, writes code) or
+             signals IMPLEMENTATION_COMPLETE. The placeholder gate passes.
+
+          If VALIDATION_ERROR is emitted for these concrete ACs: Score 0.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

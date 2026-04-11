@@ -175,13 +175,13 @@ sequenceDiagram
     I->>R: Implementation
     R->>C: REJECTED (medium severity)
 
-    Note over C: Fresh-agent retry
-    C->>I: Task (attempt 2, fresh context + failure summary)
+    Note over C: Continue-agent retry (SendMessage)
+    C->>I: SendMessage (attempt 2, targeted fixes from reviewer)
     I->>R: Implementation v2
     R->>C: REJECTED (medium severity)
 
-    Note over C: Same-agent retry
-    C->>I: Task (attempt 3, with targeted guidance)
+    Note over C: Fresh-agent retry
+    C->>I: Task (attempt 3, fresh context + structured failure summary)
     I->>R: Implementation v3
     R->>C: REJECTED (high severity)
 

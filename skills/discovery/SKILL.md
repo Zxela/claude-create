@@ -17,7 +17,7 @@ Guide user from rough idea → spec documents through codebase-informed dialogue
 ## Input/Output
 
 **Input:** `prompt`, `config` (auto_mode, max_dialogue_turns:20, dialogue_warning_at:15, retries), `project_root`
-**Output:** `DISCOVERY_COMPLETE` signal with `spec_paths`, `session_id`, `worktree_path`, `dialogue_stats` (see `references/signal-contracts.json`)
+**Output:** `DISCOVERY_COMPLETE` signal with `spec_paths`, `session_id`, `dialogue_stats` (see `references/signal-contracts.json`)
 
 ---
 
@@ -56,11 +56,12 @@ Acknowledge previous answers → build connections → summarize every 2-3 excha
 
 #### Scale Estimation
 
+Discovery is only invoked for medium and large tasks. Trivial (1 file) and small (2-4 files) tasks bypass discovery via fast paths in `/create`.
+
 | Scale | Files | Documents | Dialogue |
 |-------|-------|-----------|----------|
-| **Small** (1-2) | TECHNICAL_DESIGN_small.md only | 5-8 turns |
-| **Medium** (3-5) | PRD + TECHNICAL_DESIGN | 10-15 turns |
-| **Large** (6+) | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 turns |
+| **Medium** (5-8) | PRD + TECHNICAL_DESIGN | 10-15 turns |
+| **Large** (9+) | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 turns |
 
 Always generate ADR if triggers detected (type change 3+ locations, data flow change, architecture change, external dep, complex logic 3+ states). See `references/scale-determination.md`.
 
@@ -76,27 +77,24 @@ Vague ACs ("user-friendly", "fast", "handle errors") → rewrite into EARS forma
 
 ### 3. Document Generation
 
-#### Create Worktree and Storage
+#### Initialize Session and Storage
+
+Discovery does NOT create worktrees — worktree isolation is deferred to the implementation phase (team-lead) where it's actually needed. Discovery writes state.json and docs/ to the current working directory, and specs to the centralized homerun docs directory.
 
 ```bash
 # Generate session ID
 SESSION_UUID=$(cat /proc/sys/kernel/random/uuid | cut -c1-8)
 FEATURE_SLUG=$(echo "{{FEATURE_NAME}}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
-BRANCH_NAME="create/${FEATURE_SLUG}-${SESSION_UUID}"
 
-# Paths
-REPO_ROOT=$(git rev-parse --show-toplevel)
-REPO_NAME=$(basename "$REPO_ROOT")
-WORKTREE_PATH="${REPO_ROOT}/../${REPO_NAME}-create-${FEATURE_SLUG}-${SESSION_UUID}"
+# Centralized spec storage
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 PROJECT_HASH=$(echo "$REPO_ROOT" | md5sum | cut -c1-8)
 # IMPORTANT: Use $HOME, not ~ (tilde doesn't expand in all contexts)
 HOMERUN_DOCS_DIR="${HOME}/.claude/homerun/${PROJECT_HASH}/${FEATURE_SLUG}-${SESSION_UUID}"
 
-# Create worktree and docs directory
-git branch "$BRANCH_NAME"
-git worktree add "$WORKTREE_PATH" "$BRANCH_NAME"
+# Create directories — docs/ in cwd, specs in centralized location
 mkdir -p "$HOMERUN_DOCS_DIR"
-mkdir -p "${WORKTREE_PATH}/docs"
+mkdir -p docs
 ```
 
 #### Write Specification Documents
@@ -104,14 +102,14 @@ mkdir -p "${WORKTREE_PATH}/docs"
 Templates: `templates/*.md`. Generate only scale-appropriate documents.
 
 **Template selection by scale:**
-- **Small (1-2 files):** Use `templates/TECHNICAL_DESIGN_small.md` — focused template with: Overview, What to Change, Data Models, API Contracts, Testing Strategy, Change Impact Map, Agreement Checklist.
-- **Medium/Large (3+ files):** Use `templates/TECHNICAL_DESIGN.md` — full template with all sections.
+- **Medium (5-8 files):** Use `templates/TECHNICAL_DESIGN.md` — full template with all sections.
+- **Large (9+ files):** Use `templates/TECHNICAL_DESIGN.md` — full template with all sections.
 
 **Strict boundaries:** PRD = business value only | ADR = decision rationale only | TECHNICAL_DESIGN = implementation only | WIREFRAMES = UI only (skip for CLI/API/library). Cross-reference, don't duplicate.
 
 **Requirements:** FRs in PRD (MoSCoW priority, EARS-format ACs). NFRs: quantified targets in PRD, implementation in TECHNICAL_DESIGN. Omit categories without measurable targets.
 
-**Quality:** Ground in codebase (real files/patterns). ACs must be testable. Non-scope explicit in TECHNICAL_DESIGN with Change Impact Map (direct/indirect/unaffected). Small features use `TECHNICAL_DESIGN_small.md`; large features get full document set. No boilerplate. Omit inapplicable sections entirely.
+**Quality:** Ground in codebase (real files/patterns). ACs must be testable. Non-scope explicit in TECHNICAL_DESIGN with Change Impact Map (direct/indirect/unaffected). No boilerplate. Omit inapplicable sections entirely.
 
 Write documents to `$HOMERUN_DOCS_DIR/`.
 
@@ -120,7 +118,7 @@ Write documents to `$HOMERUN_DOCS_DIR/`.
 See `references/state-schema.md` for the complete schema, field descriptions, and scale-based initialization examples.
 
 Key fields to populate:
-- `session_id`, `branch`, `worktree`, `feature`
+- `session_id`, `feature` (no `branch` or `worktree` — those are set by team-lead at implementation time)
 - `homerun_docs_dir` and `spec_paths` — fully expanded absolute paths, never `~` or `$HOME`
 - `scale` and `scale_details`
 - `traceability` — user stories, acceptance criteria, ADR decisions, non-goals
@@ -134,31 +132,18 @@ Key fields to populate:
 **Auto mode:** Run validation gates, log warnings, proceed.
 **Interactive:** Present generated docs with 1-sentence summaries. Use `AskUserQuestion` with options: Looks good / Minor edits / Major revision. Run validation gates from `references/validation-gates.md`. VALIDATION_FAILED → return to dialogue. VALIDATION_WARNING → ask (interactive) or log (auto).
 
-#### Commit and Transition
+#### Transition
 
-```bash
-cd "$WORKTREE_PATH"
-git add state.json
-git commit -m "chore: initialize ${FEATURE_SLUG} workflow
-
-Session ID: ${SESSION_UUID}
-Docs location: ${HOMERUN_DOCS_DIR}
-
-Generated by /create workflow discovery phase"
-```
-
-Update phase to `"spec_review"` and commit:
+Update phase to `"spec_review"` in state.json:
 
 ```bash
 jq '.phase = "spec_review"' state.json > tmp.json && mv tmp.json state.json
-git add state.json
-git commit -m "chore: transition to spec review phase"
 ```
 
-Emit `DISCOVERY_COMPLETE` signal with session_id, worktree_path, branch, homerun_docs_dir, spec_paths, dialogue_stats. **Do NOT spawn the next phase.**
+Emit `DISCOVERY_COMPLETE` signal with session_id, homerun_docs_dir, spec_paths, dialogue_stats. **Do NOT spawn the next phase.**
 
 ## Exit Criteria
 
 - [ ] Codebase analyzed; knowledge gaps addressed (dialogue or auto)
 - [ ] Scale-appropriate documents generated with testable ACs and explicit non-scope
-- [ ] Worktree created, state.json initialized, validation gates passed, phase → `spec_review`
+- [ ] state.json initialized in cwd, validation gates passed, phase → `spec_review`

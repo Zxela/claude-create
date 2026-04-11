@@ -7,7 +7,7 @@ compatible_homerun: ">=5.0.0"
 # Technical Design: {{FEATURE_NAME}}
 
 <!--
-SMALL-SCALE TEMPLATE (1-2 files)
+SMALL-SCALE TEMPLATE (2-4 files)
 Focused subset of the full TECHNICAL_DESIGN template for small features.
 Omits: Architecture diagrams, Dependencies, NFRs, Migration/Rollback,
        Observability, Error Handling (overkill at this scale).

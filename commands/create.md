@@ -26,10 +26,11 @@ Start an orchestrated development workflow that takes you from idea to implement
 
 - `--auto`: Enable fully automated mode. Skips confirmation prompts between phases and proceeds automatically through discovery, planning, and execution.
 - `--resume`: Resume an interrupted session. Finds the existing worktree and continues from where you left off.
+- `--full`: Force large classification, run complete pipeline regardless of prompt complexity. Bypasses the auto-classifier.
 - `--retries N,M`: Configure retry limits for phase failures.
-  - `N`: Maximum retries using the same agent (default: 2)
+  - `N`: Maximum retries continuing the original agent via SendMessage (default: 1)
   - `M`: Maximum retries spawning a fresh agent (default: 1)
-  - Example: `--retries 3,2` allows 3 same-agent retries, then 2 fresh-agent retries
+  - Example: `--retries 3,2` allows 3 continue-agent retries, then 2 fresh-agent retries
 
 ## Workflow
 
@@ -56,8 +57,13 @@ Start an orchestrated development workflow that takes you from idea to implement
 
 When resuming an interrupted session:
 
-1. Find existing homerun worktrees and show their session info:
+1. Find existing homerun sessions (worktrees and cwd) and show their session info:
    ```bash
+   # Check cwd for a planning-phase session (worktree deferred to implementation)
+   if [ -f "state.json" ]; then
+     echo "cwd — $(jq -r '"\(.feature // "unknown") [\(.phase // "unknown")]"' state.json)"
+   fi
+
    # List all homerun worktrees with their phase and feature name
    for wt in $(git worktree list | grep 'create/' | awk '{print $1}'); do
      if [ -f "$wt/state.json" ]; then
@@ -66,9 +72,9 @@ When resuming an interrupted session:
    done
    ```
 
-2. If multiple worktrees exist, ask the user which session to resume
+2. If multiple sessions exist, ask the user which session to resume
 
-3. Read `state.json` from the selected worktree root
+3. Read `state.json` from the selected location (cwd or worktree root)
 
 4. Jump into the **Phase Loop** below at the current phase
 
@@ -84,7 +90,7 @@ When resuming an interrupted session:
    {
      "auto_mode": false,
      "retries": {
-       "same_agent": 1,
+       "continue_agent": 1,
        "fresh_agent": 1
      }
    }
@@ -92,14 +98,107 @@ When resuming an interrupted session:
    - Set `auto_mode: true` if `--auto` flag is present
    - Parse `--retries N,M` to override default retry values
 
-3. **Start the Phase Loop** beginning at "discovery"
+3. **Start the routing logic** — classify complexity, then route to the appropriate path
+
+### Step 0: Classify Complexity
+
+**Skip if:** `--full` flag is set (force large) OR `--resume` (already classified)
+
+Run a single haiku call to classify the user's prompt:
+
+**Prompt to classifier:**
+```
+Classify this task's complexity for a development pipeline.
+
+User request: "${user_prompt}"
+
+Codebase: ${primary_language}, ${file_count} files
+Project type: ${has_existing_code ? "existing codebase" : "new project"}
+
+Respond with JSON:
+{
+  "classification": "trivial|small|medium|large",
+  "reasoning": "one sentence",
+  "estimated_files": N,
+  "needs_adr": boolean
+}
+
+Rules:
+- trivial: exactly 1 file, single mechanical action (fix typo, rename symbol, update one field, change one value)
+  Examples: "Fix typo in README", "Rename getUserById to findUserById", "Add created_at field to User model"
+- small: 2-4 files, single layer, no architectural decisions
+  Examples: "Add a /health endpoint", "Add email validation to signup", "Create a 404 page"
+- medium: 5-8 files, multiple layers, may need design docs
+  Examples: "Add user profile page with API", "Add search with filtering and pagination"
+- large: 9+ files, multiple services, needs full planning
+  Examples: "Build authentication system with OAuth", "Add real-time notifications"
+- When uncertain between two tiers, choose the higher tier
+- New projects with no code: minimum medium
+- "migrate", "refactor across", "redesign": minimum medium
+```
+
+**Store result:**
+- If trivial or small: set `scale` in memory (no state.json yet)
+- If medium or large: proceed to discovery which will create state.json
+
+**Log:** Print classification result: `"Classified as ${classification}: ${reasoning}"`
+
+### Trivial Fast Path
+
+**If classification == "trivial":**
+
+1. No worktree creation
+2. No state.json
+3. No discovery, specs, scope, or task decomposition
+4. Dispatch single implementer directly:
+   ```javascript
+   Task({
+     description: `Implement: ${user_prompt_summary}`,
+     subagent_type: "homerun:implementer",
+     model: "haiku",
+     prompt: `Implement this task using TDD.
+     
+     Task: ${user_prompt}
+     
+     Use the current working directory (no worktree).
+     Run tests, typecheck, and lint before committing.
+     Commit with message: feat: ${user_prompt_summary}`
+   })
+   ```
+5. Run haiku-tier quality check (lint + types + tests only):
+   ```bash
+   scripts/homerun-quality-lint.sh && scripts/homerun-quality-typecheck.sh && npm test 2>&1 | tail -30
+   ```
+6. If quality passes: done. Print summary.
+7. If quality fails: print failures, ask user to fix or retry.
+
+**Skip to completion — do not enter the phase loop.**
+
+### Small Fast Path
+
+**If classification == "small":**
+
+1. No worktree creation (unless user has worktree preference)
+2. Create minimal state.json with `scale: "small"` and `phase: "task_decomposition"`
+3. Skip discovery, specs, spec review, scope analysis
+4. Run lightweight task decomposition:
+   - Spawn task-decomposer with instruction: `flat_list_mode: true`
+   - Output: flat tasks.json with no DAG (no depends_on)
+   - Skip DAG validation (no DAG to validate)
+5. Enter team-lead dispatch loop with sequential-only mode
+6. Run haiku-tier quality check
+7. Proceed to completion (finishing-a-development-branch)
 
 ### Phase Loop
+
+**Entry condition:** classification is "medium" or "large" (or --full)
+
+All planning phases (discovery through task decomposition) work in the **current working directory**. No worktrees are created during planning — worktree isolation is deferred to the implementing phase where it's actually needed.
 
 Read the current phase from `state.json` (or start at "discovery" for new sessions). Spawn the appropriate agent, wait for it to return, then read `state.json` again and continue to the next phase. Repeat until complete.
 
 ```bash
-PHASE=$(jq -r '.phase // "discovery"' "$WORKTREE_PATH/state.json" 2>/dev/null || echo "discovery")
+PHASE=$(jq -r '.phase // "discovery"' state.json 2>/dev/null || echo "discovery")
 ```
 
 #### Phase: discovery
@@ -122,12 +221,12 @@ After discovery returns, re-read `state.json`. Discovery sets `phase: "spec_revi
 **Auto-mode skip for non-large features:** If `auto_mode` is enabled and scale is not `"large"`, skip spec review entirely — update `state.json` phase to `"scope_analysis"` and continue the loop. In auto mode, the cost of a full spec review outweighs the risk for small/medium features.
 
 ```bash
-SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' "$WORKTREE_PATH/state.json" 2>/dev/null)
-AUTO_MODE=$(jq -r '.config.auto_mode // false' "$WORKTREE_PATH/state.json" 2>/dev/null)
+SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' state.json 2>/dev/null)
+AUTO_MODE=$(jq -r '.config.auto_mode // false' state.json 2>/dev/null)
 
 if [ "$AUTO_MODE" = "true" ] && [ "$SCALE" != "large" ]; then
   echo "Skipping spec review (auto mode, scale=$SCALE)"
-  jq '.phase = "scope_analysis"' "$WORKTREE_PATH/state.json" > tmp.json && mv tmp.json "$WORKTREE_PATH/state.json"
+  jq '.phase = "scope_analysis"' state.json > tmp.json && mv tmp.json state.json
   # Continue phase loop — do not spawn spec-reviewer
 fi
 ```
@@ -140,7 +239,6 @@ Task({
   subagent_type: "spec-reviewer",
   prompt: `Review specs for consistency, completeness, and testability.
 
-  Worktree: ${worktree}
   Spec paths: ${JSON.stringify(state.spec_paths)}
   Auto mode: ${state.config.auto_mode}
 
@@ -158,7 +256,7 @@ Task({
 
 **Scale-based skip:** Before spawning the scope-analyzer, check if the scale is "small":
 ```bash
-SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' "$WORKTREE_PATH/state.json" 2>/dev/null)
+SCALE=$(jq -r '.scale // .scale_details.estimated // "medium"' state.json 2>/dev/null)
 ```
 If `SCALE` is `"small"`, skip the scope_analysis phase entirely — update `state.json` phase directly to `"task_decomposition"` and continue the loop. Small features don't need the intermediate scope-analysis.json artifact.
 
@@ -168,9 +266,6 @@ Task({
   subagent_type: "scope-analyzer",
   model: "sonnet",
   prompt: `Extract scope analysis from specification documents.
-
-  Worktree: ${worktree}
-  State file: ${worktree}/state.json
 
   Read state.json and spec documents, then create docs/scope-analysis.json with components, validated ACs, and JIT context refs.`
 });
@@ -186,9 +281,6 @@ Task({
   subagent_type: "task-decomposer",
   prompt: `Decompose scope analysis into implementation tasks.
 
-  Worktree: ${worktree}
-  State file: ${worktree}/state.json
-
   Read docs/scope-analysis.json and create docs/tasks.json with DAG.`
 });
 ```
@@ -198,7 +290,7 @@ After task-decomposer returns, re-read `state.json`. Task decomposition sets `ph
 **DAG Validation:** Before proceeding to implementation, run the validation script:
 
 ```bash
-VALIDATE_RESULT=$(bash scripts/homerun-validate-dag.sh "${worktree}/docs/tasks.json" "${worktree}/docs/scope-analysis.json")
+VALIDATE_RESULT=$(bash scripts/homerun-validate-dag.sh docs/tasks.json docs/scope-analysis.json)
 VALIDATE_EXIT=$?
 
 if [ $VALIDATE_EXIT -eq 2 ]; then
@@ -223,16 +315,16 @@ If validation passes (exit code 0 or 1): check mode before continuing.
 If `auto_mode` is **not** enabled, print a task summary and stop — directing the user to start implementation explicitly:
 
 ```bash
-AUTO_MODE=$(jq -r '.config.auto_mode // false' "$WORKTREE_PATH/state.json" 2>/dev/null)
+AUTO_MODE=$(jq -r '.config.auto_mode // false' state.json 2>/dev/null)
 
 if [ "$AUTO_MODE" != "true" ]; then
-  TASK_COUNT=$(jq '.tasks | length' "$WORKTREE_PATH/docs/tasks.json")
+  TASK_COUNT=$(jq '.tasks | length' docs/tasks.json)
   echo ""
   echo "Planning complete — $TASK_COUNT tasks ready for implementation:"
-  jq -r '.tasks[] | "  \(.id): \(.title) [\(.task_type)] → \(.model // "sonnet")"' "$WORKTREE_PATH/docs/tasks.json"
+  jq -r '.tasks[] | "  \(.id): \(.title) [\(.task_type)] → \(.model // "sonnet")"' docs/tasks.json
   echo ""
   echo "To start implementation, run:"
-  echo "  /build $WORKTREE_PATH"
+  echo "  /create --resume"
   # STOP — do not proceed to implementing
 fi
 ```
@@ -240,6 +332,8 @@ fi
 If `auto_mode` is enabled: continue to `implementing` as before.
 
 #### Phase: implementing
+
+The team-lead creates a worktree for implementation isolation **only if** an existing git repo with history is present. For greenfield projects (no repo or freshly initialized), implementation runs in the current directory.
 
 ```javascript
 Skill({ skill: "homerun:team-lead" });
@@ -284,6 +378,16 @@ Invoke the finishing skill in the current context to present merge/PR/continue o
      │
      ▼
 ┌─────────────────┐
+│  Classify       │  ← [haiku] Auto-classify complexity (skip if --full)
+└─────────────────┘
+     │
+     ├── trivial ──► Single implementer → Quality check → Done
+     │
+     ├── small ────► Flat task decomposition → Sequential dispatch → Quality check → Done
+     │
+     ├── medium/large (or --full):
+     ▼
+┌─────────────────┐
 │   Discovery     │  ← Gather requirements, explore codebase
 └─────────────────┘
      │
@@ -323,7 +427,7 @@ Invoke the finishing skill in the current context to present merge/PR/continue o
 └─────────────────┘
 ```
 
-Each phase can be retried on failure according to the retry configuration. The workflow state is persisted to `state.json` in the worktree, allowing recovery from interruptions.
+Each phase can be retried on failure according to the retry configuration. The workflow state is persisted to `state.json` in the working directory (cwd during planning, worktree during implementation if created), allowing recovery from interruptions.
 
 ## Related Commands
 

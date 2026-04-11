@@ -18,13 +18,29 @@ Orchestrate Phase 3 (Implementation) **inline in main session**. Dispatch implem
 ### 1. Load Tasks
 
 ```bash
-cd "$WORKTREE_PATH"
-
-TASKS_FILE=$(jq -r '.tasks_file' state.json)
+# Planning phases wrote state.json and docs/ to cwd — no worktree to cd into
+TASKS_FILE=$(jq -r '.tasks_file // "docs/tasks.json"' state.json)
 TASK_COUNT=$(jq '.tasks | length' "$TASKS_FILE")
 PENDING=$(jq '[.tasks[] | select(.status == "pending")] | length' "$TASKS_FILE")
 
 echo "$PENDING pending of $TASK_COUNT total tasks"
+```
+
+**Worktree decision:** If an existing git repo with commit history is present (`git log --oneline -1` succeeds and the repo has real commits), create a feature branch and worktree for isolation. For greenfield projects or benchmark environments (no meaningful git history), work directly in the current directory — worktree overhead is wasted.
+
+```bash
+# Determine working directory for implementation
+if git log --oneline -1 &>/dev/null; then
+  BRANCH="create/${FEATURE_SLUG}-$(cat /proc/sys/kernel/random/uuid | cut -c1-8)"
+  git worktree add "../$(basename $(pwd))-${BRANCH##*/}" -b "$BRANCH"
+  WORKTREE_PATH="../$(basename $(pwd))-${BRANCH##*/}"
+  # Update state.json with branch and worktree path
+  jq --arg b "$BRANCH" --arg w "$WORKTREE_PATH" '.branch = $b | .worktree = $w' state.json > tmp.json && mv tmp.json state.json
+  cp state.json "$WORKTREE_PATH/state.json"
+  cp -r docs "$WORKTREE_PATH/docs"
+else
+  WORKTREE_PATH="."  # Work in cwd for greenfield projects
+fi
 ```
 
 Read the full tasks to understand the DAG:
@@ -77,11 +93,17 @@ Work through the DAG by dispatching implementers for ready tasks.
 3. **Select model by task type** — Read `references/model-routing.json` to determine the correct model. Haiku tasks (`add_field`, `add_method`, `add_validation`, `rename_refactor`, `add_test`, `add_config`, `add_endpoint`) use haiku. Sonnet tasks (`create_model`, `create_service`, `add_endpoint_complex`, `create_middleware`, `bug_fix`, `integration_test`) use sonnet. Architectural tasks use opus. **Always pass `model:` in the Task call** — the implementer agent defaults to sonnet, so haiku tasks will waste cost without the override.
 
 4. **Dispatch implementer(s):**
+   - Build synthesis context (see Context Synthesis section below)
+   - Determine model from task type
+   - Pass synthesized upstream context in the prompt
 
 ```javascript
 // Determine model from task_type (see references/model-routing.json)
 const HAIKU_TYPES = ["add_field", "add_method", "add_validation", "rename_refactor", "add_test", "add_config", "add_endpoint"];
 const taskModel = HAIKU_TYPES.includes(task.task_type) ? "haiku" : "sonnet";
+
+// Build synthesis context for tasks with completed dependencies
+const synthesisContext = buildSynthesisContext(task, tasksJson);
 
 Task({
   description: `Implement [${task.id}] ${task.title}`,
@@ -95,6 +117,7 @@ Task({
   Title: ${task.title}
   Objective: ${task.objective}
 
+  ${synthesisContext ? `Context from upstream tasks:\n  ${synthesisContext}\n` : ''}
   Acceptance criteria:
   ${task.acceptance_criteria.map(c => '- ' + c).join('\n')}
 
@@ -110,10 +133,51 @@ Task({
 });
 ```
 
+#### Context Synthesis for Dependent Tasks
+
+When dispatching a task that has completed dependencies (`depends_on` with status "completed"), synthesize context from upstream work before building the dispatch prompt.
+
+**Synthesis depth by downstream task tier:**
+
+**Haiku-tier downstream tasks:**
+1. Read `implementation_notes` from each completed dependency in tasks.json
+2. Build a bullet-point context block:
+   ```
+   Context from upstream tasks:
+   - [${dep.id}] ${dep.title}: Changed ${notes.files_changed.join(', ')}. ${notes.key_decisions || ''}
+     ${notes.gotchas ? 'Watch out: ' + notes.gotchas : ''}
+   ```
+3. Prepend this block to the implementer prompt
+
+**Sonnet/opus-tier downstream tasks:**
+1. Read `implementation_notes` from each completed dependency
+2. Read the actual diff: `git log --oneline -1 ${dep_commit_hash} && git diff ${dep_commit_hash}~1..${dep_commit_hash}`
+3. Build a detailed context block:
+   ```
+   Context from [${dep.id}] ${dep.title}:
+   Files changed: ${notes.files_changed}
+   Key decisions: ${notes.key_decisions}
+   Interfaces established: ${notes.interfaces_established}
+   Gotchas: ${notes.gotchas}
+   
+   Relevant diff sections:
+   ${filtered_diff}  // Only sections touching files in downstream task's context_refs
+   ```
+4. Replace generic JIT context_refs with synthesized paths for any files that appear in upstream `implementation_notes.files_changed`
+5. Prepend the full context block to the implementer prompt
+
+**Important:** Only include diff sections relevant to the downstream task. Filter by files that appear in the downstream task's `context_refs` or `acceptance_criteria`. Do not dump the entire upstream diff.
+
 5. **After each implementer returns:**
    - **If `NEEDS_REWORK`:** Re-dispatch the implementer immediately with the self-review findings as `previous_feedback`. No reviewer is needed — the implementer caught its own issues. Include the `findings` array so the implementer knows exactly what to fix. This counts toward the retry limit (max 2 retries per task).
-   - **If `IMPLEMENTATION_COMPLETE` with `hard_gate_results`:** Mark the native task completed, then dispatch the reviewer with `skip_hard_gates: true` and the `hard_gate_results` from the implementer (see Section 3.5). This lets the reviewer skip Tier 1 re-execution when all exit codes are 0.
-   - **If `IMPLEMENTATION_COMPLETE` without `hard_gate_results`:** Mark the native task completed, dispatch the reviewer normally (no `skip_hard_gates`).
+   - **If `IMPLEMENTATION_COMPLETE`:**
+     1. Read `implementation_notes` and `commit_hash` from the signal payload
+     2. Write `implementation_notes` to the task entry in docs/tasks.json
+     3. Write `commit_hash` to the task entry in docs/tasks.json
+     4. Write `agent_id` to the task entry (for potential rework continuation)
+     5. Mark native task completed
+     6. If `hard_gate_results` present with all exit codes 0: dispatch reviewer with `skip_hard_gates: true` (see Section 3.5)
+     7. Otherwise: dispatch reviewer normally (no `skip_hard_gates`)
    - Update tasks.json if the implementer didn't already
    - Find next batch of ready tasks
    - Repeat until no pending tasks remain
@@ -189,20 +253,30 @@ When an implementer emits `NEEDS_REWORK` instead of `IMPLEMENTATION_COMPLETE`:
 3. This counts toward the retry limit (max 2 retries per task)
 4. If the implementer still emits `NEEDS_REWORK` after max retries, skip the task and note it
 
-**Handling rejections (from reviewer):**
+**Handling rejections (from reviewer) — Continue-on-Rework:**
 
 When a reviewer emits `REJECTED`:
-1. Read the rejection feedback
-2. Load feedback_patterns.json (updated by the post-implement hook)
-3. **Placeholder escalation check:** If >2 rejections for the same task (or across tasks) cite "incomplete", "vague", or "placeholder" in their reasons, the root cause is the AC — not the implementation. Do NOT retry the implementer. Instead:
-   - Mark the task as "blocked" in tasks.json with reason "placeholder_ac"
-   - Escalate to re-decomposition: re-invoke `homerun:task-decomposition` for the affected task(s), providing the rejection feedback as context
-   - Resume the dispatch loop only after decomposition produces concrete ACs
-4. Re-dispatch the implementer with:
-   - The specific rejection issues from the reviewer
-   - The accumulated session feedback patterns (from Section 2.5)
-   - A retry counter (max 2 retries per task)
-5. The re-dispatched implementer runs alongside other active implementers/reviewers
+1. Read rejection feedback (severity, issues, required_fixes)
+2. Load feedback_patterns.json (updated by post-implement hook)
+3. **Placeholder escalation check** (unchanged): If >2 rejections cite "incomplete", "vague", or "placeholder":
+   - Mark task as "blocked" in tasks.json with reason "placeholder_ac"
+   - Escalate to re-decomposition: re-invoke `homerun:task-decomposition` for affected task(s)
+   - Resume only after concrete ACs
+
+4. **Continue-on-rework:**
+   - Record attempt in tasks.json `attempts` array: `{ agent_id, status: "rejected", severity, feedback, required_fixes }`
+   - **If severity is low/medium AND attempts.length == 1 (first rejection):**
+     - Attempt `SendMessage` to the original `agent_id` from tasks.json
+     - Message content: the reviewer's `required_fixes` array + specific `issues` with file paths and line numbers
+     - If SendMessage succeeds: implementer applies targeted fix, re-runs self-review, re-signals
+     - If SendMessage fails (agent terminated): fall through to fresh spawn below
+   - **If severity is low/medium AND attempts.length >= 2 (second+ rejection):**
+     - Spawn fresh implementer with structured failure summary from all attempts
+     - Include all previous rejection feedback
+   - **If severity is high:**
+     - Escalate to user (unchanged)
+
+5. Iteration caps remain: max 3 rejections per task, max 5 session retries
 
 **Handling approvals:**
 
@@ -279,7 +353,7 @@ Before the full dispatch loop, check task count:
 | 3-5 | Dispatch in parallel batches based on DAG |
 | 6+ | Dispatch up to 3 concurrent, process DAG in waves |
 
-For 1-2 tasks, the overhead of worktree creation and merging exceeds the parallelism benefit. Just run them sequentially in the current worktree.
+For 1-2 tasks, the overhead of worktree creation and merging exceeds the parallelism benefit. Just run them sequentially in the working directory.
 
 ---
 

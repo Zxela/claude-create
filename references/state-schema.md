@@ -1,14 +1,14 @@
 # State Schema Reference
 
-The `state.json` file lives at the worktree root and tracks the entire `/create` workflow lifecycle. This reference documents its schema and initialization.
+The `state.json` file lives in the working directory and tracks the entire `/create` workflow lifecycle. During planning phases it lives in the cwd; the team-lead may move it to a worktree at implementation time if isolation is needed.
 
 ## Full Schema
 
 ```json
 {
   "session_id": "feature-name-a1b2c3d4",
-  "branch": "create/feature-name-a1b2c3d4",
-  "worktree": "../repo-create-feature-name-a1b2c3d4",
+  "branch": null,
+  "worktree": null,
   "feature": "feature-name",
   "created_at": "2026-01-25T10:00:00Z",
   "phase": "discovery",
@@ -56,7 +56,7 @@ The `state.json` file lives at the worktree root and tracks the entire `/create`
     "max_identical_rejections": 3,
     "max_iterations_without_progress": 3,
     "retries": {
-      "same_agent": 1,
+      "continue_agent": 1,
       "fresh_agent": 1
     }
   },
@@ -103,8 +103,8 @@ The `state.json` file lives at the worktree root and tracks the entire `/create`
 | Field | Description |
 |-------|-------------|
 | `session_id` | Unique identifier combining feature slug and UUID |
-| `branch` | Git branch name for this workflow |
-| `worktree` | Path to the git worktree directory |
+| `branch` | Git branch name (null during planning, set by team-lead at implementation if worktree created) |
+| `worktree` | Path to worktree (null during planning, set by team-lead at implementation if needed) |
 | `feature` | Slugified feature name |
 | `created_at` | ISO 8601 timestamp of session creation |
 | `phase` | Current workflow phase (discovery, spec_review, scope_analysis, task_decomposition, implementing, completing) |
@@ -115,7 +115,7 @@ The `state.json` file lives at the worktree root and tracks the entire `/create`
 | `tasks` | Map of task IDs to status objects (populated in planning phase) |
 | `current_task` | ID of task currently being worked on (null in discovery) |
 | `config` | Configuration including auto_mode, timeouts, and retry limits |
-| `scale` | Estimated scale: "small", "medium", or "large" |
+| `scale` | Estimated scale: "trivial", "small", "medium", or "large" (trivial tasks skip state.json entirely) |
 | `scale_details` | Detailed scale breakdown with file count, ADR triggers, docs to generate |
 | `token_tracking` | Token usage tracking configuration and phase data |
 | `dialogue_state` | Discovery dialogue progress tracking |
@@ -139,6 +139,8 @@ The `state.json` file lives at the worktree root and tracks the entire `/create`
 
 ## Scale-Based Initialization
 
+**Trivial** tasks (1 file) skip state.json entirely — see `references/scale-determination.md`.
+
 For **small** scale, set:
 ```json
 {
@@ -146,7 +148,7 @@ For **small** scale, set:
   "scale_details": {
     "estimated_files": 2,
     "adr_triggers": [],
-    "docs_to_generate": ["technical_design"],
+    "docs_to_generate": [],
     "skip_scope_analysis": true
   }
 }

@@ -1,0 +1,134 @@
+name: implement-jit-context-loading
+description: "Verify implementer uses context_refs for targeted reads instead of reading full files or directories"
+workflow: homerun:implement
+tags: [implement, context-optimization, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      { "name": "test-project", "version": "1.0.0", "scripts": { "test": "node --test" } }
+  - path: src/models/user.ts
+    content: |
+      // User model — 200 lines in real codebase
+      export interface User {
+        id: string;
+        email: string;
+        name: string;
+        role: 'admin' | 'user';
+        createdAt: Date;
+      }
+      export type UserCreateInput = Omit<User, 'id' | 'createdAt'>;
+      export function validateUser(input: UserCreateInput): boolean {
+        return !!input.email && !!input.name;
+      }
+  - path: src/services/auth.ts
+    content: |
+      // Auth service — 300 lines in real codebase
+      import { User } from '../models/user';
+      export class AuthService {
+        async login(email: string, password: string): Promise<User | null> {
+          return null; // stub
+        }
+        async register(input: any): Promise<User> {
+          throw new Error('Not implemented');
+        }
+      }
+  - path: src/services/email.ts
+    content: |
+      // Email service — unrelated to the task, should NOT be read
+      export class EmailService {
+        async send(to: string, subject: string, body: string): Promise<void> {}
+      }
+  - path: src/utils/logger.ts
+    content: |
+      // Logger utility — unrelated to the task, should NOT be read
+      export function log(msg: string): void { console.log(msg); }
+  - path: src/routes/index.ts
+    content: |
+      // Routes — unrelated to the task, should NOT be read
+      export function registerRoutes(app: any): void {}
+  - path: docs/TECHNICAL_DESIGN.md
+    content: |
+      # Technical Design
+      ## Data Model
+      User model in src/models/user.ts with fields: id, email, name, role, createdAt.
+      ## API Contracts
+      POST /register: accepts UserCreateInput, returns User with generated id.
+      ## Components
+      - AuthService: handles login/register
+      - UserModel: data validation
+      ## Error Handling
+      Return { error: string } on validation failure.
+
+input:
+  prompt: |
+    Implement this task.
+
+    Task spec:
+    {
+      "id": "004",
+      "title": "Add register method to AuthService",
+      "objective": "Implement the register method that validates input and creates a user",
+      "task_type": "add_method",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "criterion": "register({email, name, role}) returns User with generated id",
+          "risk_level": "must_test"
+        },
+        {
+          "id": "AC-002",
+          "criterion": "register({}) throws validation error",
+          "risk_level": "must_test"
+        }
+      ],
+      "test_file": "tests/auth.test.js",
+      "spec_paths": { "technical_design": "docs/TECHNICAL_DESIGN.md" },
+      "context_refs": {
+        "interface_locations": ["src/models/user.ts:User interface", "src/models/user.ts:UserCreateInput type"],
+        "pattern_files": ["src/services/auth.ts"],
+        "grep_patterns": ["validateUser", "UserCreateInput"],
+        "constraints_section": "docs/TECHNICAL_DESIGN.md:## Error Handling"
+      }
+    }
+
+    IMPORTANT: Use context_refs for JIT context loading:
+    1. Read interface_locations as targeted section reads (NOT full file reads)
+    2. Check pattern_files for signatures only (grep for function/class/export)
+    3. Run grep_patterns to discover related code
+    4. Read constraints_section for constraints
+
+    AVOID: reading entire directories, files not in context_refs (like src/utils/logger.ts,
+    src/services/email.ts, src/routes/index.ts), or reading full spec files cover-to-cover.
+
+    After implementing, describe which files you read and which you avoided.
+
+evaluations:
+  - type: behavioral
+    checks:
+      - output_contains: "context_refs|interface_locations|pattern_files|JIT"
+  - type: llm_judge
+    model: haiku
+    max_tokens: 500
+    rubric: |
+      Evaluate JIT context loading efficiency:
+
+      1. Targeted reads (0-3): Read src/models/user.ts for User/UserCreateInput interfaces
+         and src/services/auth.ts for the existing class structure — using context_refs,
+         not browsing the directory.
+      2. Avoided irrelevant files (0-3): Did NOT read src/services/email.ts,
+         src/utils/logger.ts, or src/routes/index.ts — these are unrelated to the task
+         and not in context_refs.
+      3. Spec extraction (0-2): Extracted only the relevant spec section (Error Handling
+         or API Contracts) instead of reading the full TECHNICAL_DESIGN.md cover-to-cover.
+      4. Grep patterns used (0-2): Ran grep for "validateUser" or "UserCreateInput" to
+         discover related code instead of reading every file.
+
+      If the implementer read email.ts, logger.ts, or routes/index.ts: deduct 2 points each.
+      If the implementer read the entire spec file: deduct 1 point.
+
+      Score 0-10. Pass threshold: 6
+    passing_score: 6

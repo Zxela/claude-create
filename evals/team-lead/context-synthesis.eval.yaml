@@ -1,0 +1,140 @@
+name: team-lead-context-synthesis
+description: "Verify team-lead builds correct synthesis context from upstream implementation_notes"
+workflow: homerun:team-lead
+tags: [team-lead, homerun]
+timeout_seconds: 600
+isolation: tempdir
+
+fixtures:
+  - path: state.json
+    content: |
+      {
+        "phase": "implementing",
+        "session_id": "eval-synth-001",
+        "tasks_file": "docs/tasks.json",
+        "orchestration_mode": "skill",
+        "config": {
+          "max_parallel_tasks": 2,
+          "retries": { "continue_agent": 1, "fresh_agent": 1 }
+        }
+      }
+  - path: docs/tasks.json
+    content: |
+      {
+        "tasks": [
+          {
+            "id": "001",
+            "title": "Create User model",
+            "objective": "Define User type with validation",
+            "task_type": "create_model",
+            "status": "completed",
+            "depends_on": [],
+            "acceptance_criteria": [
+              { "id": "AC-001", "criterion": "User type has id, email, name fields" }
+            ],
+            "test_file": "tests/user.test.ts",
+            "commit_hash": "abc1234",
+            "implementation_notes": {
+              "files_changed": ["src/models/user.ts", "src/types.ts"],
+              "key_decisions": "Used discriminated union for UserResult — success has data, error has message",
+              "interfaces_established": "User type and UserResult type exported from src/types.ts",
+              "gotchas": "UserResult.error is string|null not string|undefined — downstream must check null"
+            }
+          },
+          {
+            "id": "002",
+            "title": "Create Auth service",
+            "objective": "Implement login that validates user credentials",
+            "task_type": "create_service",
+            "status": "pending",
+            "depends_on": ["001"],
+            "acceptance_criteria": [
+              { "id": "AC-002", "criterion": "login() returns JWT on valid credentials" },
+              { "id": "AC-003", "criterion": "login() returns error on invalid credentials" }
+            ],
+            "context_refs": ["src/types.ts", "src/models/user.ts"],
+            "test_file": "tests/auth.test.ts"
+          },
+          {
+            "id": "003",
+            "title": "Add email validation",
+            "objective": "Add email format validation to User model",
+            "task_type": "add_validation",
+            "status": "pending",
+            "depends_on": ["001"],
+            "acceptance_criteria": [
+              { "id": "AC-004", "criterion": "Rejects invalid email formats" }
+            ],
+            "context_refs": ["src/models/user.ts"],
+            "test_file": "tests/user-validation.test.ts"
+          }
+        ]
+      }
+
+cases:
+  - name: sonnet-tier-synthesis
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        Task 001 is completed with implementation_notes. Tasks 002 and 003 depend on it.
+
+        Task 002 (create_service) is a sonnet-tier task.
+        For sonnet-tier downstream tasks, you must build a DETAILED context block including:
+        - implementation_notes from completed dependencies
+        - files_changed, key_decisions, interfaces_established, gotchas
+        - Note: in a real scenario you'd also read the git diff, but skip that for this eval
+
+        Build the synthesis context block that you would prepend to the implementer prompt
+        for task 002. Show the full context block text.
+
+        Do NOT actually dispatch any agents. Just show the context block.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate the synthesis context block for sonnet-tier task 002:
+
+          1. Source identification (0-2): References task 001 as the upstream dependency
+          2. Files changed (0-2): Includes src/models/user.ts and src/types.ts from 001's notes
+          3. Key decisions (0-2): Mentions the discriminated union for UserResult
+          4. Interfaces (0-2): Mentions User type and UserResult type from src/types.ts
+          5. Gotchas (0-2): Includes the null vs undefined warning for UserResult.error
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: haiku-tier-synthesis
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        Task 001 is completed with implementation_notes. Tasks 002 and 003 depend on it.
+
+        Task 003 (add_validation) is a haiku-tier task.
+        For haiku-tier downstream tasks, you must build a BRIEF bullet-point context block:
+        - [dep_id] dep_title: Changed <files>. <key_decisions>
+          Watch out: <gotchas>
+
+        Build the synthesis context block that you would prepend to the implementer prompt
+        for task 003. Show the full context block text.
+
+        Do NOT actually dispatch any agents. Just show the context block.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate the synthesis context block for haiku-tier task 003:
+
+          1. Brevity (0-3): Context is a concise bullet-point format, not the verbose sonnet-tier format.
+             Should NOT include full "Relevant diff sections" or exhaustive detail.
+          2. Essential info (0-3): Includes task 001 ID/title, files changed, and the key gotcha
+          3. Gotcha propagation (0-2): The null vs undefined warning is present since task 003
+             works with the User model that 001 established
+          4. No over-engineering (0-2): Does NOT include git diffs or filtered diff sections
+             (those are sonnet-tier only)
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

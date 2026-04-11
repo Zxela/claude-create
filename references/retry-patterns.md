@@ -18,28 +18,55 @@ Extracted from team-lead orchestration logic for token efficiency.
 }
 ```
 
-## Retry Precedence (Priority Order)
+## Retry Strategy (v6 — Continue-on-Rework)
 
-1. **Fresh pending tasks** - Always prefer unstarted work
-2. **Fresh-agent retries** - Clean slate with structured failure summary (DEFAULT for first retry)
-3. **Same-agent retries** - Only for trivial fixes where accumulated context helps
-4. **Model escalation** - Upgrade haiku to sonnet on persistent failure
+### Order of retry approaches:
 
-## Fresh-Context-First Strategy
+1. **First rejection (low/med severity):** Continue original agent via SendMessage
+   - Agent has full context: files read, code written, tests run
+   - Send reviewer's required_fixes as targeted instructions
+   - Fallback: if agent terminated, use fresh spawn (step 2)
 
-**Rationale (from Anthropic best practices):** "After two failed corrections, /clear and write a better initial prompt incorporating what you learned." Accumulated context from failed attempts is the #1 cause of degraded retry performance — each failed attempt adds ~500 tokens of noise.
+2. **Second rejection or SendMessage failure:** Fresh agent with clean context
+   - Build structured failure summary from all attempts
+   - Include specific rejection issues and required fixes
+   - Give fresh perspective on the problem
 
-**Key principle:** The first retry should ALWAYS be a fresh agent with a structured failure summary, NOT a retry with accumulated context. This is the inverse of the naive approach.
+3. **Third rejection:** Escalate
+   - If haiku task: escalate model to sonnet, fresh agent
+   - If sonnet/opus task: escalate to user with full attempt history
+
+4. **Placeholder pattern detected (>2 rejections citing vagueness):**
+   - Root cause is AC quality, not implementation
+   - Escalate to re-decomposition, not retry
 
 ## Retry Type Logic
 
 ```javascript
 function getRetryType(task, state) {
-  const attempts = getAttemptCount(task.id, state);
+  const attempts = task.attempts || [];
 
-  // FIRST retry: fresh agent with clean context + structured failure summary
-  // This is MORE likely to succeed than retrying with accumulated context
-  if (attempts === 1) {
+  // FIRST rejection (high severity): escalate immediately with context
+  if (attempts.length === 1 && attempts[0].severity === 'high') {
+    return {
+      type: 'human_escalation',
+      attempts: attempts.map(a => ({ severity: a.severity, feedback: a.feedback }))
+    };
+  }
+
+  // FIRST rejection (low/med): continue original agent via SendMessage
+  // Agent retains full context — targeted fix is faster than fresh start
+  if (attempts.length === 1) {
+    return {
+      type: 'continue_agent',
+      agent_id: task.agent_id,
+      message: task.attempts[0].required_fixes || task.attempts[0].feedback,
+      fallback: 'fresh_agent'  // if SendMessage fails
+    };
+  }
+
+  // SECOND rejection or SendMessage failure: fresh agent with structured summary
+  if (attempts.length === 2) {
     return {
       type: 'fresh_agent',
       model: task.model,
@@ -47,27 +74,34 @@ function getRetryType(task, state) {
     };
   }
 
-  // SECOND retry: same agent with targeted guidance (for trivial remaining fixes)
-  if (attempts === 2) {
-    return { type: 'same_agent', model: task.model };
+  // THIRD rejection: escalate
+  if (attempts.length >= 3) {
+    if (task.model === 'haiku') {
+      return { type: 'escalate', model: 'sonnet' };
+    }
+    // sonnet/opus: escalate to user with full attempt history
+    return {
+      type: 'human_escalation',
+      attempts: attempts.map(a => ({ severity: a.severity, feedback: a.feedback }))
+    };
   }
-
-  // THIRD retry: escalate haiku to sonnet
-  if (task.model === 'haiku') {
-    return { type: 'escalate', model: 'sonnet' };
-  }
-
-  return { type: 'human_escalation' };
 }
 
-// Build a concise summary of what failed and why, NOT raw reviewer feedback
+// Build a concise summary of what failed and why
 function buildStructuredFailureSummary(task) {
-  const lastRejection = task.feedback[task.feedback.length - 1];
+  const lastAttempt = task.attempts[task.attempts.length - 1];
   return {
     task_objective: task.objective,
-    what_failed: lastRejection.issues.map(i => i.description).join('; '),
-    specific_fixes_needed: lastRejection.required_fixes,
-    // DO NOT include: raw reviewer output, previous implementation code,
+    attempt_count: task.attempts.length,
+    // Structured per-attempt summaries (severity + status only, not raw feedback)
+    attempts: task.attempts.map(a => ({
+      status: a.status,
+      severity: a.severity
+    })),
+    // Extract actionable fixes from the last rejection's required_fixes,
+    // NOT the raw feedback string
+    specific_fixes_needed: lastAttempt.required_fixes || lastAttempt.feedback,
+    // DO NOT include: raw reviewer output verbatim, previous implementation code,
     // or accumulated context from failed attempts
   };
 }

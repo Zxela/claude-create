@@ -1,0 +1,127 @@
+name: team-lead-worktree-decision
+description: "Verify team-lead creates worktree for existing repos but skips for greenfield projects"
+workflow: homerun:team-lead
+tags: [team-lead, worktree, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+cases:
+  - name: existing-repo-create-worktree
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-wt-001",
+            "scale": { "estimated": "medium", "file_count": 6 },
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              { "id": "001", "title": "Add user model", "task_type": "create_model",
+                "status": "pending", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-001", "criterion": "User model exists"}],
+                "test_file": "tests/user.test.ts" },
+              { "id": "002", "title": "Add auth service", "task_type": "create_service",
+                "status": "pending", "depends_on": ["001"],
+                "acceptance_criteria": [{"id": "AC-002", "criterion": "Auth service works"}],
+                "test_file": "tests/auth.test.ts" }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        SCENARIO: This is an established git repository with 50+ commits on main.
+        Do NOT run any git commands to verify — accept this as given context.
+
+        The worktree decision rule says:
+        - Existing git repo with commit history → create a feature branch for isolation
+        - Greenfield projects or no meaningful git history → work directly in current directory
+
+        The scale is "medium" with 2 tasks that could be parallelized.
+
+        Given that this repo has real git history, should you create a worktree?
+        Explain your decision and what branch name you'd use.
+        Do NOT actually create any worktree or run git commands.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "[Ww]orktree|[Bb]ranch|[Ii]solat"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate worktree decision for existing repo:
+
+          1. Decision (0-5): Correctly decides to create a worktree/feature branch for isolation.
+             An existing repo with commit history warrants isolation to avoid polluting main.
+          2. Reasoning (0-3): Explains why — isolation from main branch, ability to parallelize
+             with worktree per task, safe rollback if needed.
+          3. Branch naming (0-2): Suggests a reasonable branch name (e.g., feature/session-id
+             or similar convention).
+
+          If it skips worktree for an existing repo: max score 3.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: greenfield-skip-worktree
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-wt-002",
+            "scale": { "estimated": "medium", "file_count": 5 },
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              { "id": "001", "title": "Create package.json", "task_type": "add_config",
+                "status": "pending", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-001", "criterion": "package.json exists"}],
+                "test_file": null },
+              { "id": "002", "title": "Create app entry point", "task_type": "create_service",
+                "status": "pending", "depends_on": ["001"],
+                "acceptance_criteria": [{"id": "AC-002", "criterion": "App starts"}],
+                "test_file": "tests/app.test.ts" }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        This is a GREENFIELD project — there is no git repository, no existing code, no commit history.
+        Running `git log --oneline -1` would fail because git is not initialized.
+
+        The worktree decision rule says:
+        - Existing git repo with commit history → create a feature branch
+        - Greenfield projects or no meaningful git history → work directly in current directory
+
+        Should you create a worktree? Explain your decision.
+        Do NOT actually create any worktree.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate worktree decision for greenfield project:
+
+          1. Decision (0-5): Correctly decides to SKIP worktree creation. Work directly in
+             the current directory. Worktree overhead is wasted for greenfield projects.
+          2. Reasoning (0-3): Explains why — no git history to isolate from, worktree requires
+             an existing repo, overhead exceeds benefit for new projects.
+          3. Alternative (0-2): Mentions initializing git after the first task or working
+             sequentially in the current directory.
+
+          If it tries to create a worktree for greenfield: max score 3.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

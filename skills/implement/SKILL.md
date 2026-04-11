@@ -35,9 +35,11 @@ Scan every AC for placeholder language. Reject: "TBD/TODO", "add appropriate err
 
 ## Process
 
-### 0. Pre-Implementation Analysis
+### 0. Pre-Implementation Analysis (MANDATORY for sonnet/opus)
 
-**Skip for haiku tasks** → jump to Step 1. **Sonnet/opus tasks only:** Read `skills/implement/pre-implementation-analysis.md` and complete steps 0a-0d (strategy, metacognitive questions, impact analysis, duplication check). Budget: ~2.5K tokens.
+**If task is sonnet-tier or opus-tier** (create_model, create_service, add_endpoint_complex, create_middleware, bug_fix, integration_test, architectural): You MUST complete Step 0 BEFORE any implementation. Read `skills/implement/pre-implementation-analysis.md` and output steps 0a-0d (strategy selection, metacognitive questions, impact analysis, duplication check) explicitly. Budget: ~2.5K tokens. This is NOT the same as the self-review checklist in Step 5.6 — Step 0 happens BEFORE coding, Step 5.6 happens AFTER.
+
+**If task is haiku-tier** (add_field, add_method, add_validation, rename_refactor, add_test, add_config, add_endpoint): skip Step 0 → jump to Step 1.
 
 ---
 
@@ -91,29 +93,50 @@ Run before signaling completion:
 
 All pass → `IMPLEMENTATION_COMPLETE` with `hard_gate_results`. Any fail → `NEEDS_REWORK` with findings.
 
+### 5.7. Write Implementation Notes
+
+Before signaling completion, populate `implementation_notes` for downstream tasks:
+
+- `files_changed`: List all files you modified (from `git diff --name-only HEAD~1`)
+- `key_decisions`: Document any non-obvious choices — why you chose one approach over another, patterns you established, naming conventions you introduced. Skip if the implementation was straightforward.
+- `interfaces_established`: List any types, exports, or contracts you created that downstream tasks may import or depend on. Include the file path and export name.
+- `gotchas`: Note anything that surprised you or could trip up downstream work — unexpected nullability, edge cases in existing code, ordering dependencies. Skip if none.
+
+This field is included in the IMPLEMENTATION_COMPLETE signal. Empty sub-fields are allowed for trivial tasks — do not fabricate notes where none are needed.
+
 ### 6. Signal Completion
 
-Output JSON signal wrapped in a ```json code block.
+Output JSON signal wrapped in a ```json code block. **Use envelope format** with `signal`, `timestamp`, `source`, `payload` wrapper (see `references/signal-contracts.json`).
 
 ---
 
 ## Output Signals
 
-All output MUST be valid JSON in a ```json code block. Four possible signals:
+All output MUST be valid JSON in a ```json code block. **Use envelope format:**
+
+```json
+{
+  "signal": "<SIGNAL_NAME>",
+  "timestamp": "<ISO8601>",
+  "source": { "skill": "homerun:implement", "task_id": "<task.id>", "attempt": 1 },
+  "payload": { /* signal-specific fields below */ },
+  "envelope_version": "1.0.0"
+}
+```
 
 ### IMPLEMENTATION_COMPLETE
-Required fields: `signal`, `files_changed`, `test_file`, `commit_hash`, `hard_gate_results` ({tests, types, lint} exit codes), `verification_level` (L1|L2|L3), `verification_attempted` (array), `acceptance_criteria_met` (array of {criterion, implementation_file, test_location} with file:line format).
+Payload fields: `files_changed`, `test_file`, `commit_hash`, `hard_gate_results` ({tests, types, lint} exit codes), `verification_level` (L1|L2|L3), `verification_attempted` (array), `acceptance_criteria_met` (array of {criterion, implementation_file, test_location} with file:line format), `implementation_notes` ({files_changed, key_decisions, interfaces_established, gotchas}).
 
 Include `verification_details` if L3-only (explain why L1/L2 impossible). If any AC cannot be addressed → use IMPLEMENTATION_BLOCKED instead. Never omit criteria silently.
 
 ### IMPLEMENTATION_BLOCKED
-Required: `signal`, `reason`, `blocker_type` (missing_dependency|unclear_requirements|technical_constraint|test_failure|tautological_test|duplication_detected), `suggested_resolution`. Optional: `details[]`.
+Payload fields: `reason`, `blocker_type` (missing_dependency|unclear_requirements|technical_constraint|test_failure|tautological_test|duplication_detected), `suggested_resolution`. Optional: `details[]`.
 
 ### NEEDS_REWORK
-Self-review failed. Required: `signal`, `findings[]` ({check, description, files}), `hard_gate_results`. Team-lead re-dispatches without reviewer.
+Self-review failed. Payload fields: `findings[]` ({check, description, files}), `hard_gate_results`. Team-lead re-dispatches without reviewer.
 
 ### VALIDATION_ERROR
-Required: `signal`, `error_type` (invalid_input|semantic_error), `errors[]` ({path, message, expected, received}).
+Payload fields: `error_type` (invalid_input|semantic_error), `errors[]` ({path, message, expected, received}).
 
 ## Red Flags — STOP
 

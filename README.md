@@ -54,7 +54,7 @@ Homerun transforms a rough idea into a fully implemented feature through automat
 │  │  Specs ────► Scope Analyzer (sonnet) ────► scope-analysis.json     │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │  Mechanical extraction: components, validated ACs, JIT context refs       │
-│  Skipped for small-scale features (< 3 files)                             │
+│  Skipped for trivial (1 file) and small (2-4 files) tasks                 │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
@@ -131,7 +131,7 @@ Start an orchestrated workflow from idea through implementation.
 |------|-------------|
 | `--auto` | Skip all confirmations — dialogue, validation, phase transitions |
 | `--resume` | Resume interrupted session |
-| `--retries N,M` | Retry limits: N=fresh agent, M=same agent (default: 1,1) |
+| `--retries N,M` | Retry limits: N=continue agent (SendMessage), M=fresh agent (default: 1,1) |
 
 **Plan-then-stop (default):** In interactive mode, `/create` stops after DAG validation and prints a task summary. Run `/build <worktree>` to start implementation. In `--auto` mode, execution continues immediately.
 
@@ -285,7 +285,7 @@ Tasks are automatically assigned to the appropriate model based on complexity:
 | Reverse Engineer | `reverse-engineer` | opus | Deep codebase understanding |
 | Walkthrough | `walkthrough-generator` | sonnet | User flow comprehension |
 
-**Escalation:** Task rejected with high severity → retry with sonnet. Sonnet fails 3x → escalate to user.
+**Escalation:** Task rejected with high severity → escalate to user immediately. Low/medium severity → continue original agent, then fresh agent, then escalate. Haiku task fails 3x → escalate model to sonnet.
 
 ## Prerequisites
 
@@ -308,7 +308,7 @@ Hooks auto-register via `hooks/hooks.json` when the homerun plugin is installed.
 
 ## State Management
 
-All workflow state is tracked in `state.json` in the worktree root:
+All workflow state is tracked in `state.json` (in cwd during planning, in worktree during implementation if created):
 
 ```
 state.json
@@ -334,7 +334,7 @@ state.json
 │   ├── timeout_minutes
 │   ├── max_identical_rejections
 │   ├── max_iterations_without_progress
-│   └── retries { same_agent, fresh_agent }
+│   └── retries { continue_agent, fresh_agent }
 └── skill_log               # Audit trail of skill invocations
 ```
 
@@ -373,7 +373,8 @@ homerun/
 │   ├── finishing-a-development-branch/SKILL.md
 │   ├── test-driven-development/SKILL.md
 │   ├── systematic-debugging/SKILL.md
-│   └── using-git-worktrees/SKILL.md
+│   ├── using-git-worktrees/SKILL.md
+│   └── setup-quality-gates/SKILL.md
 ├── commands/                     # User-invocable commands
 │   ├── build.md
 │   ├── create.md
@@ -473,11 +474,13 @@ All inter-agent communication uses typed JSON signal envelopes. See `references/
 Task rejected (attempt 1 failed)
       │
       ▼
+  Severity is high? → Escalate to user immediately
+      │ NO ↓
+  continue_agent retries remaining? (default: 1)
+      │ YES → SendMessage to original agent (retains full context)
+      │ NO ↓
   fresh_agent retries remaining? (default: 1)
       │ YES → Spawn fresh agent (clean slate + structured failure summary)
-      │ NO ↓
-  same_agent retries remaining? (default: 1)
-      │ YES → Retry with same agent + targeted guidance
       │ NO ↓
   Model is haiku? → Escalate to sonnet
       │ NO ↓
@@ -488,20 +491,42 @@ Task rejected (attempt 1 failed)
 
 ## Evals
 
-27 evaluation files across 8 categories in `evals/`:
+45 evaluation files across 9 categories in `evals/`:
 
 | Category | Evals | Coverage |
 |----------|-------|----------|
-| discovery | 5 | Dialogue flow, document generation, signal envelope |
+| discovery | 6 | Dialogue flow, document generation, signal envelope, traceability |
 | planning | 5 | Task decomposition, DAG validation, model routing |
 | scope-analysis | 3 | AC validation, component extraction |
-| team-lead | 2 | Dispatch loop, scale-based routing |
-| implement | 3 | TDD workflow, signal completion, blocked signals |
-| review | 5 | Approve/reject scenarios, re-review flows |
-| quality-check | 2 | Phase ordering, signal envelope |
+| team-lead | 7 | Dispatch loop, scale routing, context synthesis, auto-classifier, continue-on-rework, worktree decision, feedback injection |
+| implement | 9 | TDD workflow, signal completion, implementation notes, blocked signals, pre-implementation analysis |
+| review | 8 | Approve/reject scenarios, re-review flows, diff-based review, hard gates, skip hard gates |
+| quality-check | 4 | Phase ordering, signal envelope, haiku-tier, auto-fix |
 | scripts | 2 | DAG validation (valid + cycle detection) |
+| evals | 1 | Eval framework validation |
 
 LLM judge evals use haiku for cost control (max 500 tokens per call).
+
+### Running Evals
+
+Evals are run with [prompteval](https://github.com/Zxela/prompteval), a skill benchmarking framework for Claude Code:
+
+```bash
+# Install prompteval
+git clone https://github.com/Zxela/prompteval.git
+cd prompteval && npm install && npm run build
+
+# Run all homerun evals
+node dist/cli/index.js run --plugin /path/to/homerun --verbose
+
+# Run by tag
+node dist/cli/index.js run --plugin /path/to/homerun --tags team-lead
+node dist/cli/index.js run --plugin /path/to/homerun --tags routing
+node dist/cli/index.js run --plugin /path/to/homerun --tags signals
+
+# Dry run (list evals without executing)
+node dist/cli/index.js run --plugin /path/to/homerun --dry-run
+```
 
 ## Credits
 
