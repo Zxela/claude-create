@@ -72,7 +72,7 @@ cases:
           Score 0-10. Pass threshold: 6
         passing_score: 6
 
-  - name: sonnet-task-runs-step0
+  - name: sonnet-task-proportional-depth
     input:
       prompt: |
         Implement this task.
@@ -100,25 +100,24 @@ cases:
           "context_refs": { "pattern_files": ["src/config.ts"] }
         }
 
-        IMPORTANT: This is a sonnet task type ("create_service").
-        Step 0 says: "Sonnet/opus tasks only: complete steps 0a-0d (strategy, metacognitive
-        questions, impact analysis, duplication check)."
-
-        Describe your approach before implementing.
+        This is a sonnet-tier task ("create_service"). Implement it with appropriate
+        depth — proper interfaces, typed contracts, and TDD methodology.
     evaluations:
       - type: llm_judge
         model: haiku
         max_tokens: 400
         rubric: |
-          Evaluate sonnet task routing:
+          Evaluate sonnet-tier implementation depth:
 
-          1. Step 0 present (0-4): Performs at least some pre-implementation analysis —
-             strategy selection, metacognitive questions, impact analysis, or duplication check.
-          2. TDD methodology (0-3): Uses TDD (red-green-refactor) as specified by "methodology": "tdd".
-          3. Depth proportional (0-3): The analysis depth is appropriate for a create_service task —
-             more substantial than a simple add_field but not over-engineered.
+          1. Structural quality (0-4): Implementation shows proportional depth for a
+             create_service task — proper interface/type definitions, class structure,
+             separation of concerns. More substantial than adding a single field.
+          2. TDD methodology (0-3): Uses TDD (red-green-refactor) as specified by
+             "methodology": "tdd". Tests exist and cover both ACs.
+          3. Completeness (0-3): Both ACs are implemented — createUser returns a User
+             with generated id, getUserById returns User or null.
 
-          If Step 0 is skipped for a sonnet task: max score 4.
+          If implementation is trivial/shallow (e.g., single function, no types): max score 4.
 
           Score 0-10. Pass threshold: 5
         passing_score: 5
