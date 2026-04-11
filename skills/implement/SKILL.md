@@ -37,9 +37,9 @@ Scan every AC for placeholder language. Reject: "TBD/TODO", "add appropriate err
 
 ### 0. Pre-Implementation Analysis (MANDATORY for sonnet/opus)
 
-**If task_type is sonnet or opus:** You MUST complete Step 0 BEFORE any implementation. Read `skills/implement/pre-implementation-analysis.md` and output steps 0a-0d (strategy selection, metacognitive questions, impact analysis, duplication check) explicitly. Budget: ~2.5K tokens. This is NOT the same as the self-review checklist in Step 5.6 — Step 0 happens BEFORE coding, Step 5.6 happens AFTER.
+**If task is sonnet-tier or opus-tier** (create_model, create_service, add_endpoint_complex, create_middleware, bug_fix, integration_test, architectural): You MUST complete Step 0 BEFORE any implementation. Read `skills/implement/pre-implementation-analysis.md` and output steps 0a-0d (strategy selection, metacognitive questions, impact analysis, duplication check) explicitly. Budget: ~2.5K tokens. This is NOT the same as the self-review checklist in Step 5.6 — Step 0 happens BEFORE coding, Step 5.6 happens AFTER.
 
-**If task_type is haiku** (add_field, add_method, add_validation, rename_refactor, add_test, add_config, add_endpoint): skip Step 0 → jump to Step 1.
+**If task is haiku-tier** (add_field, add_method, add_validation, rename_refactor, add_test, add_config, add_endpoint): skip Step 0 → jump to Step 1.
 
 ---
 

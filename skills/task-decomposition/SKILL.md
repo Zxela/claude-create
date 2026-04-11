@@ -13,9 +13,17 @@ color: purple
 
 ## Overview
 
-Decompose pre-analyzed scope → test-bounded tasks. Each task = one commit + verifying test(s). Input: `docs/scope-analysis.json` from scope-analyzer. Output: executable implementation units in `docs/tasks.json`.
+Decompose pre-analyzed scope → test-bounded tasks. Each task = one commit + verifying test(s). Input: `docs/scope-analysis.json` from scope-analyzer (or user prompt for small-scale flat list mode). Output: executable implementation units in `docs/tasks.json`.
 
 **Model: opus** — decomposition is high-leverage; poor boundaries cascade into implementation failures. Does NOT read raw specs, validate ACs, or extract components (scope-analysis handles those).
+
+### Flat List Mode (Small Scale)
+
+When dispatched with `flat_list_mode: true` (small-scale tasks, 2-4 files):
+- Produce a **flat task list** with no dependencies (`depends_on: []` for all tasks)
+- Skip DAG construction — tasks will be dispatched sequentially
+- Read the user prompt and codebase directly instead of `docs/scope-analysis.json` (which won't exist for small tasks)
+- Still produce valid `docs/tasks.json` with all required fields per the schema below
 
 ---
 
@@ -38,9 +46,7 @@ The scope-analyzer produces this file with:
 ### Secondary Input: state.json
 
 Read `state.json` for:
-- `worktree_path` — Working directory
 - `session_id` — Session identifier
-- `branch` — Git branch
 - `spec_paths` — Paths to spec documents (for targeted reads if needed)
 - `config` — Auto mode, retry settings
 
@@ -50,11 +56,9 @@ Read `state.json` for:
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["worktree_path"],
+  "required": [],
   "properties": {
-    "worktree_path": { "type": "string" },
     "session_id": { "type": "string" },
-    "branch": { "type": "string" },
     "spec_paths": {
       "type": "object",
       "properties": {
@@ -183,9 +187,7 @@ See `references/model-routing.json`. Default haiku for mechanical tasks, sonnet 
 Read the scope analysis produced by the scope-analyzer:
 
 ```bash
-cd "$WORKTREE_PATH"
-
-# Read scope analysis
+# Read scope analysis (state.json and docs/ are in cwd during planning)
 cat docs/scope-analysis.json | jq .
 
 # Summary of components

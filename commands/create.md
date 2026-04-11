@@ -152,7 +152,7 @@ Rules:
 3. No discovery, specs, scope, or task decomposition
 4. Dispatch single implementer directly:
    ```javascript
-   Agent({
+   Task({
      description: `Implement: ${user_prompt_summary}`,
      subagent_type: "homerun:implementer",
      model: "haiku",
@@ -167,7 +167,7 @@ Rules:
    ```
 5. Run haiku-tier quality check (lint + types + tests only):
    ```bash
-   homerun-quality-lint.sh && homerun-quality-typecheck.sh
+   scripts/homerun-quality-lint.sh && scripts/homerun-quality-typecheck.sh
    ```
 6. If quality passes: done. Print summary.
 7. If quality fails: print failures, ask user to fix or retry.
@@ -427,7 +427,7 @@ Invoke the finishing skill in the current context to present merge/PR/continue o
 └─────────────────┘
 ```
 
-Each phase can be retried on failure according to the retry configuration. The workflow state is persisted to `state.json` in the worktree, allowing recovery from interruptions.
+Each phase can be retried on failure according to the retry configuration. The workflow state is persisted to `state.json` in the working directory (cwd during planning, worktree during implementation if created), allowing recovery from interruptions.
 
 ## Related Commands
 

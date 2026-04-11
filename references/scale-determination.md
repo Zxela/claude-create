@@ -107,7 +107,6 @@ Classification runs as a single haiku call before any phase begins. This call pa
   "classification": "trivial|small|medium|large",
   "reasoning": "One sentence explaining why",
   "estimated_files": 3,
-  "architectural_layers": ["api", "service"],
   "needs_adr": false
 }
 ```

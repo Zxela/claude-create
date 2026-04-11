@@ -56,11 +56,12 @@ Acknowledge previous answers → build connections → summarize every 2-3 excha
 
 #### Scale Estimation
 
+Discovery is only invoked for medium and large tasks. Trivial (1 file) and small (2-4 files) tasks bypass discovery via fast paths in `/create`.
+
 | Scale | Files | Documents | Dialogue |
 |-------|-------|-----------|----------|
-| **Small** (1-2) | TECHNICAL_DESIGN_small.md only | 5-8 turns |
-| **Medium** (3-5) | PRD + TECHNICAL_DESIGN | 10-15 turns |
-| **Large** (6+) | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 turns |
+| **Medium** (5-8) | PRD + TECHNICAL_DESIGN | 10-15 turns |
+| **Large** (9+) | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES | 15-20 turns |
 
 Always generate ADR if triggers detected (type change 3+ locations, data flow change, architecture change, external dep, complex logic 3+ states). See `references/scale-determination.md`.
 
@@ -101,8 +102,8 @@ mkdir -p docs
 Templates: `templates/*.md`. Generate only scale-appropriate documents.
 
 **Template selection by scale:**
-- **Small (1-2 files):** Use `templates/TECHNICAL_DESIGN_small.md` — focused template with: Overview, What to Change, Data Models, API Contracts, Testing Strategy, Change Impact Map, Agreement Checklist.
-- **Medium/Large (3+ files):** Use `templates/TECHNICAL_DESIGN.md` — full template with all sections.
+- **Medium (5-8 files):** Use `templates/TECHNICAL_DESIGN.md` — full template with all sections.
+- **Large (9+ files):** Use `templates/TECHNICAL_DESIGN.md` — full template with all sections.
 
 **Strict boundaries:** PRD = business value only | ADR = decision rationale only | TECHNICAL_DESIGN = implementation only | WIREFRAMES = UI only (skip for CLI/API/library). Cross-reference, don't duplicate.
 

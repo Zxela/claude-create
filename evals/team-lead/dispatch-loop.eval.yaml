@@ -15,7 +15,7 @@ fixtures:
         "orchestration_mode": "skill",
         "config": {
           "max_parallel_tasks": 2,
-          "retries": { "same_agent": 1, "fresh_agent": 1 }
+          "retries": { "continue_agent": 1, "fresh_agent": 1 }
         }
       }
   - path: docs/tasks.json

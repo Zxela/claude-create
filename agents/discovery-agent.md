@@ -23,8 +23,7 @@ Follow the `homerun:discovery` skill to guide the user from a rough idea to comp
 - Track dialogue turns and warn at threshold (default: 15)
 - **Saturation check** during codebase exploration: if 3 consecutive sources yield no new information, stop exploring
 - Guide acceptance criteria toward **observable, testable outcomes** — every AC must describe something a developer can verify without asking follow-up questions
-- Run scale estimation after understanding scope — right-size documentation (Small=TECHNICAL_DESIGN only, Medium=+PRD, Large=+ADR+WIREFRAMES)
-- **Haiku fast path for small scope:** When scale < 3 files with no ADR triggers, set `scale: "small"` in state.json. Keep dialogue to 5-8 turns total.
+- Run scale estimation after understanding scope — right-size documentation (Medium=PRD+TECHNICAL_DESIGN, Large=+ADR+WIREFRAMES). Trivial (1 file) and small (2-4 files) tasks bypass discovery entirely via `/create` fast paths.
 - Enforce **document segregation** — PRD=business only, ADR=rationale only, TECHNICAL_DESIGN=implementation only
 
 ## Workflow Position
@@ -48,9 +47,10 @@ All stored in `$HOME/.claude/homerun/<project-hash>/<feature-slug>/`. See `refer
 
 | Scale | Documents |
 |-------|-----------|
-| **Small** (1-2 files) | TECHNICAL_DESIGN only (simplified) |
-| **Medium** (3-5 files) | PRD + TECHNICAL_DESIGN |
-| **Large** (6+ files) | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES (if UI) |
+| **Medium** (5-8 files) | PRD + TECHNICAL_DESIGN |
+| **Large** (9+ files) | PRD + ADR + TECHNICAL_DESIGN + WIREFRAMES (if UI) |
+
+Note: Trivial (1 file) and small (2-4 files) tasks bypass discovery entirely — they are routed by the auto-classifier in `/create`.
 
 **Always generate ADR** if any trigger is detected (type change 3+ locations, data flow change, architecture change, external dependency, complex logic).
 

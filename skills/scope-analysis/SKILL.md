@@ -25,11 +25,9 @@ The scope-analyzer agent receives input from the `/create` or `/plan` command:
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["worktree_path", "spec_paths"],
+  "required": ["spec_paths"],
   "properties": {
-    "worktree_path": { "type": "string" },
     "session_id": { "type": "string" },
-    "branch": { "type": "string" },
     "spec_paths": {
       "type": "object",
       "required": ["prd", "adr", "technical_design"],
@@ -170,9 +168,7 @@ The output artifact written to `docs/scope-analysis.json`:
 Read spec documents from paths in `state.json`:
 
 ```bash
-cd "$WORKTREE_PATH"
-
-# Read state.json to get spec paths
+# Read state.json to get spec paths (state.json is in cwd during planning)
 jq -r '.spec_paths | to_entries[] | "\(.key): \(.value)"' state.json
 ```
 
@@ -229,7 +225,6 @@ From TECHNICAL_DESIGN: non-scope/exclusions section + impact/affected sections. 
 Assemble all extracted data into `docs/scope-analysis.json`:
 
 ```bash
-cd "$WORKTREE_PATH"
 mkdir -p docs
 
 # Write the scope analysis file
@@ -252,8 +247,6 @@ SCOPE_EOF
 ### 8. Update State and Commit
 
 ```bash
-cd "$WORKTREE_PATH"
-
 # Update state.json phase
 jq '.phase = "task_decomposition"' state.json > tmp.json && mv tmp.json state.json
 

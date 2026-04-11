@@ -26,8 +26,22 @@ PENDING=$(jq '[.tasks[] | select(.status == "pending")] | length' "$TASKS_FILE")
 echo "$PENDING pending of $TASK_COUNT total tasks"
 ```
 
-**Worktree decision:** If an existing git repo with commit history is present (`git log --oneline -1` succeeds and the repo has real commits), create a feature branch for isolation. For greenfield projects or benchmark environments (no meaningful git history), work directly in the current directory — worktree overhead is wasted.
+**Worktree decision:** If an existing git repo with commit history is present (`git log --oneline -1` succeeds and the repo has real commits), create a feature branch and worktree for isolation. For greenfield projects or benchmark environments (no meaningful git history), work directly in the current directory — worktree overhead is wasted.
 
+```bash
+# Determine working directory for implementation
+if git log --oneline -1 &>/dev/null; then
+  BRANCH="create/${FEATURE_SLUG}-$(cat /proc/sys/kernel/random/uuid | cut -c1-8)"
+  git worktree add "../$(basename $(pwd))-${BRANCH##*/}" -b "$BRANCH"
+  WORKTREE_PATH="../$(basename $(pwd))-${BRANCH##*/}"
+  # Update state.json with branch and worktree path
+  jq --arg b "$BRANCH" --arg w "$WORKTREE_PATH" '.branch = $b | .worktree = $w' state.json > tmp.json && mv tmp.json state.json
+  cp state.json "$WORKTREE_PATH/state.json"
+  cp -r docs "$WORKTREE_PATH/docs"
+else
+  WORKTREE_PATH="."  # Work in cwd for greenfield projects
+fi
+```
 
 Read the full tasks to understand the DAG:
 

@@ -76,21 +76,22 @@ stateDiagram-v2
         review --> rejected: REJECTED
     }
 
-    attempt_1 --> attempt_2: fresh_agent retry
+    attempt_1 --> escalation: high severity → immediate escalation
+    attempt_1 --> attempt_2: continue_agent (SendMessage to original)
     attempt_1 --> success_state: success
 
     state attempt_2 {
-        [*] --> implementing_2: Fresh context
+        [*] --> implementing_2: Original agent continues with required_fixes
         implementing_2 --> review_2
         review_2 --> success: APPROVED
         review_2 --> rejected: REJECTED
     }
 
-    attempt_2 --> attempt_3: same_agent retry
+    attempt_2 --> attempt_3: fresh_agent (clean context + failure summary)
     attempt_2 --> success_state: success
 
     state attempt_3 {
-        [*] --> implementing_3: With feedback
+        [*] --> implementing_3: Fresh perspective
         implementing_3 --> review_3
         review_3 --> success: APPROVED
         review_3 --> rejected: REJECTED
