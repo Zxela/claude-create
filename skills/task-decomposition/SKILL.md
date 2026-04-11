@@ -283,7 +283,7 @@ docs/
         },
         "test_file": { "type": ["string", "null"] },
         "no_test_reason": { "type": "string" },
-        "status": { "enum": ["pending", "in_progress", "completed", "blocked", "failed"] },
+        "status": { "enum": ["pending", "in_progress", "completed", "approved", "blocked", "failed", "skipped"] },
         "depends_on": { "type": "array", "items": { "type": "string" } },
         "traces_to": {
           "type": "object",
@@ -329,7 +329,8 @@ docs/
               "agent_id": { "type": "string" },
               "status": { "type": "string", "enum": ["rejected", "completed"] },
               "severity": { "type": "string", "enum": ["low", "medium", "high"] },
-              "feedback": { "type": "string" }
+              "feedback": { "type": "string" },
+              "required_fixes": { "type": "array", "items": { "type": "string" }, "description": "Actionable fix instructions from reviewer's REJECTED signal" }
             }
           }
         }

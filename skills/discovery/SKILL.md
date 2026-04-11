@@ -109,7 +109,7 @@ Templates: `templates/*.md`. Generate only scale-appropriate documents.
 
 **Requirements:** FRs in PRD (MoSCoW priority, EARS-format ACs). NFRs: quantified targets in PRD, implementation in TECHNICAL_DESIGN. Omit categories without measurable targets.
 
-**Quality:** Ground in codebase (real files/patterns). ACs must be testable. Non-scope explicit in TECHNICAL_DESIGN with Change Impact Map (direct/indirect/unaffected). Small features use `TECHNICAL_DESIGN_small.md`; large features get full document set. No boilerplate. Omit inapplicable sections entirely.
+**Quality:** Ground in codebase (real files/patterns). ACs must be testable. Non-scope explicit in TECHNICAL_DESIGN with Change Impact Map (direct/indirect/unaffected). No boilerplate. Omit inapplicable sections entirely.
 
 Write documents to `$HOMERUN_DOCS_DIR/`.
 

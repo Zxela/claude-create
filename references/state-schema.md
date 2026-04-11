@@ -115,7 +115,7 @@ The `state.json` file lives in the working directory and tracks the entire `/cre
 | `tasks` | Map of task IDs to status objects (populated in planning phase) |
 | `current_task` | ID of task currently being worked on (null in discovery) |
 | `config` | Configuration including auto_mode, timeouts, and retry limits |
-| `scale` | Estimated scale: "small", "medium", or "large" |
+| `scale` | Estimated scale: "trivial", "small", "medium", or "large" (trivial tasks skip state.json entirely) |
 | `scale_details` | Detailed scale breakdown with file count, ADR triggers, docs to generate |
 | `token_tracking` | Token usage tracking configuration and phase data |
 | `dialogue_state` | Discovery dialogue progress tracking |
@@ -139,6 +139,8 @@ The `state.json` file lives in the working directory and tracks the entire `/cre
 
 ## Scale-Based Initialization
 
+**Trivial** tasks (1 file) skip state.json entirely — see `references/scale-determination.md`.
+
 For **small** scale, set:
 ```json
 {
@@ -146,7 +148,7 @@ For **small** scale, set:
   "scale_details": {
     "estimated_files": 2,
     "adr_triggers": [],
-    "docs_to_generate": ["technical_design"],
+    "docs_to_generate": [],
     "skip_scope_analysis": true
   }
 }

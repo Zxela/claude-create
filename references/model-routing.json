@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "version": "2.0.0",
-  "description": "Authoritative task type to model routing configuration (v4.0 — effort-proportional)",
+  "description": "Authoritative task type to model routing configuration (v6.0 — adaptive orchestration)",
 
   "task_routing": {
     "haiku": {

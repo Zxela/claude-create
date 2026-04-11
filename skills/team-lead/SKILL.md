@@ -264,7 +264,7 @@ When a reviewer emits `REJECTED`:
    - Resume only after concrete ACs
 
 4. **Continue-on-rework:**
-   - Record attempt in tasks.json `attempts` array: `{ agent_id, status: "rejected", severity, feedback }`
+   - Record attempt in tasks.json `attempts` array: `{ agent_id, status: "rejected", severity, feedback, required_fixes }`
    - **If severity is low/medium AND attempts.length == 1 (first rejection):**
      - Attempt `SendMessage` to the original `agent_id` from tasks.json
      - Message content: the reviewer's `required_fixes` array + specific `issues` with file paths and line numbers
@@ -353,7 +353,7 @@ Before the full dispatch loop, check task count:
 | 3-5 | Dispatch in parallel batches based on DAG |
 | 6+ | Dispatch up to 3 concurrent, process DAG in waves |
 
-For 1-2 tasks, the overhead of worktree creation and merging exceeds the parallelism benefit. Just run them sequentially in the current worktree.
+For 1-2 tasks, the overhead of worktree creation and merging exceeds the parallelism benefit. Just run them sequentially in the working directory.
 
 ---
 

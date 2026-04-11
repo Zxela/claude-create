@@ -167,7 +167,7 @@ Rules:
    ```
 5. Run haiku-tier quality check (lint + types + tests only):
    ```bash
-   scripts/homerun-quality-lint.sh && scripts/homerun-quality-typecheck.sh
+   scripts/homerun-quality-lint.sh && scripts/homerun-quality-typecheck.sh && npm test 2>&1 | tail -30
    ```
 6. If quality passes: done. Print summary.
 7. If quality fails: print failures, ask user to fix or retry.
@@ -324,7 +324,7 @@ if [ "$AUTO_MODE" != "true" ]; then
   jq -r '.tasks[] | "  \(.id): \(.title) [\(.task_type)] → \(.model // "sonnet")"' docs/tasks.json
   echo ""
   echo "To start implementation, run:"
-  echo "  /build"
+  echo "  /create --resume"
   # STOP — do not proceed to implementing
 fi
 ```

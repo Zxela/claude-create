@@ -166,15 +166,16 @@ Skip: ADR (unless triggered), WIREFRAMES (unless UI change)
 
 ## Storing Scale in State
 
+The `scale` field is a plain string. Detailed breakdown goes in `scale_details`. See `references/state-schema.md` for the full schema.
+
 ```json
 {
-  "scale": {
-    "estimated": "medium",
-    "file_count": 4,
-    "files_modified": ["src/models/user.ts", "src/routes/auth.ts"],
-    "files_created": ["src/services/auth.ts", "tests/services/auth.test.ts"],
+  "scale": "medium",
+  "scale_details": {
+    "estimated_files": 4,
     "adr_triggers": [],
-    "docs_generated": ["prd", "technical_design"]
+    "docs_to_generate": ["prd", "technical_design"],
+    "skip_scope_analysis": false
   }
 }
 ```

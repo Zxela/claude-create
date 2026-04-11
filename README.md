@@ -54,7 +54,7 @@ Homerun transforms a rough idea into a fully implemented feature through automat
 │  │  Specs ────► Scope Analyzer (sonnet) ────► scope-analysis.json     │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │  Mechanical extraction: components, validated ACs, JIT context refs       │
-│  Skipped for small-scale features (< 3 files)                             │
+│  Skipped for trivial (1 file) and small (2-4 files) tasks                 │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
@@ -285,7 +285,7 @@ Tasks are automatically assigned to the appropriate model based on complexity:
 | Reverse Engineer | `reverse-engineer` | opus | Deep codebase understanding |
 | Walkthrough | `walkthrough-generator` | sonnet | User flow comprehension |
 
-**Escalation:** Task rejected with high severity → retry with sonnet. Sonnet fails 3x → escalate to user.
+**Escalation:** Task rejected with high severity → escalate to user immediately. Low/medium severity → continue original agent, then fresh agent, then escalate. Haiku task fails 3x → escalate model to sonnet.
 
 ## Prerequisites
 
@@ -308,7 +308,7 @@ Hooks auto-register via `hooks/hooks.json` when the homerun plugin is installed.
 
 ## State Management
 
-All workflow state is tracked in `state.json` in the worktree root:
+All workflow state is tracked in `state.json` (in cwd during planning, in worktree during implementation if created):
 
 ```
 state.json
@@ -373,7 +373,8 @@ homerun/
 │   ├── finishing-a-development-branch/SKILL.md
 │   ├── test-driven-development/SKILL.md
 │   ├── systematic-debugging/SKILL.md
-│   └── using-git-worktrees/SKILL.md
+│   ├── using-git-worktrees/SKILL.md
+│   └── setup-quality-gates/SKILL.md
 ├── commands/                     # User-invocable commands
 │   ├── build.md
 │   ├── create.md
@@ -490,18 +491,19 @@ Task rejected (attempt 1 failed)
 
 ## Evals
 
-30 evaluation files across 8 categories in `evals/`:
+45 evaluation files across 9 categories in `evals/`:
 
 | Category | Evals | Coverage |
 |----------|-------|----------|
-| discovery | 5 | Dialogue flow, document generation, signal envelope |
+| discovery | 6 | Dialogue flow, document generation, signal envelope, traceability |
 | planning | 5 | Task decomposition, DAG validation, model routing |
 | scope-analysis | 3 | AC validation, component extraction |
-| team-lead | 4 | Dispatch loop, scale routing (trivial/small/medium/large), context synthesis, auto-classifier |
-| implement | 4 | TDD workflow, signal completion, implementation notes, blocked signals |
-| review | 5 | Approve/reject scenarios, re-review flows |
-| quality-check | 2 | Phase ordering, signal envelope |
+| team-lead | 7 | Dispatch loop, scale routing, context synthesis, auto-classifier, continue-on-rework, worktree decision, feedback injection |
+| implement | 9 | TDD workflow, signal completion, implementation notes, blocked signals, pre-implementation analysis |
+| review | 8 | Approve/reject scenarios, re-review flows, diff-based review, hard gates, skip hard gates |
+| quality-check | 4 | Phase ordering, signal envelope, haiku-tier, auto-fix |
 | scripts | 2 | DAG validation (valid + cycle detection) |
+| evals | 1 | Eval framework validation |
 
 LLM judge evals use haiku for cost control (max 500 tokens per call).
 
