@@ -1,0 +1,164 @@
+name: review-diff-based-review
+description: "Verify reviewer uses git diff as primary input instead of reading full files"
+workflow: homerun:review
+tags: [review, context-optimization, homerun]
+timeout_seconds: 300
+
+cases:
+  - name: prefer-diff-over-full-read
+    input:
+      prompt: |
+        Review task 007: Add pagination helper
+
+        Task spec:
+        {
+          "id": "007",
+          "title": "Add pagination helper",
+          "acceptance_criteria": [
+            {
+              "id": "AC-010",
+              "criterion": "paginate(items, page, perPage) returns correct slice",
+              "risk_level": "must_test"
+            },
+            {
+              "id": "AC-011",
+              "criterion": "paginate returns empty array for out-of-range page",
+              "risk_level": "must_test"
+            }
+          ]
+        }
+
+        Implementation commit: abc1234
+        Files changed: ["src/utils/paginate.ts", "tests/utils/paginate.test.ts"]
+
+        The diff for this commit:
+        ```diff
+        --- /dev/null
+        +++ b/src/utils/paginate.ts
+        @@ -0,0 +1,12 @@
+        +export function paginate<T>(items: T[], page: number, perPage: number): T[] {
+        +  if (page < 1 || perPage < 1) return [];
+        +  const start = (page - 1) * perPage;
+        +  if (start >= items.length) return [];
+        +  return items.slice(start, start + perPage);
+        +}
+
+        --- /dev/null
+        +++ b/tests/utils/paginate.test.ts
+        @@ -0,0 +1,15 @@
+        +import { paginate } from '../src/utils/paginate';
+        +
+        +describe('paginate', () => {
+        +  const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        +
+        +  test('returns correct page', () => {
+        +    expect(paginate(items, 1, 3)).toEqual([1, 2, 3]);
+        +    expect(paginate(items, 2, 3)).toEqual([4, 5, 6]);
+        +  });
+        +
+        +  test('returns empty for out-of-range', () => {
+        +    expect(paginate(items, 100, 3)).toEqual([]);
+        +  });
+        +});
+        ```
+
+        skip_hard_gates: true
+        hard_gate_results: { "tests": 0, "types": 0, "lint": 0 }
+
+        IMPORTANT: Use the diff above as your PRIMARY review input (diff-based review).
+        Only read full files if the diff context is insufficient to evaluate an AC.
+        For test files, you may read the full test since test structure matters for coverage.
+
+        Describe your review approach — did you need to read full files beyond the diff?
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 500
+        rubric: |
+          Evaluate diff-based review efficiency:
+
+          1. Diff as primary input (0-4): Used the provided diff as the primary review input.
+             Did NOT ask to read the full src/utils/paginate.ts file when the diff already
+             shows the complete implementation. Evaluated ACs directly from the diff.
+          2. Minimal file reads (0-3): Did NOT request to read files that the diff already
+             covers. At most, read the test file for structure evaluation. Did not read
+             unrelated files.
+          3. Review quality maintained (0-3): Despite using only the diff, the review is
+             thorough — checks both ACs, evaluates edge cases, provides a correct verdict
+             (should be APPROVED since both ACs are covered).
+
+          If the reviewer ignores the diff and requests full file reads: max score 4.
+          If the reviewer reads files not in files_changed: deduct 2 points.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: fallback-to-full-read-when-needed
+    input:
+      prompt: |
+        Review task 008: Add rate limiter middleware
+
+        Task spec:
+        {
+          "id": "008",
+          "title": "Add rate limiter middleware",
+          "acceptance_criteria": [
+            {
+              "id": "AC-012",
+              "criterion": "Rate limiter returns 429 after 100 requests per minute",
+              "risk_level": "must_test"
+            },
+            {
+              "id": "AC-013",
+              "criterion": "Rate limiter integrates with existing middleware chain",
+              "risk_level": "verify_only"
+            }
+          ]
+        }
+
+        Implementation commit: def5678
+        Files changed: ["src/middleware/rate-limiter.ts", "src/middleware/index.ts", "tests/middleware/rate-limiter.test.ts"]
+
+        The diff for this commit (PARTIAL — only shows rate-limiter.ts changes):
+        ```diff
+        --- /dev/null
+        +++ b/src/middleware/rate-limiter.ts
+        @@ -0,0 +1,8 @@
+        +export function rateLimiter(maxRequests: number, windowMs: number) {
+        +  const requests = new Map<string, number[]>();
+        +  return (req: any, res: any, next: any) => {
+        +    // ... implementation
+        +    next();
+        +  };
+        +}
+        ```
+
+        Note: The diff for src/middleware/index.ts is NOT shown above — you would need to
+        read the full file to verify AC-013 (middleware chain integration).
+
+        skip_hard_gates: true
+        hard_gate_results: { "tests": 0, "types": 0, "lint": 0 }
+
+        When should you fall back to reading the full file instead of relying on the diff?
+        Describe your review approach.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 500
+        rubric: |
+          Evaluate diff-to-full-file fallback logic:
+
+          1. Recognized insufficiency (0-4): Correctly identified that AC-013 (middleware chain
+             integration) cannot be evaluated from the diff alone — the diff for index.ts is
+             missing, so the full file must be read.
+          2. Selective fallback (0-3): Would read src/middleware/index.ts (to verify integration)
+             but NOT read the full rate-limiter.ts when the diff already shows it. The fallback
+             is targeted, not a blanket "read everything."
+          3. Reasoning (0-3): Explains WHY the fallback is needed — AC-013 requires understanding
+             the broader middleware chain, which the diff doesn't show.
+
+          If it reads all files without trying the diff first: max score 3.
+          If it never identifies the need to read index.ts: max score 5.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

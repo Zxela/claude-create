@@ -1,0 +1,76 @@
+name: discovery-saturation-check
+description: "Verify discovery stops codebase exploration after 3 consecutive sources yield no new info"
+workflow: homerun:discovery
+tags: [discovery, context-optimization, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      { "name": "simple-app", "version": "1.0.0", "scripts": { "test": "echo ok" } }
+  - path: src/index.ts
+    content: |
+      import express from 'express';
+      const app = express();
+      app.get('/health', (req, res) => res.json({ status: 'ok' }));
+      app.listen(3000);
+  - path: src/config.ts
+    content: |
+      export const config = { port: 3000, host: 'localhost' };
+  - path: README.md
+    content: |
+      # Simple App
+      A minimal Express app with a health endpoint.
+
+input:
+  prompt: |
+    You are the discovery agent. The user wants to add a "/version" endpoint that
+    returns the app version from package.json.
+
+    IMPORTANT: Apply the saturation check rule:
+    - Explore the codebase to understand the project structure
+    - STOP exploration after 3 consecutive sources that yield no NEW information
+    - "New information" means facts relevant to the feature that you didn't already know
+
+    This is a TINY codebase (4 files). After reading the key files, you should recognize
+    that continued exploration yields diminishing returns.
+
+    Do NOT:
+    - Read files repeatedly
+    - Explore node_modules or generated directories
+    - Keep reading when you already understand the project
+    - Spend more than 5 reads understanding this trivial project
+
+    After exploring, describe:
+    1. What files you read
+    2. When you hit saturation (3 consecutive dry sources)
+    3. What you learned vs what was redundant
+
+    Then provide your initial assessment of what's needed for the feature.
+  responses:
+    - "Looks good, just build it as a simple endpoint similar to /health"
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 500
+    rubric: |
+      Evaluate saturation check behavior:
+
+      1. Efficient exploration (0-4): Read only the essential files to understand the project.
+         For a 4-file codebase, 3-4 file reads is appropriate. More than 6 reads suggests
+         over-exploration. Reading the same file twice is wasteful.
+      2. Saturation awareness (0-3): Recognized when exploration was done — either explicitly
+         mentions saturation/diminishing returns or simply stopped after the key files.
+         Did not keep exploring after understanding the project.
+      3. Proportional assessment (0-3): The feature assessment is proportional to the task —
+         a simple endpoint addition should get a brief assessment, not a multi-page analysis.
+         Should identify: need to read package.json for version, add route similar to /health.
+
+      If more than 8 file reads attempted: max score 3.
+      If the same file is read twice: deduct 1 point.
+      If the assessment is >500 words for this trivial feature: deduct 2 points.
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

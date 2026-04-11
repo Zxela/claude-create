@@ -1,0 +1,110 @@
+name: quality-check-output-proportionality
+description: "Verify quality-check output is proportional to tier — haiku concise, sonnet thorough"
+workflow: homerun:quality-check
+tags: [quality-check, context-optimization, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": {
+          "lint": "echo 'lint ok'",
+          "typecheck": "echo 'types ok'",
+          "test": "echo 'tests ok'"
+        }
+      }
+  - path: src/helper.ts
+    content: |
+      export function helper(x: number): number { return x + 1; }
+  - path: tests/helper.test.ts
+    content: |
+      import { helper } from '../src/helper';
+      test('helper works', () => { expect(helper(1)).toBe(2); });
+
+cases:
+  - name: haiku-tier-concise-output
+    input:
+      prompt: |
+        Run the quality check pipeline with the following input:
+
+        {
+          "worktree_path": ".",
+          "files_changed": ["src/helper.ts", "tests/helper.test.ts"],
+          "task_id": "001",
+          "fix_mode": "report_only",
+          "tier": "haiku"
+        }
+
+        Tier is "haiku" — budget is < 5K tokens. Keep output minimal:
+        - Run only lint, types, tests (skip Phase 3, Phase 5)
+        - Override fix_mode to report_only
+        - Emit a concise QUALITY_CHECK_COMPLETE signal
+
+        IMPORTANT: Haiku-tier output should be SHORT. No verbose explanations.
+        Just run the checks and emit the signal. Target: under 500 words total output.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate haiku-tier output conciseness:
+
+          1. Output length (0-4): Output is concise — under ~500 words. No verbose
+             explanations, no detailed analysis of each file, no lengthy reasoning.
+             Just check results and signal.
+          2. No unnecessary phases (0-3): Phases 3 (structural review) and 5 (recheck)
+             are skipped. No LLM analysis of code structure or naming.
+          3. Signal compactness (0-3): The QUALITY_CHECK_COMPLETE signal is compact —
+             phase results are brief, no extra fields or verbose descriptions.
+
+          If output exceeds ~1000 words: max score 3.
+          If structural review or recheck is performed: deduct 3 points.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: sonnet-tier-thorough-output
+    input:
+      prompt: |
+        Run the quality check pipeline with the following input:
+
+        {
+          "worktree_path": ".",
+          "files_changed": ["src/helper.ts", "tests/helper.test.ts"],
+          "task_id": "002",
+          "fix_mode": "auto",
+          "tier": "sonnet"
+        }
+
+        Tier is "sonnet" — full pipeline. Budget is < 15K tokens.
+        Run all 5 phases including structural review.
+
+        IMPORTANT: Sonnet-tier should be thorough but NOT bloated. Check for:
+        - Unused imports, dead code, debug artifacts (Phase 3)
+        - Auto-fix if issues found (fix_mode: auto)
+        - Report with enough detail to understand issues, not a novel.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate sonnet-tier output quality:
+
+          1. Thoroughness (0-4): All 5 phases executed — lint, types, structural review,
+             tests, and recheck. Structural review checks for unused imports, dead code,
+             debug artifacts.
+          2. Proportional detail (0-3): Output includes enough detail to understand results
+             but is NOT excessively verbose. Structural review findings are specific
+             (file:line) not vague.
+          3. Signal completeness (0-3): QUALITY_CHECK_COMPLETE signal includes all phase
+             results with correct statuses and any fixes_applied.
+
+          If any phase is missing: deduct 2 per phase.
+          If output is excessively verbose (>2000 words for 2 small files): deduct 2.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

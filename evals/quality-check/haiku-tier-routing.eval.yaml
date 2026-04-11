@@ -1,0 +1,136 @@
+name: quality-check-haiku-tier-routing
+description: "Verify haiku-tier quality check skips Phase 3 (structural) and Phase 5 (recheck), uses report_only"
+workflow: homerun:quality-check
+tags: [quality-check, routing, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+cases:
+  - name: haiku-tier-skip-phases
+    fixtures:
+      - path: package.json
+        content: |
+          {
+            "name": "test-project",
+            "version": "1.0.0",
+            "scripts": {
+              "lint": "echo 'lint ok'",
+              "typecheck": "echo 'types ok'",
+              "test": "echo 'tests ok'"
+            }
+          }
+      - path: src/user.ts
+        content: |
+          export interface User { id: string; name: string; }
+          export function getUser(id: string): User | null {
+            return id === '1' ? { id: '1', name: 'Alice' } : null;
+          }
+      - path: tests/user.test.ts
+        content: |
+          import { getUser } from '../src/user';
+          test('getUser returns user', () => { expect(getUser('1')).toEqual({ id: '1', name: 'Alice' }); });
+    input:
+      prompt: |
+        Run the quality check pipeline with the following input:
+
+        {
+          "worktree_path": ".",
+          "files_changed": ["src/user.ts", "tests/user.test.ts"],
+          "task_id": "001",
+          "fix_mode": "auto",
+          "tier": "haiku"
+        }
+
+        IMPORTANT: The tier is "haiku". According to the tier routing rules:
+        - haiku tier → run Phase 1 (lint), Phase 2 (types), Phase 4 (tests with report_only)
+        - haiku tier → SKIP Phase 3 (structural review — LLM)
+        - haiku tier → SKIP Phase 5 (recheck — nothing to recheck)
+        - haiku tier → OVERRIDE fix_mode to "report_only"
+
+        Execute the pipeline and emit a QUALITY_CHECK_COMPLETE signal.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "QUALITY_CHECK_COMPLETE"
+          - output_contains: "[Ss]kip|haiku_tier"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 500
+        rubric: |
+          Evaluate haiku-tier quality check execution:
+
+          1. Phase 3 skipped (0-3): Structural review (Phase 3) is explicitly skipped with reason
+             "haiku_tier" or similar. Does NOT attempt LLM-based structural review.
+          2. Phase 5 skipped (0-3): Recheck (Phase 5) is explicitly skipped. No auto-fixes to recheck.
+          3. fix_mode override (0-2): fix_mode is overridden to "report_only" regardless of the
+             "auto" value passed in input. Does NOT attempt to auto-fix issues.
+          4. Phases 1,2,4 run (0-2): Lint, types, and tests all execute normally.
+
+          If Phase 3 or Phase 5 are run (not skipped): max score 3.
+          If fix_mode "auto" is used for haiku tier: max score 5.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: sonnet-tier-runs-all-phases
+    fixtures:
+      - path: package.json
+        content: |
+          {
+            "name": "test-project",
+            "version": "1.0.0",
+            "scripts": {
+              "lint": "echo 'lint ok'",
+              "typecheck": "echo 'types ok'",
+              "test": "echo 'tests ok'"
+            }
+          }
+      - path: src/auth.ts
+        content: |
+          export class AuthService {
+            login(email: string, password: string): boolean {
+              return email === 'admin@test.com' && password === 'pass';
+            }
+          }
+      - path: tests/auth.test.ts
+        content: |
+          import { AuthService } from '../src/auth';
+          test('login works', () => { expect(new AuthService().login('admin@test.com', 'pass')).toBe(true); });
+    input:
+      prompt: |
+        Run the quality check pipeline with the following input:
+
+        {
+          "worktree_path": ".",
+          "files_changed": ["src/auth.ts", "tests/auth.test.ts"],
+          "task_id": "002",
+          "fix_mode": "auto",
+          "tier": "sonnet"
+        }
+
+        The tier is "sonnet". According to tier routing rules:
+        - sonnet tier → full pipeline (all 5 phases)
+        - fix_mode "auto" applies normally
+
+        Execute the pipeline and emit a QUALITY_CHECK_COMPLETE signal.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "QUALITY_CHECK_COMPLETE"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 500
+        rubric: |
+          Evaluate sonnet-tier quality check execution:
+
+          1. All 5 phases (0-4): Lint, types, structural review, tests, and recheck are all
+             mentioned or executed. None are skipped.
+          2. Structural review runs (0-3): Phase 3 (structural review) is NOT skipped — it checks
+             for unused imports, dead code, debug artifacts, naming consistency.
+          3. fix_mode auto (0-3): fix_mode "auto" is used as specified — issues would be auto-fixed
+             and recommitted if found.
+
+          If any phase is incorrectly skipped: deduct 2 points per phase.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

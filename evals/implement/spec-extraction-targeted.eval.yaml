@@ -1,0 +1,130 @@
+name: implement-spec-extraction-targeted
+description: "Verify implementer extracts only relevant spec sections via grep, not full spec reads"
+workflow: homerun:implement
+tags: [implement, context-optimization, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      { "name": "test-project", "version": "1.0.0", "scripts": { "test": "node --test" } }
+  - path: docs/TECHNICAL_DESIGN.md
+    content: |
+      # Technical Design
+
+      ## Overview
+      This document describes the technical architecture of the e-commerce platform.
+      The system handles user management, product catalog, order processing, and payments.
+
+      ## Data Model
+
+      ### User
+      Fields: id (uuid), email (string, unique), name (string), role (enum: admin|user)
+      Validation: email must be valid format, name non-empty
+
+      ### Product
+      Fields: id (uuid), name (string), price (number), stock (integer)
+      Constraints: price > 0, stock >= 0
+
+      ### Order
+      Fields: id (uuid), userId (uuid), items (OrderItem[]), total (number), status (enum)
+      Status flow: pending → confirmed → shipped → delivered
+
+      ## API Contracts
+
+      ### POST /api/users
+      Request: { email, name, role? }
+      Response: { id, email, name, role, createdAt }
+      Errors: 400 (validation), 409 (duplicate email)
+
+      ### GET /api/products
+      Query: ?page=1&limit=20&sort=price
+      Response: { items: Product[], total: number, page: number }
+
+      ### POST /api/orders
+      Request: { userId, items: [{productId, quantity}] }
+      Response: { id, userId, items, total, status: 'pending' }
+      Errors: 400 (validation), 404 (product not found), 409 (insufficient stock)
+
+      ## Components
+
+      ### UserService
+      Handles CRUD operations for users. Validates email uniqueness.
+
+      ### ProductService
+      Manages product catalog. Handles stock updates atomically.
+
+      ### OrderService
+      Processes orders. Validates stock availability, calculates totals.
+
+      ## Error Handling
+      All endpoints return { error: string, code: string } on failure.
+      Use HTTP status codes: 400, 404, 409, 500.
+
+      ## Security
+      JWT authentication required for all endpoints except POST /api/users.
+      Role-based access: admin can manage products, users can only read.
+  - path: src/models/product.ts
+    content: |
+      export interface Product { id: string; name: string; price: number; stock: number; }
+
+input:
+  prompt: |
+    Implement this task.
+
+    Task spec:
+    {
+      "id": "012",
+      "title": "Add getProducts endpoint",
+      "objective": "Implement GET /api/products with pagination and sorting",
+      "task_type": "add_endpoint",
+      "methodology": "direct",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "criterion": "GET /api/products?page=1&limit=3 returns first 3 products",
+          "risk_level": "must_test"
+        }
+      ],
+      "test_file": "tests/products.test.js",
+      "spec_paths": { "technical_design": "docs/TECHNICAL_DESIGN.md" },
+      "context_refs": {
+        "interface_locations": ["src/models/product.ts:Product interface"],
+        "pattern_files": ["src/models/product.ts"],
+        "grep_patterns": ["Product"],
+        "constraints_section": "docs/TECHNICAL_DESIGN.md:## API Contracts"
+      }
+    }
+
+    IMPORTANT: For spec extraction, use TARGETED reads:
+    - This is an add_endpoint task → grep for "## API Contracts" section in the spec
+    - Do NOT read the entire TECHNICAL_DESIGN.md (it has Data Model, Components, Security
+      sections that are irrelevant to this endpoint task)
+    - Use: grep -A 10 "GET /api/products" docs/TECHNICAL_DESIGN.md
+    - Or read only the specific section you need
+
+    After implementing, describe which spec sections you read and which you skipped.
+
+evaluations:
+  - type: llm_judge
+    model: haiku
+    max_tokens: 500
+    rubric: |
+      Evaluate spec extraction efficiency:
+
+      1. Targeted section (0-4): Read the "API Contracts" section (specifically the
+         GET /api/products part) — NOT the entire spec. For an add_endpoint task,
+         only the API contract matters.
+      2. Skipped irrelevant sections (0-3): Did NOT read or reference the User data model,
+         Order data model, OrderService component, or Security section — these are
+         unrelated to adding the products endpoint.
+      3. Used grep or section read (0-3): Used grep (e.g., grep "GET /api/products")
+         or targeted section read instead of reading the full 60+ line spec file
+         cover-to-cover.
+
+      If the full spec was read cover-to-cover: max score 4.
+      If sections irrelevant to the task (User model, Orders, Security) were read: deduct 1 each.
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

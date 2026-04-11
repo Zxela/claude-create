@@ -1,0 +1,249 @@
+name: team-lead-continue-on-rework
+description: "Verify team-lead uses SendMessage for low/medium rejections and escalates high severity"
+workflow: homerun:team-lead
+tags: [team-lead, rework, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+cases:
+  - name: low-severity-first-rejection-sendmessage
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-rework-001",
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill",
+            "config": {
+              "max_parallel_tasks": 2,
+              "retries": { "continue_agent": 1, "fresh_agent": 1 }
+            }
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              {
+                "id": "001",
+                "title": "Add greeting helper",
+                "objective": "Add a greet() function that returns a greeting string",
+                "task_type": "add_method",
+                "status": "completed",
+                "depends_on": [],
+                "acceptance_criteria": [
+                  { "id": "AC-001", "criterion": "greet('Alice') returns 'Hello, Alice!'" }
+                ],
+                "test_file": "tests/greet.test.ts",
+                "commit_hash": "abc1234",
+                "agent_id": "agent-impl-001",
+                "attempts": [
+                  {
+                    "agent_id": "agent-impl-001",
+                    "status": "rejected",
+                    "severity": "low",
+                    "feedback": "Naming inconsistency: function uses 'Hi' instead of 'Hello' as specified in AC-001"
+                  }
+                ]
+              }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        Task 001 was rejected by the reviewer with LOW severity. This is the FIRST rejection (attempts.length == 1).
+        The original implementer agent_id is "agent-impl-001".
+
+        According to the continue-on-rework rules:
+        - Low/medium severity AND first rejection → attempt SendMessage to original agent_id
+        - Low/medium severity AND second+ rejection → spawn fresh implementer
+        - High severity → escalate to user
+
+        What action should you take for this rejection? Describe the specific steps, including:
+        1. What tool/action you would use (SendMessage vs spawn fresh Agent)
+        2. What content you would include in the message
+        3. Why this approach over alternatives
+
+        Do NOT actually dispatch any agents.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "SendMessage|send.?message|continue.*original"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate continue-on-rework for low-severity first rejection:
+
+          1. Action choice (0-4): Correctly chooses SendMessage to original agent_id "agent-impl-001"
+             (not spawning a fresh agent). This preserves context from the original implementation.
+          2. Message content (0-3): Includes the reviewer's required_fixes and specific issues
+             with file paths. Mentions the naming fix needed (Hi → Hello).
+          3. Reasoning (0-3): Explains why SendMessage is preferred (retains original context,
+             lower cost) vs fresh spawn (loses context, higher cost).
+
+          If it suggests spawning a fresh agent instead of SendMessage: max score 3.
+          If it suggests escalating to user: max score 2.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: medium-severity-second-rejection-fresh-spawn
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-rework-002",
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill",
+            "config": {
+              "max_parallel_tasks": 2,
+              "retries": { "continue_agent": 1, "fresh_agent": 1 }
+            }
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              {
+                "id": "001",
+                "title": "Add email validation",
+                "objective": "Validate email format before saving user",
+                "task_type": "add_validation",
+                "status": "completed",
+                "depends_on": [],
+                "acceptance_criteria": [
+                  { "id": "AC-001", "criterion": "Rejects emails without @ symbol" },
+                  { "id": "AC-002", "criterion": "Rejects emails without domain" }
+                ],
+                "test_file": "tests/validation.test.ts",
+                "commit_hash": "def5678",
+                "agent_id": "agent-impl-002",
+                "attempts": [
+                  {
+                    "agent_id": "agent-impl-002",
+                    "status": "rejected",
+                    "severity": "medium",
+                    "feedback": "Missing test for AC-002 (domain validation)"
+                  },
+                  {
+                    "agent_id": "agent-impl-002",
+                    "status": "rejected",
+                    "severity": "medium",
+                    "feedback": "AC-002 test exists now but assertion is tautological — always passes"
+                  }
+                ]
+              }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        Task 001 was rejected AGAIN with MEDIUM severity. This is the SECOND rejection (attempts.length == 2).
+
+        Continue-on-rework rules:
+        - Low/medium severity AND first rejection → attempt SendMessage to original agent
+        - Low/medium severity AND second+ rejection → spawn fresh implementer with failure summary
+        - High severity → escalate to user
+
+        What action should you take? Describe the specific steps.
+        Do NOT actually dispatch any agents.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "[Ff]resh|[Nn]ew.*[Aa]gent|[Ss]pawn"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate continue-on-rework for medium-severity second rejection:
+
+          1. Action choice (0-4): Correctly chooses to spawn a FRESH implementer (not SendMessage,
+             not escalate). Second rejection means SendMessage already failed or the original agent
+             couldn't fix the issue.
+          2. Failure summary (0-3): Includes structured failure summary from BOTH prior attempts —
+             the missing test feedback AND the tautological assertion feedback.
+          3. Context transfer (0-3): Mentions including all previous rejection feedback in the
+             new implementer's prompt so it doesn't repeat the same mistakes.
+
+          If it suggests SendMessage again: max score 3.
+          If it suggests escalating to user: max score 2.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: high-severity-escalate-immediately
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-rework-003",
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              {
+                "id": "001",
+                "title": "Add auth middleware",
+                "objective": "Protect API routes with JWT validation",
+                "task_type": "create_middleware",
+                "status": "completed",
+                "depends_on": [],
+                "acceptance_criteria": [
+                  { "id": "AC-001", "criterion": "Rejects requests without valid JWT" }
+                ],
+                "test_file": "tests/auth.test.ts",
+                "commit_hash": "ghi9012",
+                "agent_id": "agent-impl-003",
+                "attempts": [
+                  {
+                    "agent_id": "agent-impl-003",
+                    "status": "rejected",
+                    "severity": "high",
+                    "feedback": "Security flaw: JWT secret is hardcoded in source code, violates ADR-002 decision on secret management"
+                  }
+                ]
+              }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+
+        Task 001 was rejected with HIGH severity — a security flaw that violates an ADR decision.
+
+        Continue-on-rework rules:
+        - Low/medium severity AND first rejection → SendMessage to original agent
+        - Low/medium severity AND second+ rejection → spawn fresh implementer
+        - High severity → escalate to user immediately
+
+        What action should you take? Describe the specific steps.
+        Do NOT actually dispatch any agents.
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: "[Ee]scalat|[Uu]ser|[Bb]lock"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate continue-on-rework for high-severity rejection:
+
+          1. Action choice (0-5): Correctly escalates to user immediately. Does NOT attempt
+             SendMessage or spawn fresh agent — high severity means the issue needs human judgment.
+          2. Reasoning (0-3): Mentions the security flaw or ADR violation as the reason for
+             escalation rather than automated retry.
+          3. Information quality (0-2): Provides the user with the specific issue details so
+             they can make an informed decision.
+
+          If it attempts retry (SendMessage or fresh spawn): max score 2.
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
