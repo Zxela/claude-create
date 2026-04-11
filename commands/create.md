@@ -119,11 +119,15 @@ Respond with JSON:
 }
 
 Rules:
-- trivial: single file, single action (fix, rename, update field)
+- trivial: exactly 1 file, single mechanical action (fix typo, rename symbol, update one field, change one value)
+  Examples: "Fix typo in README", "Rename getUserById to findUserById", "Add created_at field to User model"
 - small: 2-4 files, single layer, no architectural decisions
+  Examples: "Add a /health endpoint", "Add email validation to signup", "Create a 404 page"
 - medium: 5-8 files, multiple layers, may need design docs
+  Examples: "Add user profile page with API", "Add search with filtering and pagination"
 - large: 9+ files, multiple services, needs full planning
-- When uncertain, choose the higher tier
+  Examples: "Build authentication system with OAuth", "Add real-time notifications"
+- When uncertain between two tiers, choose the higher tier
 - New projects with no code: minimum medium
 - "migrate", "refactor across", "redesign": minimum medium
 ```

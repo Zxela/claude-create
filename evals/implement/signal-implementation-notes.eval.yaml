@@ -1,0 +1,100 @@
+name: implement-signal-implementation-notes
+description: "Verify implementer emits implementation_notes in IMPLEMENTATION_COMPLETE signal"
+workflow: homerun:implement
+tags: [implement, signals, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "test-project",
+        "version": "1.0.0",
+        "scripts": { "test": "node --test" }
+      }
+  - path: src/types.ts
+    content: |
+      // Shared types
+      export interface ApiResponse<T> {
+        data: T;
+        error: string | null;
+      }
+  - path: src/user.ts
+    content: |
+      import { ApiResponse } from './types';
+
+      export interface User {
+        id: string;
+        email: string;
+        name: string;
+      }
+
+      // TODO: implement getUserById
+      export function getUserById(id: string): ApiResponse<User | null> {
+        throw new Error('Not implemented');
+      }
+
+input:
+  prompt: |
+    Implement this task using TDD methodology.
+
+    Task spec:
+    {
+      "id": "003",
+      "title": "Implement getUserById",
+      "objective": "Implement function that looks up a user by ID from a hardcoded list and returns an ApiResponse",
+      "task_type": "add_method",
+      "methodology": "tdd",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "criterion": "getUserById('1') returns { data: { id: '1', email: 'alice@example.com', name: 'Alice' }, error: null }",
+          "test_assertion": "expect(getUserById('1').data).toEqual({ id: '1', email: 'alice@example.com', name: 'Alice' })"
+        },
+        {
+          "id": "AC-002",
+          "criterion": "getUserById('nonexistent') returns { data: null, error: 'User not found' }",
+          "test_assertion": "expect(getUserById('nonexistent')).toEqual({ data: null, error: 'User not found' })"
+        }
+      ],
+      "test_file": "tests/user.test.js",
+      "context_refs": ["src/types.ts"]
+    }
+
+    Create the test file first, then the implementation.
+
+    IMPORTANT: When done, output an IMPLEMENTATION_COMPLETE signal that includes `implementation_notes`.
+    The `implementation_notes` field must contain:
+    - files_changed: array of file paths you modified
+    - key_decisions: string describing non-obvious choices (or empty string if straightforward)
+    - interfaces_established: string describing any types/exports created for downstream use
+    - gotchas: string noting anything that could trip up downstream work (or empty string if none)
+
+evaluations:
+  - type: behavioral
+    checks:
+      - signal_has:
+          field: "signal"
+          pattern: "IMPLEMENTATION_COMPLETE"
+      - output_contains: "implementation_notes"
+      - output_contains: "files_changed"
+
+  - type: llm_judge
+    model: haiku
+    max_tokens: 400
+    rubric: |
+      Evaluate whether the IMPLEMENTATION_COMPLETE signal includes proper implementation_notes:
+
+      1. Presence (0-3): Signal contains an `implementation_notes` object with sub-fields:
+         files_changed (array), key_decisions (string), interfaces_established (string), gotchas (string)
+      2. files_changed accuracy (0-3): Lists actual files modified (should include src/user.ts,
+         possibly src/types.ts, and the test file)
+      3. Content quality (0-2): key_decisions and/or interfaces_established mention the ApiResponse
+         type usage or the hardcoded user list approach. Empty strings are acceptable for trivial
+         decisions but some content is expected here since the task uses a shared type.
+      4. gotchas relevance (0-2): If populated, mentions something real (e.g., error field is
+         string|null). Empty string is acceptable if nothing surprising.
+
+      Score 0-10. Pass threshold: 5
+    passing_score: 5

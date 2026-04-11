@@ -1,47 +1,221 @@
 name: team-lead-scale-routing
-description: "Verify team-lead applies correct scale-based routing for task count"
+description: "Verify team-lead applies correct v6 scale-based routing including trivial/small fast paths and session tier"
 workflow: homerun:team-lead
-tags: [team-lead, homerun]
+tags: [team-lead, routing, homerun]
 timeout_seconds: 300
 isolation: tempdir
 
-fixtures:
-  - path: state.json
-    content: |
-      {
-        "phase": "implementing",
-        "session_id": "eval-tl-002",
-        "tasks_file": "docs/tasks.json",
-        "orchestration_mode": "skill"
-      }
-  - path: docs/tasks.json
-    content: |
-      {
-        "tasks": [
-          { "id": "001", "title": "Single task", "objective": "Do one thing",
-            "task_type": "create_model", "status": "pending", "depends_on": [],
-            "acceptance_criteria": [{"id": "AC-001", "criterion": "Works correctly"}],
-            "test_file": "tests/single.test.ts" }
-        ]
-      }
+cases:
+  - name: trivial-scale-routing
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-tl-trivial",
+            "scale": { "estimated": "trivial", "file_count": 1 },
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              { "id": "001", "title": "Fix typo in greeting", "objective": "Change 'Helo' to 'Hello'",
+                "task_type": "rename_refactor", "status": "pending", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-001", "criterion": "Greeting says 'Hello'"}],
+                "test_file": "tests/greeting.test.ts" }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+        The scale is "trivial". Describe the execution strategy you would use.
 
-input:
-  prompt: |
-    You are the team-lead. Read the tasks and determine the scale-based routing.
-    With only 1 task, what strategy should you use?
-    Describe how the dispatch would differ for 1-2 tasks vs 3-5 vs 6+ tasks.
+        Consider:
+        - What model to use for the implementer
+        - Whether to create a worktree
+        - What quality check tier to use
+        - What phases to skip
 
-evaluations:
-  - type: llm_judge
-    model: haiku
-    max_tokens: 400
-    rubric: |
-      Evaluate scale-based routing awareness:
+        Do NOT actually spawn any agents. Describe the strategy only.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate trivial-scale routing awareness:
 
-      1. Small scale (0-3): For 1-2 tasks, correctly identifies sequential dispatch without worktree isolation
-      2. Medium scale (0-3): For 3-5 tasks, mentions parallel dispatch with worktree isolation
-      3. Large scale (0-2): For 6+ tasks, mentions batching or higher parallelism
-      4. Current case (0-2): Correctly applies small-scale strategy for the single task
+          1. Model selection (0-3): Uses haiku for the single implementer
+          2. No worktree (0-2): States no worktree creation for trivial scale
+          3. Quality tier (0-3): Uses haiku-tier quality check (lint + types + tests only, no structural review or LLM phases)
+          4. Phase skipping (0-2): Skips discovery, specs, spec review, scope analysis, task decomposition
 
-      Score 0-10. Pass threshold: 5
-    passing_score: 5
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: small-scale-flat-dispatch
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-tl-small",
+            "scale": { "estimated": "small", "file_count": 3 },
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              { "id": "001", "title": "Add route handler", "objective": "Add GET /health route",
+                "task_type": "add_endpoint", "status": "pending", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-001", "criterion": "GET /health returns 200"}],
+                "test_file": "tests/health.test.ts" },
+              { "id": "002", "title": "Add health test", "objective": "Test the health endpoint",
+                "task_type": "add_test", "status": "pending", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-002", "criterion": "Test verifies 200 response"}],
+                "test_file": "tests/health.test.ts" }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. Read state.json and docs/tasks.json.
+        The scale is "small" with a flat task list (no DAG dependencies).
+
+        Describe the execution strategy:
+        - Dispatch mode (sequential or parallel?)
+        - Model selection for each task
+        - Quality check tier
+        - What phases were already skipped to get here
+
+        Do NOT actually spawn any agents.
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate small-scale routing:
+
+          1. Sequential dispatch (0-3): Identifies sequential-only dispatch mode (no parallel for small scale)
+          2. Model selection (0-2): Uses haiku for both tasks (add_endpoint and add_test are haiku types)
+          3. Quality tier (0-3): Uses haiku-tier quality check (lint + types + tests, skip structural review and LLM auto-fix)
+          4. Phase awareness (0-2): Acknowledges that discovery, specs, spec review, scope analysis were skipped
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: session-tier-determination
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-tl-tier",
+            "scale": { "estimated": "medium", "file_count": 5 },
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              { "id": "001", "title": "Create data model", "task_type": "create_model",
+                "status": "completed", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-001", "criterion": "Model exists"}],
+                "test_file": "tests/model.test.ts" },
+              { "id": "002", "title": "Add field validation", "task_type": "add_validation",
+                "status": "completed", "depends_on": ["001"],
+                "acceptance_criteria": [{"id": "AC-002", "criterion": "Validation works"}],
+                "test_file": "tests/validation.test.ts" },
+              { "id": "003", "title": "Add config entry", "task_type": "add_config",
+                "status": "completed", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-003", "criterion": "Config set"}],
+                "test_file": "tests/config.test.ts" }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. All tasks are completed. Determine the session tier for the final quality check.
+
+        Session tier rules:
+        - If ALL tasks (completed + skipped) have haiku task_types, session tier = "haiku"
+        - Otherwise session tier = "sonnet"
+
+        Haiku task types: add_field, add_method, add_validation, rename_refactor, add_test, add_config, add_endpoint
+        Sonnet task types: create_model, create_service, add_endpoint_complex, create_middleware, bug_fix, integration_test
+
+        Read docs/tasks.json. Task types present: create_model (sonnet), add_validation (haiku), add_config (haiku).
+
+        What is the session tier? What quality check phases should run?
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate session tier determination:
+
+          1. Tier calculation (0-5): Correctly determines session tier is "sonnet" because
+             task 001 is create_model (a sonnet type), even though the other two are haiku types.
+             ALL tasks must be haiku-type for haiku tier.
+          2. Quality phases (0-3): Sonnet tier runs full quality pipeline: lint, types,
+             structural review, tests, and final recheck with auto-fix
+          3. Reasoning (0-2): Explains why one sonnet-type task forces the whole session to sonnet tier
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6
+
+  - name: all-haiku-session-tier
+    fixtures:
+      - path: state.json
+        content: |
+          {
+            "phase": "implementing",
+            "session_id": "eval-tl-haiku-tier",
+            "scale": { "estimated": "small", "file_count": 2 },
+            "tasks_file": "docs/tasks.json",
+            "orchestration_mode": "skill"
+          }
+      - path: docs/tasks.json
+        content: |
+          {
+            "tasks": [
+              { "id": "001", "title": "Add name field", "task_type": "add_field",
+                "status": "completed", "depends_on": [],
+                "acceptance_criteria": [{"id": "AC-001", "criterion": "Field exists"}],
+                "test_file": "tests/field.test.ts" },
+              { "id": "002", "title": "Add field test", "task_type": "add_test",
+                "status": "completed", "depends_on": ["001"],
+                "acceptance_criteria": [{"id": "AC-002", "criterion": "Test passes"}],
+                "test_file": "tests/field.test.ts" }
+            ]
+          }
+    input:
+      prompt: |
+        You are the team-lead. All tasks are completed. Determine the session tier for the final quality check.
+
+        Session tier rules:
+        - If ALL tasks (completed + skipped) have haiku task_types, session tier = "haiku"
+        - Otherwise session tier = "sonnet"
+
+        Haiku task types: add_field, add_method, add_validation, rename_refactor, add_test, add_config, add_endpoint
+
+        Read docs/tasks.json. Task types present: add_field (haiku), add_test (haiku).
+
+        What is the session tier? What quality check phases should run?
+    evaluations:
+      - type: llm_judge
+        model: haiku
+        max_tokens: 400
+        rubric: |
+          Evaluate session tier determination:
+
+          1. Tier calculation (0-5): Correctly determines session tier is "haiku" because
+             both tasks (add_field, add_test) are haiku types
+          2. Quality phases (0-3): Haiku tier runs only: lint, types, tests.
+             Skips structural review (Phase 3), LLM auto-fix, and final recheck (Phase 5)
+          3. Reasoning (0-2): Explains all tasks are haiku-type so haiku tier applies
+
+          Score 0-10. Pass threshold: 6
+        passing_score: 6

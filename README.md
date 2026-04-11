@@ -488,20 +488,41 @@ Task rejected (attempt 1 failed)
 
 ## Evals
 
-27 evaluation files across 8 categories in `evals/`:
+30 evaluation files across 8 categories in `evals/`:
 
 | Category | Evals | Coverage |
 |----------|-------|----------|
 | discovery | 5 | Dialogue flow, document generation, signal envelope |
 | planning | 5 | Task decomposition, DAG validation, model routing |
 | scope-analysis | 3 | AC validation, component extraction |
-| team-lead | 2 | Dispatch loop, scale-based routing |
-| implement | 3 | TDD workflow, signal completion, blocked signals |
+| team-lead | 4 | Dispatch loop, scale routing (trivial/small/medium/large), context synthesis, auto-classifier |
+| implement | 4 | TDD workflow, signal completion, implementation notes, blocked signals |
 | review | 5 | Approve/reject scenarios, re-review flows |
 | quality-check | 2 | Phase ordering, signal envelope |
 | scripts | 2 | DAG validation (valid + cycle detection) |
 
 LLM judge evals use haiku for cost control (max 500 tokens per call).
+
+### Running Evals
+
+Evals are run with [prompteval](https://github.com/Zxela/prompteval), a skill benchmarking framework for Claude Code:
+
+```bash
+# Install prompteval
+git clone https://github.com/Zxela/prompteval.git
+cd prompteval && npm install && npm run build
+
+# Run all homerun evals
+node dist/cli/index.js run --plugin /path/to/homerun --verbose
+
+# Run by tag
+node dist/cli/index.js run --plugin /path/to/homerun --tags team-lead
+node dist/cli/index.js run --plugin /path/to/homerun --tags routing
+node dist/cli/index.js run --plugin /path/to/homerun --tags signals
+
+# Dry run (list evals without executing)
+node dist/cli/index.js run --plugin /path/to/homerun --dry-run
+```
 
 ## Credits
 

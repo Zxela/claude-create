@@ -1,0 +1,261 @@
+name: auto-classifier
+description: "Verify the complexity classifier correctly buckets prompts into trivial/small/medium/large"
+workflow: homerun:create
+tags: [team-lead, routing, smoke, homerun]
+timeout_seconds: 300
+isolation: tempdir
+
+fixtures:
+  - path: package.json
+    content: |
+      {
+        "name": "existing-app",
+        "version": "1.0.0",
+        "scripts": { "test": "node --test", "lint": "eslint ." }
+      }
+  - path: src/models/user.ts
+    content: |
+      export interface User { id: string; email: string; name: string; }
+  - path: src/routes/index.ts
+    content: |
+      export function registerRoutes(app: any) { /* ... */ }
+  - path: src/services/auth.ts
+    content: |
+      export class AuthService { login(email: string, password: string) { /* ... */ } }
+  - path: tests/user.test.ts
+    content: |
+      import { describe, it } from 'node:test';
+      describe('User', () => { it('placeholder', () => {}); });
+
+cases:
+  - name: trivial-typo-fix
+    input:
+      prompt: |
+        You are the /create command. Do NOT actually run any phases or spawn any agents.
+        Only run Step 0: Classify Complexity.
+
+        Classify the following user prompt.
+
+        User prompt: "Fix the typo in the README"
+
+        Codebase: TypeScript, 5 files
+        Project type: existing codebase
+
+        Respond with JSON only:
+        { "classification": "trivial|small|medium|large", "reasoning": "one sentence", "estimated_files": N, "needs_adr": false }
+
+        Rules:
+        - trivial: exactly 1 file, single mechanical action (fix typo, rename symbol, update one field, change one value)
+          Examples: "Fix typo in README", "Rename getUserById to findUserById", "Add created_at field to User model"
+        - small: 2-4 files, single layer, no architectural decisions
+          Examples: "Add a /health endpoint", "Add email validation to signup", "Create a 404 page"
+        - medium: 5-8 files, multiple layers, may need design docs
+        - large: 9+ files, multiple services, needs full planning
+        - When uncertain between two tiers, choose the higher tier
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: '"classification"'
+          - output_contains: "trivial"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 300
+        rubric: |
+          1. Classification (0-5): Must classify as "trivial" — single file, single action
+          2. Reasoning (0-3): Reasoning mentions single file or single action
+          3. Estimated files (0-2): estimated_files should be 1
+
+          Score 0-10. Pass threshold: 7
+        passing_score: 7
+
+  - name: small-add-endpoint
+    input:
+      prompt: |
+        You are the /create command. Do NOT actually run any phases or spawn any agents.
+        Only run Step 0: Classify Complexity.
+
+        Classify the following user prompt.
+
+        User prompt: "Add a /health endpoint that returns { status: 'ok' }"
+
+        Codebase: TypeScript, 5 files
+        Project type: existing codebase
+
+        Respond with JSON only:
+        { "classification": "trivial|small|medium|large", "reasoning": "one sentence", "estimated_files": N, "needs_adr": false }
+
+        Rules:
+        - trivial: exactly 1 file, single mechanical action (fix typo, rename symbol, update one field, change one value)
+        - small: 2-4 files, single layer, no architectural decisions
+          Examples: "Add a /health endpoint", "Add email validation to signup", "Create a 404 page"
+        - medium: 5-8 files, multiple layers, may need design docs
+        - large: 9+ files, multiple services, needs full planning
+        - When uncertain between two tiers, choose the higher tier
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: '"classification"'
+          - output_contains: "small"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 300
+        rubric: |
+          1. Classification (0-5): Must classify as "small" — 2-4 files, single layer
+          2. Reasoning (0-3): Mentions single-layer change or few files
+          3. Estimated files (0-2): estimated_files should be 2-4
+
+          Score 0-10. Pass threshold: 7
+        passing_score: 7
+
+  - name: medium-user-profile
+    input:
+      prompt: |
+        You are the /create command. Do NOT actually run any phases or spawn any agents.
+        Only run Step 0: Classify Complexity.
+
+        Classify the following user prompt.
+
+        User prompt: "Add a user profile page with an API endpoint that returns user details, avatar upload, and email change functionality"
+
+        Codebase: TypeScript, 5 files
+        Project type: existing codebase
+
+        Respond with JSON only:
+        { "classification": "trivial|small|medium|large", "reasoning": "one sentence", "estimated_files": N, "needs_adr": false }
+
+        Rules:
+        - trivial: exactly 1 file, single mechanical action (fix typo, rename symbol, update one field)
+        - small: 2-4 files, single layer, no architectural decisions
+        - medium: 5-8 files, multiple layers, may need design docs
+          Examples: "Add user profile page with API", "Add search with filtering and pagination"
+        - large: 9+ files, multiple services, needs full planning
+        - When uncertain between two tiers, choose the higher tier
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: '"classification"'
+      - type: llm_judge
+        model: haiku
+        max_tokens: 300
+        rubric: |
+          1. Classification (0-5): Must classify as "medium" or "large" — multiple layers (route, handler, service, model, tests), 5+ files
+          2. Reasoning (0-3): Mentions multiple layers, services, or complexity
+          3. Estimated files (0-2): estimated_files should be 5+
+
+          Score 0-10. Pass threshold: 7
+        passing_score: 7
+
+  - name: large-auth-system
+    input:
+      prompt: |
+        You are the /create command. Do NOT actually run any phases or spawn any agents.
+        Only run Step 0: Classify Complexity.
+
+        Classify the following user prompt.
+
+        User prompt: "Build a complete authentication system with JWT tokens, password hashing, role-based access control, OAuth2 integration with Google and GitHub, and session management"
+
+        Codebase: TypeScript, 5 files
+        Project type: existing codebase
+
+        Respond with JSON only:
+        { "classification": "trivial|small|medium|large", "reasoning": "one sentence", "estimated_files": N, "needs_adr": true/false }
+
+        Rules:
+        - trivial: exactly 1 file, single mechanical action
+        - small: 2-4 files, single layer, no architectural decisions
+        - medium: 5-8 files, multiple layers, may need design docs
+        - large: 9+ files, multiple services, needs full planning
+          Examples: "Build authentication system with OAuth", "Add real-time notifications"
+        - When uncertain between two tiers, choose the higher tier
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: '"classification"'
+          - output_contains: "large"
+      - type: llm_judge
+        model: haiku
+        max_tokens: 300
+        rubric: |
+          1. Classification (0-5): Must classify as "large" — 9+ files, multiple services/systems
+          2. Reasoning (0-3): Mentions multiple services, OAuth, RBAC, or high complexity
+          3. Estimated files (0-2): estimated_files should be 9+
+
+          Score 0-10. Pass threshold: 7
+        passing_score: 7
+
+  - name: override-new-project-minimum-medium
+    input:
+      prompt: |
+        You are the /create command. Do NOT actually run any phases or spawn any agents.
+        Only run Step 0: Classify Complexity.
+
+        Classify the following user prompt.
+
+        User prompt: "Create a simple hello world Express app"
+
+        Codebase: none, 0 files
+        Project type: new project
+
+        Respond with JSON only:
+        { "classification": "trivial|small|medium|large", "reasoning": "one sentence", "estimated_files": N, "needs_adr": false }
+
+        Rules:
+        - trivial: exactly 1 file, single mechanical action
+        - small: 2-4 files, single layer, no architectural decisions
+        - medium: 5-8 files, multiple layers, may need design docs
+        - large: 9+ files, multiple services, needs full planning
+        - When uncertain between two tiers, choose the higher tier
+        - New projects with no existing code: minimum "medium"
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: '"classification"'
+      - type: llm_judge
+        model: haiku
+        max_tokens: 300
+        rubric: |
+          1. Classification (0-5): Must classify as "medium" or higher — override rule: new project with no code = minimum medium
+          2. Reasoning (0-3): Mentions the new-project override or that no existing code requires more planning
+          3. Override awareness (0-2): Does NOT classify as trivial or small despite the simple prompt
+
+          Score 0-10. Pass threshold: 7
+        passing_score: 7
+
+  - name: override-refactor-minimum-medium
+    input:
+      prompt: |
+        You are the /create command. Do NOT actually run any phases or spawn any agents.
+        Only run Step 0: Classify Complexity.
+
+        Classify the following user prompt.
+
+        User prompt: "Refactor across the codebase to rename all userId fields to user_id"
+
+        Codebase: TypeScript, 5 files
+        Project type: existing codebase
+
+        Respond with JSON only:
+        { "classification": "trivial|small|medium|large", "reasoning": "one sentence", "estimated_files": N, "needs_adr": false }
+
+        Rules:
+        - trivial: exactly 1 file, single mechanical action
+        - small: 2-4 files, single layer, no architectural decisions
+        - medium: 5-8 files, multiple layers, may need design docs
+        - large: 9+ files, multiple services, needs full planning
+        - When uncertain between two tiers, choose the higher tier
+        - Prompts mentioning "migrate", "refactor across", "redesign": minimum "medium"
+    evaluations:
+      - type: behavioral
+        checks:
+          - output_contains: '"classification"'
+      - type: llm_judge
+        model: haiku
+        max_tokens: 300
+        rubric: |
+          1. Classification (0-5): Must classify as "medium" or higher — override rule: "refactor across" = minimum medium
+          2. Reasoning (0-3): Mentions the refactor-across override or cross-cutting concern
+          3. Override awareness (0-2): Does NOT classify as trivial or small
+
+          Score 0-10. Pass threshold: 7
+        passing_score: 7
